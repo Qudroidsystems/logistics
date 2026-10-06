@@ -108,6 +108,7 @@ class PayoutService
             throw new RuntimeException('Payout is not waiting for approval.');
         }
         ProcessPayout::dispatch($payoutId)->afterCommit();
+        $this->tell(DB::table('payout_requests')->find($payoutId), 'payout.processing');
     }
 
     /** Finance staff decline a payout; the reserved money returns to the provider's wallet. */
@@ -157,7 +158,7 @@ class PayoutService
     /** transfer.success webhook. */
     public function complete(string $reference): void
     {
-        DB::transaction(function () use ($reference) {
+        $paid = DB::transaction(function () use ($reference) {
             $p = DB::table('payout_requests')->where('gateway_transfer_ref', $reference)->lockForUpdate()->first();
             if (! $p || $p->status === 'paid') {
                 return;
@@ -169,13 +170,16 @@ class PayoutService
                 ['account_id' => $this->accounts->platform('gateway_clearing'), 'direction' => 'credit', 'amount' => (int) $p->amount],
             ]);
             DB::table('payout_requests')->where('id', $p->id)->update(['status' => 'paid', 'updated_at' => now()]);
+
+            return $p;
         });
+        $this->tell($paid, 'payout.paid');
     }
 
     /** transfer.failed / transfer.reversed webhook, or a definite send failure. */
     public function fail(int|string $payoutOrReference, string $reason): void
     {
-        DB::transaction(function () use ($payoutOrReference, $reason) {
+        $failed = DB::transaction(function () use ($payoutOrReference, $reason) {
             $q = DB::table('payout_requests')->lockForUpdate();
             $p = is_int($payoutOrReference) ? $q->where('id', $payoutOrReference)->first() : $q->where('gateway_transfer_ref', $payoutOrReference)->first();
             if (! $p || in_array($p->status, ['paid', 'failed'], true)) {
@@ -188,7 +192,30 @@ class PayoutService
                 ['account_id' => (int) DB::table('wallets')->where('id', $p->wallet_id)->value('ledger_account_id'), 'direction' => 'credit', 'amount' => (int) $p->amount],
             ]);
             DB::table('payout_requests')->where('id', $p->id)->update(['status' => 'failed', 'failure_reason' => mb_substr($reason, 0, 250), 'updated_at' => now()]);
+
+            return $p;
         });
+        $this->tell($failed, 'payout.failed', ['note' => $reason]);
+    }
+
+    /** Tells the wallet's owner (a provider's team, or a customer) what happened to their payout. Never throws. */
+    private function tell(?object $p, string $event, array $extra = []): void
+    {
+        if (! $p) {
+            return;
+        }
+        try {
+            $w = DB::table('wallets')->where('id', $p->wallet_id)->first(['owner_type', 'owner_id']);
+            $vars = ['amount' => \App\Modules\Notifications\NotificationService::naira((int) $p->amount)] + $extra;
+            $n = app(\App\Modules\Notifications\NotificationService::class);
+            if ($w && $w->owner_type === 'operator') {
+                $n->notifyOperator((int) $w->owner_id, $event, $vars, '/provider/payouts', ['owner', 'admin', 'finance']);
+            } elseif ($w) {
+                $n->notify((int) $w->owner_id, $event, $vars, '/wallet');
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Payout notification failed: {$e->getMessage()}");
+        }
     }
 
     private function setting(string $key): mixed

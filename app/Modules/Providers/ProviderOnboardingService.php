@@ -369,6 +369,7 @@ class ProviderOnboardingService
                 'listed' => $listed, 'tier' => 'verified', 'verified_badges' => json_encode(['kyc_complete']), 'updated_at' => now(),
             ]);
         });
+        $this->tell($opId, 'provider.approved');
     }
 
     public function requestChanges(int $opId, int $staffId, string $note): void
@@ -378,6 +379,7 @@ class ProviderOnboardingService
         if (! $n) {
             throw new RuntimeException('This application is not waiting for review.');
         }
+        $this->tell($opId, 'provider.changes_requested', $note);
     }
 
     public function reject(int $opId, int $staffId, string $note): void
@@ -390,6 +392,7 @@ class ProviderOnboardingService
             }
             DB::table('operators')->where('id', $opId)->update(['status' => 'closed', 'updated_at' => now()]);
         });
+        $this->tell($opId, 'provider.rejected', $note);
     }
 
     /** Takes the provider out of the directory and stops new work; jobs already running and money held are untouched. */
@@ -403,6 +406,7 @@ class ProviderOnboardingService
             DB::table('driver_profiles')->where('operator_id', $opId)->update(['status' => 'suspended', 'availability' => 'offline', 'updated_at' => now()]);
             DB::table('provider_applications')->where('operator_id', $opId)->update(['review_note' => $reason, 'reviewed_by' => $staffId, 'reviewed_at' => now(), 'updated_at' => now()]);
         });
+        $this->tell($opId, 'provider.suspended', $reason);
     }
 
     public function reinstate(int $opId): void
@@ -415,5 +419,12 @@ class ProviderOnboardingService
             DB::table('provider_profiles')->where('operator_id', $opId)->update(['listed' => $listed, 'updated_at' => now()]);
             DB::table('driver_profiles')->where('operator_id', $opId)->update(['status' => 'active', 'updated_at' => now()]);
         });
+        $this->tell($opId, 'provider.reinstated');
+    }
+
+    private function tell(int $opId, string $event, string $note = ''): void
+    {
+        $name = (string) DB::table('operators')->where('id', $opId)->value('display_name');
+        app(\App\Modules\Notifications\NotificationService::class)->notifyOperator($opId, $event, ['name' => $name, 'note' => $note], '/provider/onboarding', ['owner', 'admin']);
     }
 }

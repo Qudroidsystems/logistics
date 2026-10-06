@@ -2,17 +2,23 @@
 
 namespace App\Modules\Partner;
 
-use Illuminate\Support\Facades\DB;
+use App\Modules\Routing\RoutingEngine;
 
-/** Placeholder until a routing engine is wired in: straight line x1.35 for roads, at 25 km/h. */
+/**
+ * Distance and duration for quotes and negotiation. Delegates to the routing engine (road routes when one is
+ * configured, a straight-line estimate otherwise). The signature is unchanged so existing callers keep working.
+ */
 class RouteEstimator
 {
-    /** @return array{distance_m:int, duration_s:int} */
-    public function estimate(float $lat1, float $lng1, float $lat2, float $lng2): array
+    public function __construct(private RoutingEngine $engine)
     {
-        $d = DB::selectOne('SELECT ST_Distance(ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) AS d', [$lng1, $lat1, $lng2, $lat2])->d;
-        $road = (int) round($d * 1.35);
+    }
 
-        return ['distance_m' => $road, 'duration_s' => (int) round($road / (25_000 / 3600))];
+    /** @return array{distance_m:int, duration_s:int} */
+    public function estimate(float $lat1, float $lng1, float $lat2, float $lng2, string $profile = 'car'): array
+    {
+        $r = $this->engine->route($lat1, $lng1, $lat2, $lng2, $profile);
+
+        return ['distance_m' => $r['distance_m'], 'duration_s' => $r['duration_s']];
     }
 }

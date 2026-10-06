@@ -48,6 +48,7 @@ class NegotiationService
             $targets = $visibility === 'open' ? $this->matchProviders((int) $d['service_type_id'], self::OPEN_REQUEST_FANOUT) : $operatorIds;
             foreach (array_unique($targets) as $op) {
                 DB::table('request_invitations')->insertOrIgnore(['request_id' => $id, 'operator_id' => $op, 'status' => 'sent', 'created_at' => now(), 'updated_at' => now()]);
+                app(\App\Modules\Notifications\NotificationService::class)->notifyOperator((int) $op, 'request.invited', ['type' => $d['type']], "/provider/requests/{$id}");
             }
 
             return $id;
@@ -183,6 +184,25 @@ class NegotiationService
             'thread_id' => $threadId, 'sender_id' => $userId, 'kind' => 'counter_offer', 'body' => $message,
             'terms' => json_encode(array_intersect_key($terms, array_flip(['price', 'tip', 'goods_budget', 'vehicle_type_id', 'note']))), 'created_at' => now(),
         ]);
+        $this->tellOffer($threadId, $userId, (int) $terms['price']);
+    }
+
+    /** Tells the other side about a new offer: the provider's first offer is "received", later ones are counters. */
+    private function tellOffer(int $threadId, int $senderId, int $price): void
+    {
+        $t = DB::table('negotiation_threads as t')->join('operators as o', 'o.id', '=', 't.operator_id')->where('t.id', $threadId)->first(['t.public_id', 't.customer_id', 't.operator_id', 'o.display_name']);
+        if (! $t) {
+            return;
+        }
+        $notify = app(\App\Modules\Notifications\NotificationService::class);
+        $amount = \App\Modules\Notifications\NotificationService::naira($price);
+        if ($senderId === (int) $t->customer_id) {
+            $notify->notifyOperator((int) $t->operator_id, 'offer.counter_to_provider', ['amount' => $amount], "/negotiations/{$t->public_id}");
+
+            return;
+        }
+        $offers = DB::table('negotiation_messages')->where(['thread_id' => $threadId, 'kind' => 'counter_offer'])->count();
+        $notify->notify((int) $t->customer_id, $offers <= 1 ? 'offer.received' : 'offer.counter_to_customer', ['provider' => $t->display_name, 'amount' => $amount], "/negotiations/{$t->public_id}");
     }
 
     private function openRequest(int $id): object

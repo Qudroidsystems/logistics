@@ -38,6 +38,8 @@ class ShipmentEvents
             'actor_type' => $actorType, 'actor_id' => $actorId, 'meta' => json_encode($meta), 'source' => 'system', 'created_at' => now(),
         ]);
 
+        app(\App\Modules\Notifications\NotificationService::class)->shipmentEvent($shipmentId, $type, $meta);
+
         if (isset(self::PUBLIC[$type])) {
             try {
                 // Nested transaction = savepoint, so a failed webhook insert cannot abort the caller's Postgres transaction.
