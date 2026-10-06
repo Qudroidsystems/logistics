@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('name', 60);
             $table->unsignedInteger('max_weight_g');
             $table->unsignedBigInteger('max_volume_cm3')->nullable();
-            $table->unsignedSmallInteger('price_multiplier_bp')->default(10000);
+            $table->unsignedInteger('price_multiplier_bp')->default(10000);
             $table->boolean('requires_licence')->default(true);
             $table->string('icon', 60)->nullable();
             $table->boolean('active')->default(true);

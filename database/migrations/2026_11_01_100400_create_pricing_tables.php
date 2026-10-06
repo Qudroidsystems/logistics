@@ -86,7 +86,7 @@ return new class extends Migration
             // demand_supply_ratio | weather | event | manual
             $table->string('trigger', 24);
             $table->jsonb('thresholds');
-            $table->unsignedSmallInteger('multiplier_cap_bp')->default(20000);
+            $table->unsignedInteger('multiplier_cap_bp')->default(20000);
             $table->unsignedInteger('smoothing_seconds')->default(120);
             $table->boolean('active')->default(true);
             $table->timestamps();
@@ -96,7 +96,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('zone_id')->nullable()->constrained('zones');
             $table->bigInteger('h3_8')->nullable();
-            $table->unsignedSmallInteger('multiplier_bp')->default(10000);
+            $table->unsignedInteger('multiplier_bp')->default(10000);
             $table->unsignedInteger('demand')->default(0);
             $table->unsignedInteger('supply')->default(0);
             $table->timestampTz('computed_at');
