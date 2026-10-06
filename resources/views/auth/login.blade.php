@@ -511,41 +511,6 @@
                                                 </div>
                                             </div>
 
-                                            <ul class="auth-user-list list-unstyled">
-                                                @if($recentStaff->isNotEmpty())
-                                                    @foreach($recentStaff as $index => $staff)
-                                                        <li style="animation-delay: {{ $index * 0.2 }}s;">
-                                                            <a href="javascript:void(0)"
-                                                               class="avatar-sm d-inline-block"
-                                                               data-bs-toggle="tooltip"
-                                                               data-bs-placement="top"
-                                                               title="{{ $staff->name }}"
-                                                               onclick="fillStaffCredentials('{{ $staff->email }}')">
-                                                                <div class="avatar-title bg-white shadow-lg overflow-hidden rounded-circle">
-                                                                    @php
-                                                                        $avatarUrl = $staff->avatar
-                                                                            ? asset('storage/staff_avatars/' . $staff->avatar)
-                                                                            : ($staff->staffPicture?->picture
-                                                                                ? asset('storage/staff_avatars/' . $staff->staffPicture->picture)
-                                                                                : asset('theme/layouts/assets/images/users/avatar-default.jpg'));
-                                                                    @endphp
-
-                                                                    <img src="{{ $avatarUrl }}"
-                                                                         alt="{{ $staff->name }}"
-                                                                         class="img-fluid"
-                                                                         style="width: 100%; height: 100%; object-fit: cover;"
-                                                                         onerror="this.onerror=null; this.src='{{ asset('theme/layouts/assets/images/users/avatar-default.jpg') }}'">
-                                                                </div>
-                                                            </a>
-                                                        </li>
-                                                    @endforeach
-                                                @else
-                                                    <div class="no-staff-message">
-                                                        <i class="ri-user-line no-staff-icon"></i>
-                                                        <p class="text-white opacity-75">No active staff</p>
-                                                    </div>
-                                                @endif
-                                            </ul>
                                         </div>
 
                                         <div class="text-center">
