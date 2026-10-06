@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
-use App\Services\Parents\ParentAccountService;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -27,13 +27,13 @@ class LoginController extends Controller
 
     /**
      * The login box takes an email or a phone number. A phone number is
-     * matched to its account (parents sign in with their phone).
+     * matched to its account (customers, drivers and shoppers sign in with their phone).
      */
     protected function credentials(Request $request)
     {
         $login = trim((string) $request->input($this->username()));
         if ($login !== '' && !str_contains($login, '@')) {
-            if ($user = ParentAccountService::findByPhone($login)) {
+            if ($user = User::where('phone_number', $login)->first()) {
                 $login = $user->email;
             }
         }
@@ -46,7 +46,7 @@ class LoginController extends Controller
             $this->guard()->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
-            throw ValidationException::withMessages([$this->username() => 'This account has been disabled. Please contact the school.']);
+            throw ValidationException::withMessages([$this->username() => 'This account has been disabled. Please contact support.']);
         }
 
         if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'last_login_at')) {
@@ -54,12 +54,7 @@ class LoginController extends Controller
         }
 
         if (!empty($user->must_change_password)) {
-            return redirect()->route('parent.password');
-        }
-
-        if ($user->hasRole(ParentAccountService::ROLE) && !$user->can('dashboard')) {
-            session()->forget('intended');
-            return redirect()->intended(route('parent.dashboard'));
+            return redirect()->route('password.change');
         }
 
         if ($intendedUrl = session('intended')) {

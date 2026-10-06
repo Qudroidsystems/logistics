@@ -35,8 +35,8 @@ class ActivityLogController extends Controller
         $logs = $this->query($request)->select('a.*', 'u.name', 'u.email')->paginate(40)->withQueryString();
         $today = now()->startOfDay();
         return view('activity.index', [
-            'pagetitle' => 'Staff Activity Log', 'logs' => $logs,
-            'users' => DB::table('users')->whereNull('student_id')->orderBy('name')->pluck('name', 'id'),
+            'pagetitle' => 'Activity Log', 'logs' => $logs,
+            'users' => DB::table('users')->orderBy('name')->pluck('name', 'id'),
             'stats' => [
                 'logins' => DB::table('activity_logs')->where('event', 'login')->where('created_at', '>=', $today)->count(),
                 'people' => DB::table('activity_logs')->where('event', 'login')->where('created_at', '>=', $today)->distinct()->count('user_id'),
@@ -61,9 +61,7 @@ class ActivityLogController extends Controller
     public function online()
     {
         $since = now()->subMinutes(self::ONLINE_MINUTES);
-        $staffOnly = fn ($q) => $q->whereNull('u.student_id')
-            ->whereNotExists(fn ($x) => $x->from('model_has_roles as mr')->join('roles as r', 'r.id', '=', 'mr.role_id')
-                ->whereColumn('mr.model_id', 'u.id')->where('mr.model_type', \App\Models\User::class)->whereIn('r.name', ['Student', 'Parent']));
+        $staffOnly = fn ($q) => $q;
 
         $online = DB::table('users as u')->where('u.last_seen_at', '>=', $since)->tap($staffOnly)->orderByDesc('u.last_seen_at')
             ->get(['u.id', 'u.name', 'u.email', 'u.last_seen_at', 'u.last_seen_url', 'u.last_login_at', 'u.last_login_ip']);
@@ -83,7 +81,7 @@ class ActivityLogController extends Controller
     /** JSON count for the top-bar badge. */
     public function onlineCount()
     {
-        $n = DB::table('users')->whereNull('student_id')->where('last_seen_at', '>=', now()->subMinutes(self::ONLINE_MINUTES))->count();
+        $n = DB::table('users')->where('last_seen_at', '>=', now()->subMinutes(self::ONLINE_MINUTES))->count();
         return response()->json(['count' => $n]);
     }
 }

@@ -149,7 +149,7 @@ class MessagingService
                                 'document' => ['id' => $mediaId, 'filename' => $att['filename'] ?? 'document.pdf'],
                             ]]],
                             ['type' => 'body', 'parameters' => [
-                                ['type' => 'text', 'text' => mb_substr($clean($context['name'] ?? 'Parent'), 0, 60)],
+                                ['type' => 'text', 'text' => mb_substr($clean($context['name'] ?? 'Customer'), 0, 60)],
                                 ['type' => 'text', 'text' => mb_substr($clean($text), 0, 1000)],
                             ]],
                         ],
@@ -174,7 +174,7 @@ class MessagingService
                     'components' => [[
                         'type'       => 'body',
                         'parameters' => [
-                            ['type' => 'text', 'text' => mb_substr($clean($context['name'] ?? 'Parent'), 0, 60)],
+                            ['type' => 'text', 'text' => mb_substr($clean($context['name'] ?? 'Customer'), 0, 60)],
                             ['type' => 'text', 'text' => mb_substr($clean($text), 0, 1000)],
                         ],
                     ]],
@@ -204,7 +204,7 @@ class MessagingService
     {
         $s = $this->setting('email');
         Mail::to($email)->send(new NoticeMail(
-            $context['subject'] ?? 'School notice',
+            $context['subject'] ?? 'Notification',
             $text,
             $context['name'] ?? null,
             $s->value('from_name'),

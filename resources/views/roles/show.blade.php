@@ -476,12 +476,8 @@ body{font-family:var(--rol-font);}
                         {{-- Tabs --}}
                         <div class="rol-nav-tabs" role="tablist">
                             <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#staff-tab" type="button">
-                                <i class="fas fa-user-tie"></i> Staff
+                                <i class="fas fa-users"></i> Users
                                 <span style="background:var(--rol-accent);color:#fff;border-radius:12px;padding:1px 8px;font-size:10px;" id="staff-count">0</span>
-                            </button>
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#student-tab" type="button">
-                                <i class="fas fa-user-graduate"></i> Students
-                                <span style="background:var(--rol-success);color:#fff;border-radius:12px;padding:1px 8px;font-size:10px;" id="student-count">0</span>
                             </button>
                         </div>
 
@@ -506,15 +502,7 @@ body{font-family:var(--rol-font);}
                                         $allUsersNotInRole = \App\Models\User::whereDoesntHave('roles', function ($q) use ($role) {
                                             $q->where('name', $role->name);
                                         })->get();
-                                        $staffUsers = $allUsersNotInRole->filter(function ($user) {
-                                            if ($user->staffemploymentDetails) return true;
-                                            if ($user->staffPicture) return true;
-                                            if (!$user->student_id) return true;
-                                            return false;
-                                        })->reject(function ($user) {
-                                            if ($user->student) return true;
-                                            return false;
-                                        })->sortBy('name');
+                                        $staffUsers = $allUsersNotInRole->sortBy('name');
                                     @endphp
                                     @forelse($staffUsers as $staff)
                                     @php $sInit = strtoupper(substr($staff->name,0,1)); @endphp
@@ -532,49 +520,7 @@ body{font-family:var(--rol-font);}
                                         </div>
                                     </div>
                                     @empty
-                                    <div class="col-12"><div class="rol-info-banner">No staff members available.</div></div>
-                                    @endforelse
-                                </div>
-                            </div>
-
-                            {{-- STUDENTS --}}
-                            <div class="tab-pane fade" id="student-tab">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span style="font-size:12px;font-weight:700;color:var(--rol-muted);text-transform:uppercase;letter-spacing:.5px;">Students</span>
-                                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--rol-accent);">
-                                        <input type="checkbox" class="rol-checkbox" id="select-all-students">
-                                        Select All
-                                    </label>
-                                </div>
-                                <div class="row g-2" id="student-list-container">
-                                    @php
-                                        $studentUsers = $allUsersNotInRole->filter(function ($user) {
-                                            return $user->student_id || $user->student;
-                                        })->sortBy('name');
-                                    @endphp
-                                    @forelse($studentUsers as $studentUser)
-                                    @php $stInit = strtoupper(substr($studentUser->name,0,1)); @endphp
-                                    <div class="col-xl-4 col-lg-6">
-                                        <div class="user-card-sel" data-user-id="{{ $studentUser->id }}">
-                                            <div class="usr-avatar-sm" style="background:linear-gradient(135deg,#10b981,#059669);">{{ $stInit }}</div>
-                                            <div class="ucs-info">
-                                                <div class="ucs-name">{{ $studentUser->name }}</div>
-                                                <div class="ucs-meta">
-                                                    @if($studentUser->student?->admissionNo)
-                                                        {{ $studentUser->student->admissionNo }}
-                                                    @else
-                                                        {{ $studentUser->email }}
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            <div class="ucs-check">
-                                                <input type="checkbox" value="{{ $studentUser->id }}" name="users[]"
-                                                       class="student-checkbox user-checkbox" id="student-{{ $studentUser->id }}">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @empty
-                                    <div class="col-12"><div class="rol-info-banner">No students available.</div></div>
+                                    <div class="col-12"><div class="rol-info-banner">No users available.</div></div>
                                     @endforelse
                                 </div>
                             </div>
@@ -783,11 +729,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function initAddUserModal() {
         const staffCbs   = document.querySelectorAll('#addUserModalgrid .staff-checkbox');
-        const studentCbs = document.querySelectorAll('#addUserModalgrid .student-checkbox');
+        const studentCbs = [];
         const allCbs     = document.querySelectorAll('#addUserModalgrid .user-checkbox');
 
         document.getElementById('staff-count').textContent   = staffCbs.length;
-        document.getElementById('student-count').textContent = studentCbs.length;
 
         function updateCount() {
             const n = document.querySelectorAll('#addUserModalgrid .user-checkbox:checked').length;

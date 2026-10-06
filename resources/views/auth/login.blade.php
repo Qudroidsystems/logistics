@@ -2,23 +2,10 @@
 <html lang="en" data-layout="vertical" data-sidebar="dark" data-sidebar-size="lg" data-preloader="disable" data-theme="default" data-topbar="light" data-bs-theme="light">
 <head>
     <meta charset="utf-8">
-    <title>Sign In | {{ $school->school_name ?? 'Vite-ESchool' }}</title>
+    <title>Sign In | {{ config('app.name') }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta content="school App" name="description">
+    <meta content="Platform sign in" name="description">
     <meta content="Themesbrand" name="author">
-    @php
-        $schoolInfo = App\Models\SchoolInformation::getActiveSchool();
-    @endphp
-     <!-- App favicon - Using School Logo -->
-    @if($schoolInfo && $schoolInfo->getLogoUrlAttribute())
-        <link rel="shortcut icon" href="{{ $schoolInfo->getLogoUrlAttribute() }}">
-        <link rel="icon" type="image/png" href="{{ $schoolInfo->getLogoUrlAttribute() }}">
-        <!-- Apple Touch Icon (for iOS) -->
-        <link rel="apple-touch-icon" href="{{ $schoolInfo->getLogoUrlAttribute() }}">
-    @else
-        <link rel="shortcut icon" href="{{ asset('theme/layouts/assets/images/favicon.ico') }}">
-        <link rel="icon" type="image/png" href="{{ asset('theme/layouts/assets/images/logo-dark.png') }}">
-    @endif
     <!-- Fonts css load -->
     <link rel="preconnect" href="https://fonts.googleapis.com/">
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
@@ -499,26 +486,7 @@
 </head>
 
 <body>
-    @php
-        use App\Models\SchoolInformation;
-        use App\Models\User;
-
-        $schoolInfo = SchoolInformation::getActiveSchool();
-
-        // Get recently active staff users (based on updated_at - last 7 days)
-        $recentStaff = User::whereHas('roles', function($query) {
-                $query->where('name', 'staff');
-            })
-            ->with(['staffPicture'])
-            ->where('updated_at', '>=', now()->subDays(7))
-            ->orderBy('updated_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        if($recentStaff->isEmpty()) {
-            $recentStaff = collect([]);
-        }
-    @endphp
+    @php $schoolInfo = null; @endphp
 
     <section class="auth-page-wrapper position-relative d-flex align-items-center justify-content-center min-vh-100">
         <div class="container">
@@ -531,14 +499,14 @@
                                     <div class="card-body py-5 d-flex justify-content-between flex-column">
                                         <div class="text-center">
                                             <h3 class="text-white" style="animation: fadeInScale 0.6s ease;">Start your journey with us.</h3>
-                                            <p class="text-white opacity-75 fs-base">It makes school operations SEAMLESS...</p>
+                                            <p class="text-white opacity-75 fs-base">Commerce, shopping and logistics — one platform.</p>
                                         </div>
 
                                         <div class="auth-effect-main my-5 position-relative rounded-circle d-flex align-items-center justify-content-center mx-auto">
                                             <div class="effect-circle-1 position-relative mx-auto rounded-circle d-flex align-items-center justify-content-center" style="animation: pulse 2s infinite;">
                                                 <div class="effect-circle-2 position-relative mx-auto rounded-circle d-flex align-items-center justify-content-center">
                                                     <div class="effect-circle-3 mx-auto rounded-circle position-relative text-white fs-4xl d-flex align-items-center justify-content-center" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(4px);">
-                                                        <span class="text-primary ms-1" style="font-weight: 600;">ViteSchool 2.0</span>
+                                                        <span class="text-primary ms-1" style="font-weight: 600;">{{ config('app.name') }}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -582,7 +550,7 @@
 
                                         <div class="text-center">
                                             <p class="text-white opacity-75 mb-0 mt-3">
-                                                © <script>document.write(new Date().getFullYear())</script> {{ $schoolInfo?->school_name ?? 'Viteschools.ng' }}.  with <i class="mdi mdi-heart text-danger"></i> by Qudroid Systems
+                                                © <script>document.write(new Date().getFullYear())</script> {{ config('app.name') }}.  with <i class="mdi mdi-heart text-danger"></i> by Qudroid Systems
                                             </p>
                                         </div>
                                     </div>
@@ -608,7 +576,7 @@
                                         </div>
 
                                         <div class="text-center mt-2">
-                                            <h5 class="fs-2xl fw-semibold" style="animation: fadeInScale 0.5s ease;">{{ $schoolInfo?->school_name ?? 'TopClass College' }} Portal</h5>
+                                            <h5 class="fs-2xl fw-semibold" style="animation: fadeInScale 0.5s ease;">{{ config('app.name') }} Portal</h5>
                                             <p class="text-muted">Sign in to continue</p>
                                         </div>
 
@@ -677,9 +645,6 @@
                                                         @if (Route::has('password.request'))
                                                             <a href="{{ route('password.request') }}" class="text-muted text-decoration-none">Forgot password?</a>
                                                         @endif
-                                                        @if (Route::has('parent.forgot'))
-                                                            · <a href="{{ route('parent.forgot') }}" class="text-muted text-decoration-none">Parent reset by SMS</a>
-                                                        @endif
                                                         </span>
                                                     </div>
                                                     <div class="position-relative auth-pass-inputgroup">
@@ -714,7 +679,6 @@
                                             </form>
 
                                             <div class="text-center mt-4">
-                                                <p class="mb-0 text-muted small">Don't have an account? <a href="{{ route('register') }}" class="fw-semibold text-primary text-decoration-none">Sign Up</a></p>
                                             </div>
                                         </div>
                                     </div><!-- end card body -->

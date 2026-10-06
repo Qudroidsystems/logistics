@@ -7,16 +7,14 @@
 <tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden">
         <tr><td style="background:#0f2342;padding:20px 24px;color:#ffffff">
-            <div style="font-size:18px;font-weight:bold">{{ $school->school_name ?? config('app.name') }}</div>
-            @if(!empty($school->school_address))<div style="font-size:12px;opacity:.8;margin-top:4px">{{ $school->school_address }}</div>@endif
+            <div style="font-size:18px;font-weight:bold">{{ config('app.name') }}</div>
         </td></tr>
         <tr><td style="padding:24px">
             <h2 style="margin:0 0 16px;font-size:18px;color:#0f2342">{{ $subjectLine }}</h2>
             <div style="font-size:14px;line-height:1.6">{!! nl2br(e($text)) !!}</div>
         </td></tr>
         <tr><td style="padding:14px 24px;background:#f8fafc;font-size:11px;color:#64748b">
-            You are receiving this because you are a parent or staff member of {{ $school->school_name ?? config('app.name') }}.
-            @if(!empty($school->school_phone)) For enquiries call {{ $school->school_phone }}.@endif
+            You are receiving this because you have an account with {{ config('app.name') }}.
         </td></tr>
     </table>
 </td></tr>

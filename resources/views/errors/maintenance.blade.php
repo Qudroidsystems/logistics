@@ -1,7 +1,6 @@
 @php
-    $school = \App\Models\SchoolInformation::getActiveSchool() ?? \App\Models\SchoolInformation::first();
-    $name = $school->school_name ?? config('app.name', 'School Portal');
-    $logo = $school->logo_url ?? null;
+    $name = config('app.name');
+    $logo = null;
 @endphp
 <!doctype html>
 <html lang="en">

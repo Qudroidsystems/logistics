@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Schema;
  * its flag is on AND the signed-in user has the usual permission.
  *
  * Flags are fail-open: a key that has never been received counts as ON, so a
- * school is never crippled by an unreachable remote or a missing key. The
+ * platform is never crippled by an unreachable remote or a missing key. The
  * remote sends 0 to hide a module and 1 to show it again.
  */
 return new class extends Migration
@@ -55,24 +55,20 @@ return new class extends Migration
         $seed = [
             ['dashboard', 'Dashboards', 'Core'],
             ['users', 'Users & Privileges', 'Admin'],
-            ['students', 'Student & Parents', 'Academics'],
-            ['subjects', 'Subject Registration', 'Academics'],
-            ['exams', 'Exams', 'Academics'],
-            ['cbt', 'CBT', 'Academics'],
-            ['timetable', 'Timetable', 'Academics'],
-            ['classes', 'Classes & Records', 'Academics'],
-            ['attendance', 'Attendance', 'Academics'],
-            ['results', 'Results & Report Cards', 'Academics'],
-            ['transcripts', 'Transcripts', 'Academics'],
-            ['finance', 'Bursary & Finance', 'Finance'],
-            ['online_payments', 'Online Payments', 'Finance'],
-            ['payroll', 'Payroll', 'Finance'],
-            ['accounting', 'Accounting', 'Finance'],
-            ['expenses', 'Expenses & Assets', 'Finance'],
-            ['scholarships', 'Scholarships & Discounts', 'Finance'],
-            ['communication', 'Communication / Notices', 'Communication'],
-            ['promotions', 'Promotions', 'Academics'],
-            ['reports', 'Reports & Analysis', 'Reports'],
+            ['deliveries', 'Deliveries & Shipments', 'Logistics'],
+            ['dispatch', 'Dispatch & Live Operations', 'Logistics'],
+            ['tracking', 'Tracking', 'Logistics'],
+            ['fleet', 'Fleet & Vehicles', 'Logistics'],
+            ['warehouses', 'Warehouses, Hubs & Pickup Points', 'Logistics'],
+            ['vendors', 'Logistics Vendors', 'Marketplace'],
+            ['shopping', 'Personal Shopping', 'Marketplace'],
+            ['stores', 'Stores & Merchants', 'Marketplace'],
+            ['business', 'Business & Procurement', 'Marketplace'],
+            ['payments', 'Payments, Wallets & Settlements', 'Finance'],
+            ['promotions', 'Promotions, Loyalty & Referrals', 'Growth'],
+            ['support', 'Support & Disputes', 'Support'],
+            ['communication', 'Chat & Notifications', 'Communication'],
+            ['reports', 'Reports & Analytics', 'Reports'],
         ];
         foreach ($seed as [$key, $label, $group]) {
             if (!DB::table('feature_flags')->where('key', $key)->exists()) {

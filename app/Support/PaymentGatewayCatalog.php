@@ -8,7 +8,7 @@ namespace App\Support;
  * validation and the connection tests.
  *
  * 'supported' => true means the portal actually takes payments through it
- * today (Paystack, for online school fees). The others can be configured and
+ * today (Paystack). The others can be configured and
  * tested now, ready for when they are wired in.
  */
 class PaymentGatewayCatalog
@@ -17,7 +17,7 @@ class PaymentGatewayCatalog
         'paystack' => [
             'name'      => 'Paystack',
             'supported' => true,
-            'used_for'  => 'Online school fees',
+            'used_for'  => 'Customer payments, wallet top-ups and payouts',
             'dashboard' => 'https://dashboard.paystack.com/#/settings/developers',
             'fields'    => [
                 'secret_key' => ['label' => 'Secret key', 'secret' => true,  'required' => true,
@@ -29,7 +29,7 @@ class PaymentGatewayCatalog
         'opay' => [
             'name'      => 'OPay',
             'supported' => true,
-            'used_for'  => 'Online school fees',
+            'used_for'  => 'Customer payments, wallet top-ups and payouts',
             'dashboard' => 'https://merchant.opaycheckout.com',
             'fields'    => [
                 'merchant_id' => ['label' => 'Merchant ID', 'secret' => false, 'required' => true],

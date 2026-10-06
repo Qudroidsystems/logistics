@@ -2,7 +2,6 @@
 
 namespace App\Mail;
 
-use App\Models\SchoolInformation;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
@@ -48,11 +47,10 @@ class NoticeMail extends Mailable
 
     public function content(): Content
     {
-        $school = SchoolInformation::getActiveSchool() ?? SchoolInformation::first();
         return new Content(
             view: 'emails.notice',
             text: 'emails.notice-text',
-            with: ['school' => $school, 'text' => $this->text, 'subjectLine' => $this->subjectLine],
+            with: ['text' => $this->text, 'subjectLine' => $this->subjectLine],
         );
     }
 }

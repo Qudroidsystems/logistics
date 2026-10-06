@@ -34,7 +34,7 @@ return new class extends Migration
             DB::table('maintenance_settings')->insert([
                 'id' => 1, 'is_active' => false,
                 'title' => 'We\'ll be back shortly',
-                'message' => 'The school portal is temporarily unavailable while we carry out scheduled maintenance. Please check back soon.',
+                'message' => 'The platform is temporarily unavailable while we carry out scheduled maintenance. Please check back shortly.',
                 'created_at' => now(), 'updated_at' => now(),
             ]);
         }

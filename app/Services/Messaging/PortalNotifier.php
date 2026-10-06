@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 /**
  * Writes in-portal notifications (the bell). Bulk-inserts straight into the
- * notifications table so a whole-school notice stays fast. A `key` makes a
+ * notifications table so a platform-wide notice stays fast. A `key` makes a
  * notification idempotent per user (e.g. "notice:12").
  */
 class PortalNotifier
@@ -71,22 +71,5 @@ class PortalNotifier
             Log::warning('Portal notification failed', ['error' => $e->getMessage()]);
             return 0;
         }
-    }
-
-    /** Student portal accounts (users.student_id) for these students. */
-    public static function toStudents(array $studentIds, string $title, string $body, ?string $url = null, string $type = 'system', ?string $key = null): int
-    {
-        if (!$studentIds) return 0;
-        $users = User::whereIn('student_id', array_map('intval', $studentIds))->pluck('id')->all();
-        $users = array_values(array_unique(array_merge($users, \App\Services\Parents\ParentAccountService::parentUserIds($studentIds))));
-        return self::toUsers($users, $title, $body, $url, $type, $key);
-    }
-
-    /** Staff accounts (no student link, not student/parent role). */
-    public static function staffIds(): array
-    {
-        return User::whereNull('student_id')
-            ->whereDoesntHave('roles', fn ($r) => $r->whereIn('name', ['Student', 'Parent', 'student', 'parent']))
-            ->pluck('id')->all();
     }
 }

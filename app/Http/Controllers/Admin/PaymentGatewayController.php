@@ -41,7 +41,7 @@ class PaymentGatewayController extends Controller
             'gateways'  => $gateways,
             'urls'      => [
                 'paystack_webhook'  => route('webhook.paystack'),
-                'paystack_callback' => route('online-fees.callback'),
+                'paystack_callback' => route('payments.callback'),
                 'opay_webhook'      => route('webhook.opay'),
             ],
         ]);

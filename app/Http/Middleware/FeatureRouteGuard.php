@@ -22,43 +22,21 @@ class FeatureRouteGuard
     public static function moduleRouteMap(): array
     {
         return [
-        'accounting.' => 'accounting',
-        'payroll.' => 'payroll',
-        'staff.payments.' => 'payroll',
-        'finance.' => 'expenses',
-        'online-fees.' => 'online_payments',
-        'instalment-plans.' => 'finance',
-        'schoolpayment.' => 'finance',
-        'payment.' => 'finance',
-        'sibling.' => 'finance',
-        'admin.scholarship.' => 'scholarships',
-        'admin.discount.' => 'scholarships',
-        'reports.financial.' => 'accounting',
-        'reports.analysis.' => 'reports',
-        'analysis.' => 'reports',
-        'exams.' => 'exams',
-        'questions.' => 'exams',
-        'assessments' => 'exams',
-        'cbt.' => 'cbt',
-        'timetable.' => 'timetable',
-        'rooms.' => 'timetable',
-        'exam-timetable.' => 'timetable',
-        'holidays.' => 'timetable',
-        'subjectoperation.' => 'subjects',
-        'subjects.' => 'subjects',
-        'transcript.' => 'transcripts',
+        // route-name prefix => feature key (modules are added as they are built)
+        'deliveries.' => 'deliveries',
+        'dispatch.' => 'dispatch',
+        'tracking.' => 'tracking',
+        'shopping.' => 'shopping',
+        'stores.' => 'stores',
+        'business.' => 'business',
+        'vendors.' => 'vendors',
+        'fleet.' => 'fleet',
+        'warehouses.' => 'warehouses',
+        'wallets.' => 'payments',
+        'settlements.' => 'payments',
         'promotions.' => 'promotions',
-        'promotion-settings.' => 'promotions',
-        'promotion.' => 'promotions',
-        'report-approvals.' => 'results',
-        'studentreports.' => 'results',
-        'studentmockreports.' => 'results',
-        'broadsheet.' => 'results',
-        'myresultroom.' => 'results',
-        'admin.score-entry.' => 'results',
-        'student-id-cards.' => 'students',
-        'lms.' => 'elearning',
-        'studentbatch' => 'students',
+        'support.' => 'support',
+        'reports.' => 'reports',
         ];
     }
 
@@ -68,10 +46,10 @@ class FeatureRouteGuard
     public static function allowList(): array
     {
         return [
-        'login', 'logout', 'password', 'dashboard', 'home', 'management.dashboard',
-        'maintenance.', 'feature-flags.', 'my-pay.', 'leave.', 'parent.',
+        'login', 'logout', 'password', 'dashboard', 'home',
+        'maintenance.', 'feature-flags.',
         'profile.', 'users.', 'roles.', 'permissions.', 'notifications.',
-        'admin.payment-gateways.', 'student.payments', 'student.fees',
+        'admin.payment-gateways.', 'activity.',
         ];
     }
 
@@ -102,7 +80,7 @@ class FeatureRouteGuard
                         return response()->json(['message' => 'This module is currently switched off.'], 403);
                     }
                     $to = \Illuminate\Support\Facades\Route::has('dashboard') ? route('dashboard') : url('/home');
-                    return redirect($to)->with('error', 'That section is currently switched off for this school.');
+                    return redirect($to)->with('error', 'That section is currently switched off for this platform.');
                 }
                 break;
             }

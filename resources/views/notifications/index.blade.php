@@ -5,7 +5,7 @@
 <div class="main-content">
 <div class="page-content">
 <div class="container-fluid">
-    <x-cb.hero title="Notifications" icon="ri-notification-3-line" subtitle="School notices, results, payments and alerts for your account.">
+    <x-cb.hero title="Notifications" icon="ri-notification-3-line" subtitle="Deliveries, payments, dispatch and system alerts for your account.">
         @if($unread)
             <x-slot:actions>
                 <form method="POST" action="{{ route('notifications.read-all') }}">@csrf

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/** Staff activity log (logins, logouts, failed logins, every change) + "last seen" for who's online. */
+/** Platform activity log (logins, logouts, failed logins, every change) + "last seen" for who's online. */
 return new class extends Migration
 {
     public function up(): void

@@ -268,7 +268,7 @@ body{font-family:var(--rol-font);}
         @php
             $roles_num = DB::table('model_has_roles')->where('role_id',$role->id)->count();
             $role_permissions = $role->permissions->pluck('name')->take(4);
-            $icons = ['Admin'=>'bi-shield-check','Student'=>'bi-mortarboard','Staff'=>'bi-person-badge','Teacher'=>'bi-book'];
+            $icons = ['Super Admin'=>'bi-shield-check','Dispatcher'=>'bi-truck','Finance Manager'=>'bi-cash-coin','Support Agent'=>'bi-headset'];
             $icon  = $icons[$role->name] ?? 'bi-key';
         @endphp
         <div class="col">

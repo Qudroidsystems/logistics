@@ -23,6 +23,6 @@ class HomeController extends Controller
      */
     public function index()
     {
-        return view('home');
+        return auth()->user()->can('dashboard') ? redirect()->route('dashboard') : view('home', ['pagetitle' => 'Home']);
     }
 }

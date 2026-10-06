@@ -9,7 +9,7 @@
 <div class="main-content">
 <div class="page-content">
 <div class="container-fluid">
-    <x-cb.hero :title="$person ? $person->name . ' — Activity' : 'Staff Activity Log'" icon="ri-history-line"
+    <x-cb.hero :title="$person ? $person->name . ' — Activity' : 'Activity Log'" icon="ri-history-line"
                :subtitle="$person ? ('Last seen ' . ($person->last_seen_at ? \Carbon\Carbon::parse($person->last_seen_at)->diffForHumans() : 'never') . ($person->last_login_ip ? ' · last sign-in from ' . $person->last_login_ip : '')) : 'Who signed in, when, from where — and every change they made.'">
         <x-slot:actions>
             <a href="{{ route('online-staff.index') }}" class="cb-hero-btn"><i class="ri-user-follow-line"></i>Who's online</a>
@@ -26,7 +26,7 @@
 
     <x-cb.card title="Activity" icon="ri-history-line" :count="$logs->total()" :flush="true">
         <form class="cb-toolbar gap-2 flex-wrap" method="GET">
-            <select name="user" class="cb-select" style="max-width:220px" aria-label="Staff"><option value="">Everyone</option>@foreach($users as $id => $n)<option value="{{ $id }}" @selected(request('user') == $id)>{{ $n }}</option>@endforeach</select>
+            <select name="user" class="cb-select" style="max-width:220px" aria-label="User"><option value="">Everyone</option>@foreach($users as $id => $n)<option value="{{ $id }}" @selected(request('user') == $id)>{{ $n }}</option>@endforeach</select>
             <select name="event" class="cb-select" aria-label="Event"><option value="">All events</option>@foreach($E as $k => [$l])<option value="{{ $k }}" @selected(request('event') === $k)>{{ $l }}</option>@endforeach</select>
             <input type="date" name="from" class="form-control form-control-sm" style="width:150px" value="{{ request('from') }}" aria-label="From">
             <input type="date" name="to" class="form-control form-control-sm" style="width:150px" value="{{ request('to') }}" aria-label="To">

@@ -8,11 +8,6 @@
 
     <x-cb.hero title="Payment Gateways" icon="ri-bank-card-line"
                subtitle="Enter each gateway's test and live keys. Keys are encrypted and never shown again in full.">
-        @if(Route::has('online-fees.index'))
-            <x-slot:actions>
-                <a class="cb-hero-btn" href="{{ route('online-fees.index') }}"><i class="ri-secure-payment-line"></i>Online payments</a>
-            </x-slot:actions>
-        @endif
     </x-cb.hero>
 
     <div id="pgFlash"></div>

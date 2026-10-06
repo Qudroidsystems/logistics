@@ -35,14 +35,14 @@ class MessagingSetting extends Model
             'meta' => ['label' => 'WhatsApp Cloud API (Meta)', 'fields' => [
                 'access_token'    => ['label' => 'Permanent access token', 'secret' => true, 'required' => true],
                 'phone_number_id' => ['label' => 'Phone number ID', 'secret' => false, 'required' => true],
-                'template_name'   => ['label' => 'Approved template name', 'secret' => false, 'required' => true, 'default' => 'school_notice'],
+                'template_name'   => ['label' => 'Approved template name', 'secret' => false, 'required' => true, 'default' => 'platform_notice'],
                 'template_lang'   => ['label' => 'Template language code', 'secret' => false, 'required' => true, 'default' => 'en'],
                 'api_version'     => ['label' => 'Graph API version', 'secret' => false, 'required' => true, 'default' => 'v21.0'],
                 'document_template_name' => ['label' => 'Document template name (for report cards, optional)', 'secret' => false, 'required' => false, 'default' => ''],
             ]],
         ],
         'email' => [
-            'mail' => ['label' => 'School mail server (MAIL_* settings)', 'fields' => [
+            'mail' => ['label' => 'Mail server (MAIL_* settings)', 'fields' => [
                 'from_name'  => ['label' => 'From name', 'secret' => false, 'required' => false],
                 'reply_to'   => ['label' => 'Reply-to address', 'secret' => false, 'required' => false],
             ]],

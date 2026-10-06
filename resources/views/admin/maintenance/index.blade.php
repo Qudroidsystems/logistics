@@ -36,7 +36,7 @@
                     <textarea name="message" class="form-control mb-3" rows="3" maxlength="2000" placeholder="Explain what's happening and when you expect to be back.">{{ old('message', $m->message) }}</textarea>
                     <label class="form-label">Contact line (optional)</label>
                     <input type="text" name="contact_info" class="form-control" maxlength="255" value="{{ old('contact_info', $m->contact_info) }}" placeholder="e.g. Call the school office on 080… / bursar@school.ng">
-                    <div class="form-text">Shown to anyone who can't get in, so they know how to reach the school.</div>
+                    <div class="form-text">Shown to anyone who can't get in, so they know how to reach support.</div>
                 </x-cb.card>
 
                 <x-cb.card title="Who keeps access" icon="ri-team-line">
