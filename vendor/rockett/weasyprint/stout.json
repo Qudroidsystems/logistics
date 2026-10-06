@@ -1,0 +1,7 @@
+{
+  "indent": "  ",
+  "preset": "per",
+  "rules": {
+    "@PER-CS2.0": true
+  }
+}

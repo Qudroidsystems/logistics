@@ -1,0 +1,49 @@
+{
+  "name": "rockett/pipeline",
+  "description": "A plug and play pipeline implementation.",
+  "keywords": [
+    "pipeline",
+    "pattern",
+    "sequential",
+    "composition",
+    "design pattern"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Frank de Jonge",
+      "email": "info@frenky.net",
+      "role": "Author of Original Source"
+    },
+    {
+      "name": "Woody Gilk",
+      "email": "woody.gilk@gmail.com",
+      "role": "Maintainer of Original Source"
+    },
+    {
+      "name": "Mike Rockétt",
+      "email": "os@rockett.pw",
+      "role": "Maintainer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Rockett\\Pipeline\\": "src"
+    }
+  },
+  "require": {
+    "php": ">=8.1"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^7.21",
+    "nunomaduro/collision": "^6.4"
+  },
+  "scripts": {
+    "dump-and-test": [
+      "@dump",
+      "@test"
+    ],
+    "dump": "composer dumpautoload",
+    "test": "./vendor/bin/testbench package:test"
+  }
+}

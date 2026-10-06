@@ -1,0 +1,71 @@
+<?php
+// app/Models/StaffSalaryStructure.php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class StaffSalaryStructure extends Model
+{
+    use HasFactory;
+
+    protected $table = 'staff_salary_structures';
+
+    protected $fillable = [
+        'staff_id', 'effective_from', 'effective_to', 'basic_salary',
+        'housing_allowance', 'transport_allowance', 'meal_allowance',
+        'medical_allowance', 'utility_allowance', 'other_allowances',
+        'custom_allowances', 'is_active', 'created_by'
+    ];
+
+    protected $casts = [
+        'basic_salary' => 'decimal:2',
+        'housing_allowance' => 'decimal:2',
+        'transport_allowance' => 'decimal:2',
+        'meal_allowance' => 'decimal:2',
+        'medical_allowance' => 'decimal:2',
+        'utility_allowance' => 'decimal:2',
+        'other_allowances' => 'decimal:2',
+        'custom_allowances' => 'array',
+        'effective_from' => 'date',
+        'effective_to' => 'date',
+        'is_active' => 'boolean',
+    ];
+
+    // Relationships
+    public function staff()
+    {
+        return $this->belongsTo(StaffRecord::class, 'staff_id');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true)
+            ->where('effective_from', '<=', now())
+            ->where(function($q) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', now());
+            });
+    }
+
+    // Accessors
+    public function getTotalEarningsAttribute()
+    {
+        $customTotal = 0;
+        if ($this->custom_allowances) {
+            foreach ($this->custom_allowances as $allowance) {
+                $customTotal += $allowance['amount'];
+            }
+        }
+
+        return $this->basic_salary + $this->housing_allowance + $this->transport_allowance +
+               $this->meal_allowance + $this->medical_allowance + $this->utility_allowance +
+               $this->other_allowances + $customTotal;
+    }
+}
