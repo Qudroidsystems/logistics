@@ -211,7 +211,7 @@ class EscrowService
             ->update(['status' => 'held', 'frozen_reason' => null, 'updated_at' => now()]);
     }
 
-    private function escrowTotal(object $agreement): int
+    public function escrowTotal(object $agreement): int
     {
         return (int) $agreement->price + (int) $agreement->goods_budget + (int) $agreement->tip;
     }
