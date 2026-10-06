@@ -20,7 +20,7 @@
         "laravel/ui": "^4.6",
         "maatwebsite/excel": "^3.1",
         "picqer/php-barcode-generator": "*",
-        "simplesoftwareio/simple-qrcode": "^4.2",
+        "simplesoftwareio/simple-qrcode": "*",
         "spatie/laravel-permission": "^6.17",
         "twilio/sdk": "^8.6"
     },

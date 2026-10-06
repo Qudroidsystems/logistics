@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Session;
 | Web routes — admin / back-office portal
 |--------------------------------------------------------------------------
 | Domain modules (deliveries, dispatch, shopping, stores, vendors ...) register
-| their own routes from app/Modules/*/routes.php as they are built.
+| their own routes from app/Modules/
 */
 
 Route::get('/', fn () => redirect('/login'));

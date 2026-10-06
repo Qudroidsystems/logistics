@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Versioned public API for the customer app, driver app, vendor/store portals
 | and business integrations lives under /api/v1 (Sanctum token auth). Each
-| domain module registers its own v1 routes from app/Modules/*/routes/api.php.
+| domain module registers its own v1 routes from app/Modules/*.
 */
 
 Route::prefix('v1')->group(function () {

@@ -1,0 +1,221 @@
+services:
+
+    # ============================================
+    # LARAVEL APPLICATION
+    # ============================================
+
+    laravel.test:
+        build:
+            context: './vendor/laravel/sail/runtimes/8.4'
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP:-1000}'
+
+        image: 'sail-8.4/app'
+
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+
+        ports:
+            - '${APP_PORT:-80}:80'
+            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+
+        volumes:
+            - '.:/var/www/html'
+
+        networks:
+            - logistics
+
+        depends_on:
+            pgsql:
+                condition: service_healthy
+
+            redis:
+                condition: service_healthy
+
+            mailpit:
+                condition: service_started
+
+
+    # ============================================
+    # POSTGRESQL
+    # ============================================
+
+    pgsql:
+        image: 'postgres:17'
+
+        ports:
+              - '${FORWARD_DB_PORT:-5433}:5432'
+          
+
+        environment:
+            POSTGRES_DB: '${DB_DATABASE}'
+            POSTGRES_USER: '${DB_USERNAME}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD}'
+
+        volumes:
+            - 'logistics-pgsql:/var/lib/postgresql/data'
+
+        networks:
+            - logistics
+
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}'
+
+            retries: 5
+            timeout: 5s
+            interval: 5s
+
+
+    # ============================================
+    # REDIS
+    # ============================================
+
+    redis:
+        image: 'redis:7-alpine'
+
+        ports:
+            - '${FORWARD_REDIS_PORT:-6379}:6379'
+
+        volumes:
+            - 'logistics-redis:/data'
+
+        networks:
+            - logistics
+
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+
+            retries: 5
+            timeout: 5s
+            interval: 5s
+
+
+    # ============================================
+    # LARAVEL REVERB
+    # REAL-TIME COMMUNICATION
+    # ============================================
+
+    reverb:
+        image: 'sail-8.4/app'
+
+        working_dir: /var/www/html
+
+        command: php artisan reverb:start --host=0.0.0.0 --port=8080
+
+        ports:
+            - '${REVERB_PORT:-8080}:8080'
+
+        volumes:
+            - '.:/var/www/html'
+
+        networks:
+            - logistics
+
+        depends_on:
+            laravel.test:
+                condition: service_started
+
+
+    # ============================================
+    # QUEUE WORKER
+    # ============================================
+
+    queue:
+        image: 'sail-8.4/app'
+
+        working_dir: /var/www/html
+
+        command: php artisan queue:work redis --sleep=3 --tries=3 --timeout=90
+
+        volumes:
+            - '.:/var/www/html'
+
+        networks:
+            - logistics
+
+        depends_on:
+            laravel.test:
+                condition: service_started
+
+            redis:
+                condition: service_healthy
+
+
+    # ============================================
+    # MAILPIT
+    # LOCAL EMAIL TESTING
+    # ============================================
+
+    mailpit:
+        image: 'axllent/mailpit:latest'
+
+        ports:
+            - '${MAILPIT_PORT:-8025}:8025'
+
+        networks:
+            - logistics
+
+
+    # ============================================
+    # PGADMIN
+    # POSTGRESQL GUI
+    # ============================================
+
+    pgadmin:
+        image: 'dpage/pgadmin4:latest'
+
+        environment:
+            PGADMIN_DEFAULT_EMAIL: admin@logistics.test
+            PGADMIN_DEFAULT_PASSWORD: adminpassword
+
+        ports:
+            - '5050:80'
+
+        volumes:
+            - 'logistics-pgadmin:/var/lib/pgadmin'
+
+        networks:
+            - logistics
+
+        depends_on:
+            pgsql:
+                condition: service_healthy
+
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+
+    logistics:
+        driver: bridge
+
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+
+    logistics-pgsql:
+        driver: local
+
+    logistics-redis:
+        driver: local
+
+    logistics-pgadmin:
+        driver: local
