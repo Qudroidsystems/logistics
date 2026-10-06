@@ -24,8 +24,9 @@ class DatabaseBackupService
     public function run(string $type = 'manual', ?int $userId = null, bool $email = false): array
     {
         $cfg = config('database.connections.' . config('database.default'));
-        if (($cfg['driver'] ?? null) !== 'mysql') {
-            return ['ok' => false, 'backup' => null, 'message' => 'Automatic backup currently supports MySQL/MariaDB only.'];
+        $driver = $cfg['driver'] ?? null;
+        if (! in_array($driver, ['mysql', 'mariadb', 'pgsql'], true)) {
+            return ['ok' => false, 'backup' => null, 'message' => 'Automatic backup supports MySQL/MariaDB and PostgreSQL only.'];
         }
 
         Storage::disk($this->disk)->makeDirectory($this->dir);
@@ -36,7 +37,16 @@ class DatabaseBackupService
 
         $method = 'php';
         try {
-            if ($this->canExec() && $this->mysqldumpAvailable()) {
+            if ($driver === 'pgsql') {
+                // PostgreSQL has no safe pure-PHP fallback (partitions, PostGIS types, triggers), so pg_dump is required.
+                if (! $this->canExec() || ! $this->pgDumpAvailable()) {
+                    throw new \RuntimeException('pg_dump is not available on this server. Install the PostgreSQL client tools to enable backups.');
+                }
+                if (! $this->dumpWithPgDump($cfg, $abs)) {
+                    throw new \RuntimeException('pg_dump failed (check the client version matches the server, and the database credentials).');
+                }
+                $method = 'pg_dump';
+            } elseif ($this->canExec() && $this->mysqldumpAvailable()) {
                 $ok = $this->dumpWithMysqldump($cfg, $abs);
                 if ($ok) { $method = 'mysqldump'; }
                 else { $this->dumpWithPhp($cfg, $abs); $method = 'php'; }
@@ -81,6 +91,34 @@ class DatabaseBackupService
         if (!function_exists('exec')) return false;
         $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
         return !in_array('exec', $disabled, true);
+    }
+
+    protected function pgDumpAvailable(): bool
+    {
+        try { @exec('pg_dump --version 2>/dev/null', $out, $code); return $code === 0; }
+        catch (\Throwable $e) { return false; }
+    }
+
+    /**
+     * Plain SQL, gzipped. Restore with: gunzip -c FILE | psql -h HOST -U USER DATABASE
+     * Owner and privilege statements are left out so the dump restores under any role.
+     * The password goes in the environment, never on the command line.
+     */
+    protected function dumpWithPgDump(array $cfg, string $abs): bool
+    {
+        putenv('PGPASSWORD=' . ($cfg['password'] ?? ''));
+        $cmd = sprintf(
+            "bash -c %s",
+            escapeshellarg(sprintf(
+                'set -o pipefail; pg_dump --host=%s --port=%s --username=%s --no-owner --no-privileges --format=plain %s 2>/dev/null | gzip -9 > %s',
+                escapeshellarg($cfg['host'] ?? '127.0.0.1'), escapeshellarg((string) ($cfg['port'] ?? 5432)), escapeshellarg($cfg['username'] ?? 'postgres'),
+                escapeshellarg($cfg['database']), escapeshellarg($abs)
+            ))
+        );
+        @exec($cmd, $out, $code);
+        putenv('PGPASSWORD');
+
+        return $code === 0 && is_file($abs) && filesize($abs) > 0;
     }
 
     protected function mysqldumpAvailable(): bool
