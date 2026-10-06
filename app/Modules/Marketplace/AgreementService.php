@@ -109,6 +109,17 @@ class AgreementService
             'updated_at' => now(),
         ]);
 
+<<<<<<< HEAD
+=======
+        if (($terms['errand'] ?? null) === 'shopping') {
+            DB::table('shopping_requests')->insertOrIgnore([
+                'agreement_id' => $a->id, 'market_id' => $terms['market_id'] ?? null, 'list' => json_encode($terms['list'] ?? []),
+                'budget_cap' => (int) $a->goods_budget, 'substitution_policy' => $terms['substitution_policy'] ?? 'ask',
+                'receipt_required' => true, 'status' => 'open', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+>>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
         return 'locked';
     }
 

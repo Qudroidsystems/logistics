@@ -107,10 +107,14 @@ class EscrowService
 
             $remaining = (int) $hold->amount - (int) $hold->released_amount - (int) $hold->refunded_amount;
             $unspent = (int) $agreement->goods_budget - $goodsSpent;
-            $toProvider = (int) $agreement->provider_net + (int) $agreement->tip + $goodsSpent;
             $fee = (int) $agreement->platform_fee;
+            // A shopper may already hold part of the goods money as an advance. What they spent is theirs to keep;
+            // what they did not spend comes back out of their wallet. Without an advance this is simply
+            // provider_net + tip + goodsSpent.
+            $advance = (int) DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->sum('amount');
+            $net = (int) $agreement->provider_net + (int) $agreement->tip + $goodsSpent - $advance;
 
-            if ($toProvider + $fee + $unspent !== $remaining) {
+            if ($net + $fee + $unspent !== $remaining) {
                 throw new RuntimeException('Escrow balance does not match the amounts being released.');
             }
 
@@ -119,8 +123,11 @@ class EscrowService
             $customerWallet = $this->accounts->wallet('customer', (int) $agreement->customer_id, 1);
 
             $entries = [['account_id' => (int) $hold->ledger_account_id, 'direction' => 'debit', 'amount' => $remaining]];
-            if ($toProvider > 0) {
-                $entries[] = ['account_id' => $providerWallet, 'direction' => 'credit', 'amount' => $toProvider];
+            if ($net > 0) {
+                $entries[] = ['account_id' => $providerWallet, 'direction' => 'credit', 'amount' => $net];
+            } elseif ($net < 0) {
+                // The shopper returns unspent advance beyond what they earned; fails if they already withdrew it.
+                $entries[] = ['account_id' => $providerWallet, 'direction' => 'debit', 'amount' => -$net];
             }
             if ($fee > 0) {
                 $entries[] = ['account_id' => $commission, 'direction' => 'credit', 'amount' => $fee];
@@ -128,6 +135,7 @@ class EscrowService
             if ($unspent > 0) {
                 $entries[] = ['account_id' => $customerWallet, 'direction' => 'credit', 'amount' => $unspent];
             }
+            $toProvider = $net;
 
             $tx = $this->ledger->post("escrow-release-{$agreementId}", [
                 'operator_id' => (int) $agreement->provider_operator_id,
@@ -139,8 +147,10 @@ class EscrowService
                 'is_test' => (bool) $agreement->is_test,
             ], $entries);
 
+            $this->recordCommission($agreement, $fee, (int) $agreement->provider_net, $tx['id']);
+            DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->update(['status' => 'settled', 'updated_at' => now()]);
             DB::table('escrow_holds')->where('id', $hold->id)->update([
-                'released_amount' => (int) $hold->released_amount + $toProvider + $fee,
+                'released_amount' => (int) $hold->released_amount + max($net, 0) + $fee,
                 'refunded_amount' => (int) $hold->refunded_amount + $unspent,
                 'status' => 'released',
                 'updated_at' => now(),
@@ -192,6 +202,136 @@ class EscrowService
             }
 
             return ['transaction_id' => $tx['id'], 'refunded' => $amount];
+        });
+    }
+
+    /**
+     * Dispute outcome that splits the money: the provider receives $providerShare of the service price
+     * (minus a proportional platform fee) plus any goods actually spent; everything else returns to the customer.
+     * A zero share is a full refund; a full share is a normal release.
+     */
+    public function releasePartial(int $agreementId, int $providerShare, int $goodsSpent = 0, ?int $postedBy = null): array
+    {
+        return DB::transaction(function () use ($agreementId, $providerShare, $goodsSpent, $postedBy) {
+            $agreement = $this->lockAgreement($agreementId);
+            $hold = DB::table('escrow_holds')->where('agreement_id', $agreementId)->lockForUpdate()->first();
+            if (! $hold || ! in_array($hold->status, ['held', 'partially_released'], true)) {
+                throw new RuntimeException('Escrow is not available for settlement.');
+            }
+            $price = (int) $agreement->price;
+            if ($providerShare < 0 || $providerShare > $price || $goodsSpent < 0 || $goodsSpent > (int) $agreement->goods_budget) {
+                throw new InvalidArgumentException('Settlement amounts are out of range.');
+            }
+
+            $remaining = (int) $hold->amount - (int) $hold->released_amount - (int) $hold->refunded_amount;
+            $fee = intdiv((int) $agreement->platform_fee * $providerShare, max($price, 1));
+            $advance = (int) DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->sum('amount');
+            // What the provider ends up with in their wallet; negative when they must hand back unspent advance.
+            $net = $providerShare - $fee + $goodsSpent - $advance;
+            $toCustomer = $remaining - $net - $fee;
+            if ($toCustomer < 0) {
+                throw new RuntimeException('Settlement exceeds the escrow balance.');
+            }
+            $toProvider = $net;
+
+            $entries = [['account_id' => (int) $hold->ledger_account_id, 'direction' => 'debit', 'amount' => $remaining]];
+            $providerWallet = $this->accounts->wallet('operator', (int) $agreement->provider_operator_id, (int) $agreement->provider_operator_id);
+            if ($net > 0) {
+                $entries[] = ['account_id' => $providerWallet, 'direction' => 'credit', 'amount' => $net];
+            } elseif ($net < 0) {
+                $entries[] = ['account_id' => $providerWallet, 'direction' => 'debit', 'amount' => -$net];
+            }
+            if ($fee > 0) {
+                $entries[] = ['account_id' => $this->accounts->platform('platform_commission'), 'direction' => 'credit', 'amount' => $fee];
+            }
+            if ($toCustomer > 0) {
+                $entries[] = ['account_id' => $this->accounts->wallet('customer', (int) $agreement->customer_id, 1), 'direction' => 'credit', 'amount' => $toCustomer];
+            }
+
+            $tx = $this->ledger->post("escrow-split-{$agreementId}", [
+                'operator_id' => (int) $agreement->provider_operator_id, 'kind' => 'escrow_release',
+                'reference_type' => 'agreement', 'reference_id' => $agreementId,
+                'description' => "Dispute settlement for agreement {$agreement->number}",
+                'posted_by' => $postedBy, 'is_test' => (bool) $agreement->is_test,
+            ], $entries);
+
+            if ($providerShare > 0) {
+                $this->recordCommission($agreement, $fee, $providerShare - $fee, $tx['id']);
+            }
+            DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->update(['status' => 'settled', 'updated_at' => now()]);
+            DB::table('escrow_holds')->where('id', $hold->id)->update([
+                'released_amount' => (int) $hold->released_amount + max($net, 0) + $fee,
+                'refunded_amount' => (int) $hold->refunded_amount + $toCustomer,
+                'status' => $providerShare + $goodsSpent > 0 ? 'released' : 'refunded', 'updated_at' => now(),
+            ]);
+            DB::table('agreements')->where('id', $agreementId)->update(['status' => $providerShare + $goodsSpent > 0 ? 'completed' : 'cancelled', 'updated_at' => now()]);
+
+            return ['transaction_id' => $tx['id'], 'to_provider' => $toProvider, 'platform_fee' => $fee, 'to_customer' => $toCustomer];
+        });
+    }
+
+    /** One commissions row per shipment: the platform's fee and the provider's net, for settlement statements. */
+    private function recordCommission(object $agreement, int $fee, int $providerNet, int $txId): void
+    {
+        $shipmentId = DB::table('shipments')->join('orders', 'orders.id', '=', 'shipments.order_id')
+            ->where('orders.agreement_id', $agreement->id)->value('shipments.id');
+        if (! $shipmentId) {
+            return;
+        }
+        DB::table('commissions')->insertOrIgnore([
+            'shipment_id' => $shipmentId, 'agreement_id' => $agreement->id, 'operator_id' => $agreement->provider_operator_id,
+            'commission_rule_id' => $agreement->fee_rule_id, 'gross_amount' => $fee + $providerNet, 'platform_fee' => $fee,
+            'operator_net' => $providerNet, 'ledger_tx_id' => $txId, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    /** Customer approved extra goods money (shopping budget amendment): move it from their wallet into escrow. */
+    public function addToHold(int $agreementId, int $extra, ?int $postedBy = null): void
+    {
+        DB::transaction(function () use ($agreementId, $extra, $postedBy) {
+            $agreement = $this->lockAgreement($agreementId);
+            $hold = DB::table('escrow_holds')->where('agreement_id', $agreementId)->lockForUpdate()->first();
+            if (! $hold || ! in_array($hold->status, ['held', 'partially_released'], true) || $extra <= 0) {
+                throw new RuntimeException('Escrow cannot take extra funds now.');
+            }
+            // Throws InsufficientFunds when the customer's wallet is short.
+            $this->ledger->post("escrow-topup-{$agreementId}-{$hold->amount}-{$extra}", [
+                'operator_id' => (int) $agreement->provider_operator_id, 'kind' => 'escrow_hold', 'reference_type' => 'agreement', 'reference_id' => $agreementId,
+                'description' => "Extra budget for agreement {$agreement->number}", 'posted_by' => $postedBy, 'is_test' => (bool) $agreement->is_test,
+            ], [
+                ['account_id' => $this->accounts->wallet('customer', (int) $agreement->customer_id, 1), 'direction' => 'debit', 'amount' => $extra],
+                ['account_id' => (int) $hold->ledger_account_id, 'direction' => 'credit', 'amount' => $extra],
+            ]);
+            DB::table('escrow_holds')->where('id', $hold->id)->update(['amount' => (int) $hold->amount + $extra, 'updated_at' => now()]);
+            DB::table('agreements')->where('id', $agreementId)->update(['goods_budget' => (int) $agreement->goods_budget + $extra, 'updated_at' => now()]);
+        });
+    }
+
+    /** Shopper's advance: goods money leaves escrow into the shopper's wallet so they can pay vendors. */
+    public function issueAdvance(int $agreementId, int $amount, ?int $postedBy = null): int
+    {
+        return DB::transaction(function () use ($agreementId, $amount, $postedBy) {
+            $agreement = $this->lockAgreement($agreementId);
+            $hold = DB::table('escrow_holds')->where('agreement_id', $agreementId)->lockForUpdate()->first();
+            if (! $hold || $hold->status !== 'held' || $amount <= 0) {
+                throw new RuntimeException('No escrow available for an advance.');
+            }
+            $issued = (int) DB::table('shopper_advances')->where('agreement_id', $agreementId)->whereIn('status', ['issued'])->sum('amount');
+            if ($issued + $amount > (int) $agreement->goods_budget) {
+                throw new InvalidArgumentException('Advance cannot exceed the goods budget.');
+            }
+            $id = DB::table('shopper_advances')->insertGetId(['agreement_id' => $agreementId, 'amount' => $amount, 'status' => 'issued', 'issued_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+            $tx = $this->ledger->post("shopper-advance-{$id}", [
+                'operator_id' => (int) $agreement->provider_operator_id, 'kind' => 'shopper_advance', 'reference_type' => 'agreement', 'reference_id' => $agreementId,
+                'description' => "Goods advance for agreement {$agreement->number}", 'posted_by' => $postedBy, 'is_test' => (bool) $agreement->is_test,
+            ], [
+                ['account_id' => (int) $hold->ledger_account_id, 'direction' => 'debit', 'amount' => $amount],
+                ['account_id' => $this->accounts->wallet('operator', (int) $agreement->provider_operator_id, (int) $agreement->provider_operator_id), 'direction' => 'credit', 'amount' => $amount],
+            ]);
+            DB::table('shopper_advances')->where('id', $id)->update(['ledger_transaction_id' => $tx['id']]);
+            DB::table('escrow_holds')->where('id', $hold->id)->update(['released_amount' => (int) $hold->released_amount + $amount, 'updated_at' => now()]);
+
+            return $id;
         });
     }
 

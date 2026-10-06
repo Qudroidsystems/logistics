@@ -282,10 +282,6 @@ class DispatchService
 
     private function event(int $shipmentId, string $type, ?string $from, ?string $to, string $actorType, ?int $actorId, array $meta = []): void
     {
-        $seq = (int) DB::table('shipment_events')->where('shipment_id', $shipmentId)->max('seq') + 1;
-        DB::table('shipment_events')->insert([
-            'shipment_id' => $shipmentId, 'seq' => $seq, 'type' => $type, 'from_status' => $from, 'to_status' => $to,
-            'actor_type' => $actorType, 'actor_id' => $actorId, 'meta' => json_encode($meta), 'source' => 'system', 'created_at' => now(),
-        ]);
+        app(\App\Modules\Partner\ShipmentEvents::class)->record($shipmentId, $type, $from, $to, $actorType, $actorId, $meta);
     }
 }

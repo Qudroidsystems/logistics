@@ -27,3 +27,7 @@ Schedule::command('partitions:maintain')->dailyAt('01:10')->withoutOverlapping(3
 
 // Marketplace: release escrow once the customer's confirmation window has passed with no objection.
 Schedule::command('escrow:auto-release')->everyFiveMinutes()->withoutOverlapping(10);
+
+// Marketplace: weekly provider statements, and housekeeping for agreements nobody paid.
+Schedule::command('settlements:generate')->weeklyOn(1, '03:00')->withoutOverlapping(60);
+Schedule::command('agreements:expire-unpaid')->hourly()->withoutOverlapping(10);

@@ -316,7 +316,8 @@ return new class extends Migration
             $table->jsonb('items')->nullable();
             $table->bigInteger('amount');
             $table->string('photo_path');
-            $table->boolean('verified_by_customer')->default(false);
+            // null = awaiting the customer's check, true = verified, false = rejected (not paid out)
+            $table->boolean('verified_by_customer')->nullable();
             $table->timestampTz('uploaded_at')->useCurrent();
         });
 

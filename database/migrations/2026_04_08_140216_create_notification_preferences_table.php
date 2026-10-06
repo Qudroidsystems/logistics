@@ -1,5 +1,4 @@
 <?php
-// database/migrations/2025_01_15_000008_add_sms_fields_to_notifications.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -9,12 +8,6 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::table('timetable_notifications', function (Blueprint $table) {
-            $table->string('phone_number', 20)->nullable()->after('email');
-            $table->enum('channel', ['email', 'sms', 'both'])->default('email')->after('status');
-            $table->timestamp('sms_sent_at')->nullable()->after('sent_at');
-        });
-
         // Notification preferences for teachers
         Schema::create('notification_preferences', function (Blueprint $table) {
             $table->id();
@@ -36,8 +29,5 @@ return new class extends Migration
     public function down()
     {
         Schema::dropIfExists('notification_preferences');
-        Schema::table('timetable_notifications', function (Blueprint $table) {
-            $table->dropColumn(['phone_number', 'channel', 'sms_sent_at']);
-        });
     }
 };

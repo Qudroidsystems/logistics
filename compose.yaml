@@ -52,8 +52,12 @@ services:
         image: 'postgres:17'
 
         ports:
+<<<<<<< HEAD
               - '${FORWARD_DB_PORT:-5433}:5432'
           
+=======
+            - '${FORWARD_DB_PORT:-5432}:5432'
+>>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
 
         environment:
             POSTGRES_DB: '${DB_DATABASE}'
