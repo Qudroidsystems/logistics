@@ -2,6 +2,7 @@
 
 namespace App\Modules\Marketplace;
 
+use App\Modules\Tracking\TrackingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,11 @@ use Illuminate\Support\Str;
 class OrderFromAgreement
 {
     /** @return array{order_id:int, shipment_id:int, created:bool} */
+    public function __construct(private ?TrackingService $tracking = null)
+    {
+        $this->tracking ??= new TrackingService();
+    }
+
     public function create(int $agreementId): array
     {
         return DB::transaction(function () use ($agreementId) {
@@ -28,7 +34,7 @@ class OrderFromAgreement
                 'public_id' => (string) Str::ulid(),
                 'order_number' => 'OR'.now()->format('ymd').strtoupper(Str::random(6)),
                 'operator_id' => $a->provider_operator_id, 'channel' => $a->merchant_id ? 'api' : 'customer_app',
-                'customer_id' => $a->customer_id, 'merchant_id' => $a->merchant_id, 'agreement_id' => $a->id,
+                'customer_id' => $a->customer_id, 'merchant_id' => $a->merchant_id, 'external_order_id' => $t['external_order_id'] ?? null, 'agreement_id' => $a->id,
                 'service_type_id' => $t['service_type_id'], 'status' => 'confirmed', 'payment_status' => 'paid',
                 'payment_method' => 'card', 'subtotal' => $a->goods_budget, 'delivery_fee' => $a->price, 'service_fee' => 0,
                 'tip' => $a->tip, 'tax' => 0, 'discount' => 0, 'total' => $total, 'cancel_fee' => 0,
@@ -49,6 +55,10 @@ class OrderFromAgreement
                     [$shipmentId, $seq, $type, $s['line1'], $s['landmark'] ?? null, $s['lng'], $s['lat'], $s['contact_name'] ?? null, $s['contact_phone'] ?? null, $s['instructions'] ?? null]
                 );
             }
+
+            // Arm the drop-off code and share links in the same transaction as the shipment.
+            $this->tracking->arm($shipmentId);
+            app(\App\Modules\Partner\ShipmentEvents::class)->record($shipmentId, 'created', null, 'created');
 
             return ['order_id' => $orderId, 'shipment_id' => $shipmentId, 'created' => true];
         });

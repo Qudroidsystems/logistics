@@ -23,11 +23,12 @@ class ReleaseExpiredEscrow extends Command
         $released = 0;
         foreach ($due as $agreementId) {
             try {
-                // A shopping errand needs its receipts reconciled first; leave those for review.
-                if (DB::table('shopping_requests')->where('agreement_id', $agreementId)->whereNull('actual_spend')->exists()) {
+                // A shopping errand with no receipts at all needs a person to look at it.
+                $isShopping = DB::table('shopping_requests')->where('agreement_id', $agreementId)->first();
+                if ($isShopping && ! DB::table('shopping_receipts')->where('shopping_request_id', $isShopping->id)->exists()) {
                     continue;
                 }
-                $escrow->release((int) $agreementId);
+                $escrow->release((int) $agreementId, app(\App\Modules\Marketplace\ShoppingService::class)->spend((int) $agreementId));
                 DB::table('delivery_confirmations')
                     ->where('agreement_id', $agreementId)->where('status', 'pending')
                     ->update(['status' => 'auto_confirmed', 'responded_at' => now(), 'updated_at' => now()]);

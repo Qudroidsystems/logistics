@@ -23,3 +23,8 @@ Route::middleware('remote.portal')->prefix('feature-flags')->group(function () {
     Route::get('/catalog', [FeatureFlagApiController::class, 'catalog']);
     Route::post('/sync', [FeatureFlagApiController::class, 'sync']);
 });
+
+// Module routes: each app/Modules/<Name>/routes/api.php declares its own prefix and middleware.
+foreach (glob(app_path('Modules/*/routes/api.php')) ?: [] as $moduleRoutes) {
+    require $moduleRoutes;
+}

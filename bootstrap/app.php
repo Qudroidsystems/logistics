@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'force.password' => \App\Http\Middleware\ForcePasswordChange::class,
             'remote.portal' => \App\Http\Middleware\VerifyRemotePortal::class,
             'maintenance.mode' => \App\Http\Middleware\MaintenanceMode::class,
+            'api.client' => \App\Http\Middleware\AuthenticateApiClient::class,
         ]);
 
         // Temporary passwords (staff-created accounts) must be changed first.
