@@ -28,7 +28,7 @@ services:
                 condition: service_healthy
 
     pgsql:
-        image: 'postgres:17'
+        image: 'imresamu/postgis:17-3.5'
         ports:
             - '${FORWARD_DB_PORT:-5433}:5432'
         environment:
@@ -68,10 +68,12 @@ services:
             timeout: 5s
             retries: 5
 
-        reverb:
+    reverb:
         image: sail-8.4/app
-        command: >
-            bash -c "php artisan reverb:start --host=0.0.0.0 --port=8080"
+        command:
+            - bash
+            - -c
+            - 'php artisan reverb:start --host=0.0.0.0 --port=8080'
         ports:
             - '${REVERB_PORT:-8080}:8080'
         volumes:
@@ -86,8 +88,10 @@ services:
 
     queue:
         image: sail-8.4/app
-        command: >
-            bash -c "php artisan queue:work redis --sleep=3 --tries=3 --timeout=90"
+        command:
+            - bash
+            - -c
+            - 'php artisan queue:work redis --sleep=3 --tries=3 --timeout=90'
         volumes:
             - '.:/var/www/html'
         networks:
@@ -99,6 +103,7 @@ services:
                 condition: service_healthy
             pgsql:
                 condition: service_healthy
+
     mailpit:
         image: 'axllent/mailpit:latest'
         ports:
@@ -129,7 +134,9 @@ networks:
 volumes:
     logistics-pgsql:
         driver: local
+
     logistics-redis:
         driver: local
+
     logistics-pgadmin:
         driver: local
