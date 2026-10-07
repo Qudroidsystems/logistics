@@ -32,6 +32,13 @@
                 @endcan
 
                 {{-- ===== Operations (Phase 1+: deliveries, dispatch, tracking) ===== --}}
+                @if(auth()->user()->can('dashboard') || auth()->user()->can('View delivery') || auth()->user()->can('View dispute') || auth()->user()->can('View kyc'))
+                <li class="menu-title"><i class="ri-more-fill"></i> <span>OPERATIONS</span></li>
+                @can('dashboard')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dashboard') ? 'active' : '' }}" href="{{ route('ops.dashboard') }}"><i class="ri-truck-line"></i> <span>Overview</span></a></li>@endcan
+                @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.order*') ? 'active' : '' }}" href="{{ route('ops.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>Orders</span></a></li>@endcan
+                @can('View dispute')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dispute*') ? 'active' : '' }}" href="{{ route('ops.disputes') }}"><i class="ri-scales-3-line"></i> <span>Disputes</span></a></li>@endcan
+                @can('View kyc')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.application*') ? 'active' : '' }}" href="{{ route('ops.applications') }}"><i class="ri-shield-user-line"></i> <span>Provider applications</span></a></li>@endcan
+                @endif
                 {{-- ===== Marketplace (Phase 2-4: vendors, drivers, shoppers, stores, business) ===== --}}
                 {{-- ===== Finance (payments, wallets, settlements) ===== --}}
 

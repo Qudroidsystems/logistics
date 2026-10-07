@@ -114,3 +114,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/feature-flags/{flag}/toggle', [FeatureFlagController::class, 'toggle'])->whereNumber('flag')->name('feature-flags.toggle');
     Route::post('/admin/feature-flags/{flag}/control', [FeatureFlagController::class, 'setControl'])->whereNumber('flag')->name('feature-flags.control');
 });
+
+// Staff console for the delivery marketplace
+require __DIR__.'/ops.php';
