@@ -33,15 +33,18 @@ class NotificationService
         try {
             // Nested transaction = savepoint, so a failed insert cannot poison the caller's Postgres transaction.
             DB::transaction(function () use ($userId, $event, $vars, $url, $tpl) {
+                [$inApp, $emailOk] = NotificationPreferences::channels($userId, $event);
                 $title = self::render($tpl['title'], $vars);
                 $body = self::render($tpl['body'], $vars);
-                DB::table('notifications')->insert([
-                    'id' => (string) Str::uuid(), 'type' => $event, 'notifiable_type' => User::class, 'notifiable_id' => $userId,
-                    'data' => json_encode(['event' => $event, 'title' => $title, 'body' => $body, 'url' => $url]),
-                    'created_at' => now(), 'updated_at' => now(),
-                ]);
+                if ($inApp) {
+                    DB::table('notifications')->insert([
+                        'id' => (string) Str::uuid(), 'type' => $event, 'notifiable_type' => User::class, 'notifiable_id' => $userId,
+                        'data' => json_encode(['event' => $event, 'title' => $title, 'body' => $body, 'url' => $url]),
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
 
-                if (! empty($tpl['email']) && DB::table('users')->where('id', $userId)->whereNotNull('email')->exists()) {
+                if ($emailOk && ! empty($tpl['email']) && DB::table('users')->where('id', $userId)->whereNotNull('email')->exists()) {
                     $deliveryId = DB::table('notification_deliveries')->insertGetId([
                         'user_id' => $userId, 'template_key' => $event, 'channel' => 'email', 'status' => 'queued', 'created_at' => now(), 'updated_at' => now(),
                     ]);
