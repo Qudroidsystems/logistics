@@ -43,6 +43,10 @@ class NotificationTemplates
         'payout.paid' => ['title' => 'Payout sent', 'body' => '{amount} has been sent to your bank account.', 'email' => true],
         'payout.failed' => ['title' => 'Payout failed', 'body' => 'Your payout of {amount} could not be completed. The money is back in your wallet. {note}', 'email' => true],
 
+        // ---- teams
+        'team.invited' => ['title' => 'Team invitation', 'body' => '{provider} invited you to join as {role}.', 'email' => false],
+        'team.joined' => ['title' => 'New team member', 'body' => '{name} joined your team as {role}.', 'email' => false],
+
         // ---- ratings
         'rating.received' => ['title' => 'New rating', 'body' => 'You received {score} out of 5 for order {order}.', 'email' => false],
     ];
