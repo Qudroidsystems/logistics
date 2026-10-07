@@ -38,7 +38,7 @@ class NotificationPreferences
         if (! self::canMute($cat)) {
             return [true, true];
         }
-        $row = DB::table('notification_preferences')->where(['user_id' => $userId, 'category' => $cat])->first(['in_app', 'email']);
+        $row = DB::table('user_notification_preferences')->where(['user_id' => $userId, 'category' => $cat])->first(['in_app', 'email']);
 
         return $row ? [(bool) $row->in_app, (bool) $row->email] : [true, true];
     }
@@ -46,7 +46,7 @@ class NotificationPreferences
     /** @return array<int,array{category:string,label:string,in_app:bool,email:bool,locked:bool}> */
     public static function forUser(int $userId): array
     {
-        $saved = DB::table('notification_preferences')->where('user_id', $userId)->get()->keyBy('category');
+        $saved = DB::table('user_notification_preferences')->where('user_id', $userId)->get()->keyBy('category');
         $out = [];
         foreach (self::MUTABLE as $cat => $label) {
             $r = $saved[$cat] ?? null;
@@ -60,12 +60,12 @@ class NotificationPreferences
 
     public static function set(int $userId, string $category, ?bool $inApp, ?bool $email): void
     {
-        $cur = DB::table('notification_preferences')->where(['user_id' => $userId, 'category' => $category])->first();
+        $cur = DB::table('user_notification_preferences')->where(['user_id' => $userId, 'category' => $category])->first();
         $vals = ['in_app' => $inApp ?? ($cur ? (bool) $cur->in_app : true), 'email' => $email ?? ($cur ? (bool) $cur->email : true), 'updated_at' => now()];
         if ($cur) {
-            DB::table('notification_preferences')->where('id', $cur->id)->update($vals);
+            DB::table('user_notification_preferences')->where('id', $cur->id)->update($vals);
         } else {
-            DB::table('notification_preferences')->insert($vals + ['user_id' => $userId, 'category' => $category, 'created_at' => now()]);
+            DB::table('user_notification_preferences')->insert($vals + ['user_id' => $userId, 'category' => $category, 'created_at' => now()]);
         }
     }
 }

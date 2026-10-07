@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // One row per user and category that the user changed; no row means the default (everything on).
-        Schema::create('notification_preferences', function (Blueprint $t) {
+        Schema::create('user_notification_preferences', function (Blueprint $t) {
             $t->id();
             $t->foreignId('user_id')->constrained()->cascadeOnDelete();
             $t->string('category', 30);
@@ -22,6 +22,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('notification_preferences');
+        Schema::dropIfExists('user_notification_preferences');
     }
 };
