@@ -125,6 +125,14 @@ class DispatchService
             DB::table('shipments')->where('id', $shipment->id)->update(['status' => 'offered', 'updated_at' => now()]);
             $this->event($shipment->id, 'offer_sent', $shipment->status, 'offered', 'system', null, ['driver_profile_id' => $next->driver_profile_id, 'offer_id' => $offerId]);
 
+            // A text as well as the app push, so an offline driver still hears about the job. Best effort.
+            $driverUser = DB::table('driver_profiles')->where('id', $next->driver_profile_id)->value('user_id');
+            if ($driverUser) {
+                $secs = $this->offerSeconds();
+                app(\App\Modules\Notifications\Sms\SmsService::class)
+                    ->toUser((int) $driverUser, "New delivery job offer. Open the driver app within {$secs} seconds to accept.", 'dispatch.offer');
+            }
+
             // Fires after commit so the worker never sees an offer that was rolled back.
             ExpireDispatchOffer::dispatch($offerId)->delay(now()->addSeconds($this->offerSeconds() + 1))->afterCommit();
 

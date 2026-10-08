@@ -55,4 +55,17 @@ return [
         'live_public_key' => env('PAYSTACK_LIVE_PUBLIC_KEY'),
     ],
 
+    'sms' => [
+        // log (default, nothing is sent) | termii
+        'driver' => env('SMS_DRIVER', 'log'),
+    ],
+
+    'termii' => [
+        'api_key'   => env('TERMII_API_KEY'),
+        'sender_id' => env('TERMII_SENDER_ID'),
+        'base_url'  => env('TERMII_BASE_URL', 'https://api.ng.termii.com'),
+        // dnd = transactional route that reaches DND numbers; generic = cheaper, may be blocked by DND
+        'channel'   => env('TERMII_CHANNEL', 'dnd'),
+    ],
+
 ];

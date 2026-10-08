@@ -14,7 +14,7 @@ use Throwable;
  * for the messages that need one. Sending is best effort: a notification problem is logged and never breaks the money or
  * delivery step that triggered it.
  *
- * SMS and push are not wired to a provider yet; nothing here pretends otherwise.
+ * SMS goes through Notifications\Sms\SmsService (Termii; set SMS_DRIVER=termii). Push is not wired to a provider yet.
  */
 class NotificationService
 {
@@ -98,6 +98,31 @@ class NotificationService
         }
         if (! empty($map['provider'])) {
             $this->notifyOperator((int) $row->operator_id, $map['provider'], $vars, "/provider/jobs/{$row->public_id}");
+        }
+        if ($type === 'assigned') {
+            $this->textRecipient($shipmentId, (string) $row->public_id, (string) $row->order_number);
+        }
+    }
+
+    /**
+     * When a rider is assigned, text the drop-off contact the 4-digit delivery code and their tracking link.
+     * The rider must be given this code at hand-over, so it goes only to the person receiving the parcel.
+     */
+    private function textRecipient(int $shipmentId, string $publicId, string $order): void
+    {
+        try {
+            $phone = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'dropoff')->orderByDesc('seq')->value('contact_phone');
+            if (! $phone) {
+                return;
+            }
+            $code = app(\App\Modules\Tracking\TrackingService::class)->deliveryCode($publicId);
+            $token = DB::table('tracking_links')->where('shipment_id', $shipmentId)->where('audience', 'recipient')->whereNull('revoked_at')->orderByDesc('id')->value('token');
+            $link = $token ? ' Track: '.url('/track/'.$token) : '';
+            app(\App\Modules\Notifications\Sms\SmsService::class)->toNumber(
+                $phone, "A rider is bringing delivery {$order}. Give the rider this code when you receive it: {$code}.{$link}", null, 'delivery.recipient_code'
+            );
+        } catch (Throwable $e) {
+            Log::warning("Recipient text for shipment {$shipmentId} failed: {$e->getMessage()}");
         }
     }
 
