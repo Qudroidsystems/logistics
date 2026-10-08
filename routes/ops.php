@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CityZoneController as Z;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
+use App\Http\Controllers\Admin\SettingsController as St;
 use Illuminate\Support\Facades\Route;
 
 /** Staff console for the delivery marketplace. Same permissions as the JSON admin API. */
@@ -44,4 +45,8 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::put('/cities/{city}', [Z::class, 'updateCity'])->middleware('can:Update zone')->whereNumber('city')->name('city.update');
     Route::post('/cities/{city}/zones', [Z::class, 'storeZone'])->middleware('can:Create zone')->whereNumber('city')->name('zone.store');
     Route::post('/zones/{zone}/toggle', [Z::class, 'toggleZone'])->middleware('can:Update zone')->whereNumber('zone')->name('zone.toggle');
+
+    Route::get('/settings', [St::class, 'index'])->name('settings');
+    Route::post('/settings/fee', [St::class, 'saveFee'])->name('settings.fee');
+    Route::post('/settings/rules', [St::class, 'saveRules'])->name('settings.rules');
 });
