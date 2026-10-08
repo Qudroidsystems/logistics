@@ -24,8 +24,9 @@ use Illuminate\Support\Facades\DB;
 class WorkspaceController extends Controller
 {
     /** Team roles allowed on each area. */
-    private const AREAS = [
+    protected const AREAS = [
         'jobs' => ['owner', 'admin', 'dispatcher'],
+        'requests' => ['owner', 'admin', 'dispatcher'],
         'money' => ['owner', 'admin', 'finance'],
         'team' => ['owner', 'admin', 'driver_manager'],
     ];

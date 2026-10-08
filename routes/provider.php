@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
 use App\Http\Controllers\Provider\WorkspaceController as W;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,15 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/jobs/{shipment}', [W::class, 'job'])->name('job');
     Route::post('/jobs/{shipment}/assign', [W::class, 'assignJob'])->name('job.assign');
     Route::post('/jobs/{shipment}/cancel', [W::class, 'cancelJob'])->name('job.cancel');
+
+    // Customer requests: inbox, offers and negotiation
+    Route::get('/requests', [R::class, 'index'])->name('requests');
+    Route::get('/requests/{serviceRequest}', [R::class, 'show'])->name('request');
+    Route::post('/requests/{serviceRequest}/offer', [R::class, 'offer'])->name('request.offer');
+    Route::get('/negotiations/{thread}', [R::class, 'thread'])->name('thread');
+    Route::post('/negotiations/{thread}/say', [R::class, 'say'])->name('thread.say');
+    Route::post('/negotiations/{thread}/counter', [R::class, 'counter'])->name('thread.counter');
+    Route::post('/negotiations/{thread}/accept', [R::class, 'accept'])->name('thread.accept');
 
     Route::get('/wallet', [W::class, 'wallet'])->name('wallet');
     Route::post('/wallet/payout', [W::class, 'requestPayout'])->name('payout');
