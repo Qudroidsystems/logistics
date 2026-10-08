@@ -20,6 +20,9 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::get('/jobs', [DriverWorkController::class, 'jobs']);
         Route::get('/jobs/{shipment}', [DriverWorkController::class, 'job']);
         Route::post('/jobs/{shipment}/start', [DriverWorkController::class, 'start']);
+        Route::post('/jobs/{shipment}/release', [DriverWorkController::class, 'release']);
+        Route::post('/jobs/{shipment}/issue', [DriverWorkController::class, 'issue']);
+        Route::get('/earnings', [DriverWorkController::class, 'earnings']);
         Route::post('/location', [DriverJobController::class, 'location']);
         Route::post('/stops/{stop}/complete', [DriverJobController::class, 'completeStop']);
     });

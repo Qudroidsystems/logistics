@@ -4,6 +4,11 @@
 @php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Past jobs" icon="ri-history-line" subtitle="Your finished deliveries." :back="route('driver.home')" back-label="Today" />
+    <div class="row g-3 mb-3">
+        @foreach(['today' => 'Today', 'week' => 'This week', 'month' => 'This month'] as $k => $label)
+        <div class="col-4"><div class="p-3 border rounded text-center"><div class="small text-muted">{{ $label }}</div><div class="fs-5 fw-semibold">{{ $naira($earn[$k]) }}</div></div></div>
+        @endforeach
+    </div>
     <x-cb.card title="Finished" icon="ri-check-double-line" :count="count($rows)" :flush="true">
         <div class="table-responsive"><table class="table align-middle mb-0">
             <thead><tr><th>Route</th><th class="text-end">Pay</th><th>Date</th></tr></thead>

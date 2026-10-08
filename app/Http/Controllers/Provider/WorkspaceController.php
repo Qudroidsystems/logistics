@@ -129,6 +129,36 @@ class WorkspaceController extends Controller
         ], 'jobs');
     }
 
+    // ---------------------------------------------------------------- dispatch board
+
+    /** One screen for the dispatcher: paid jobs still waiting for a driver, who is free, and what is on the road. */
+    public function board(Request $request)
+    {
+        [$op] = $this->ctx($request, 'jobs');
+
+        $base = fn () => DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('s.operator_id', $op->id)
+            ->select('s.id', 's.public_id', 's.status', 's.needs_manual_dispatch', 's.updated_at', 'o.order_number', 'o.total');
+
+        $waiting = $base()->where('o.payment_status', 'paid')->whereIn('s.status', ManualAssignmentService::UNASSIGNED)
+            ->orderByDesc('s.needs_manual_dispatch')->orderBy('s.updated_at')->limit(100)->get();
+        $moving = $base()->whereIn('s.status', ['assigned', 'heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff'])
+            ->orderBy('s.updated_at')->limit(100)->get();
+
+        $ids = $waiting->pluck('id')->merge($moving->pluck('id'))->all();
+        $stops = DB::table('shipment_stops')->whereIn('shipment_id', $ids)->orderBy('seq')->get(['shipment_id', 'type', 'line1'])->groupBy('shipment_id');
+        $drivers = DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
+            ->whereIn('a.shipment_id', $moving->pluck('id'))->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->pluck('u.name', 'a.shipment_id');
+        $issues = DB::table('shipment_events')->whereIn('shipment_id', $moving->pluck('id'))->where('type', 'driver_issue')->where('created_at', '>', now()->subDay())
+            ->selectRaw('shipment_id, count(*) as n')->groupBy('shipment_id')->pluck('n', 'shipment_id');
+        $line = fn ($id, $type) => optional(collect($stops[$id] ?? [])->firstWhere('type', $type))->line1
+            ?? ($type === 'dropoff' ? optional(collect($stops[$id] ?? [])->last())->line1 : null);
+
+        return $this->view('provider.board', $request, [
+            'waiting' => $waiting, 'moving' => $moving, 'driverOf' => $drivers, 'issues' => $issues, 'line' => $line,
+            'drivers' => app(ManualAssignmentService::class)->drivers($op->id), 'pagetitle' => 'Dispatch board',
+        ], 'jobs');
+    }
+
     public function assignJob(Request $request, string $shipment)
     {
         $this->ctx($request, 'jobs');

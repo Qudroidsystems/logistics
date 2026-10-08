@@ -120,7 +120,7 @@ class DriverPagesTest extends TestCase
         $driverId = DB::table('driver_profiles')->where('user_id', $this->driver->id)->value('id');
         $sid = DB::table('shipments')->where('public_id', $this->shipment)->value('id');
         DB::table('shipments')->where('id', $sid)->update(['status' => 'offered']);
-        $runId = DB::table('dispatch_runs')->insertGetId(['shipment_id' => $sid, 'operator_id' => $this->op, 'created_at' => now(), 'updated_at' => now()] + $this->runDefaults());
+        $runId = DB::table('dispatch_runs')->insertGetId(['shipment_id' => $sid, 'strategy' => 'scored']);
         $offer = DB::table('dispatch_offers')->insertGetId([
             'run_id' => $runId, 'shipment_id' => $sid, 'driver_profile_id' => $driverId, 'operator_id' => $this->op, 'sequence' => 1,
             'payout_offered' => 150_000, 'expires_at' => now()->addSeconds(60),
@@ -132,11 +132,49 @@ class DriverPagesTest extends TestCase
         $this->assertSame('on_job', DB::table('driver_profiles')->where('id', $driverId)->value('availability'));
     }
 
-    /** Whatever columns dispatch_runs insists on beyond ids; kept in one place so a schema tweak fails one spot. */
-    private function runDefaults(): array
+    public function test_driver_can_report_a_problem_and_release_a_job_before_pickup(): void
     {
-        return array_filter([
-            'strategy' => 'scored', 'started_at' => now(),
-        ], fn ($v, $k) => \Illuminate\Support\Facades\Schema::hasColumn('dispatch_runs', $k), ARRAY_FILTER_USE_BOTH);
+        app(ManualAssignmentService::class)->assign($this->op, $this->shipment, $this->driver->id, $this->owner->id);
+
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/issue", ['reason' => 'wrong_address', 'note' => 'No such street'])->assertSessionHasNoErrors();
+        $this->assertSame(1, DB::table('shipment_events')->where('type', 'driver_issue')->count());
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/issue", ['reason' => 'nonsense'])->assertSessionHas('error');
+
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/release", ['reason' => 'vehicle_problem'])->assertRedirect(route('driver.home'));
+        $s = DB::table('shipments')->where('public_id', $this->shipment)->first();
+        $this->assertSame('awaiting_dispatch', $s->status);
+        $this->assertTrue((bool) $s->needs_manual_dispatch);
+        $this->assertSame('reassigned', DB::table('assignments')->where('shipment_id', $s->id)->value('status'));
+        $this->assertSame('online', DB::table('driver_profiles')->where('user_id', $this->driver->id)->value('availability'));
+
+        // The dispatcher can give it to someone else straight away.
+        $other = $this->makeDriver('Second Driver');
+        app(ManualAssignmentService::class)->assign($this->op, $this->shipment, $other->id, $this->owner->id);
+        $this->assertSame('assigned', DB::table('shipments')->where('public_id', $this->shipment)->value('status'));
+    }
+
+    public function test_a_job_cannot_be_released_once_the_goods_are_picked_up(): void
+    {
+        app(ManualAssignmentService::class)->assign($this->op, $this->shipment, $this->driver->id, $this->owner->id);
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/start");
+        $pickup = DB::table('shipment_stops')->join('shipments', 'shipments.id', '=', 'shipment_stops.shipment_id')->where('shipments.public_id', $this->shipment)->where('type', 'pickup')->value('shipment_stops.id');
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/stops/{$pickup}/complete", ['lat' => 7.80, 'lng' => 5.90]);
+
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/release", ['reason' => 'other'])->assertSessionHas('error');
+        $this->assertSame('in_transit', DB::table('shipments')->where('public_id', $this->shipment)->value('status'));
+        $this->actingAs($this->driver)->post("/driver/jobs/{$this->shipment}/issue", ['reason' => 'receiver_unreachable'])->assertSessionHasNoErrors();
+    }
+
+    public function test_earnings_add_up_finished_jobs(): void
+    {
+        $driverId = (int) DB::table('driver_profiles')->where('user_id', $this->driver->id)->value('id');
+        $sid = (int) DB::table('shipments')->where('public_id', $this->shipment)->value('id');
+        DB::table('assignments')->insert([
+            'public_id' => (string) Str::ulid(), 'shipment_id' => $sid, 'driver_profile_id' => $driverId, 'operator_id' => $this->op, 'status' => 'completed',
+            'payout_amount' => 120_000, 'completed_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->actingAs($this->driver)->get('/driver/history')->assertOk()->assertSee('₦1,200');
+        Sanctum::actingAs($this->driver);
+        $this->getJson('/api/v1/driver/earnings')->assertOk()->assertJsonPath('today', 120000);
     }
 }

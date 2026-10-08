@@ -63,7 +63,7 @@ class HomeController extends Controller
         abort_unless($job, 404);
 
         return view('driver.job', [
-            'job' => $job, 'next' => collect($job['stops'])->first(fn ($s) => $s['status'] !== 'completed'), 'pagetitle' => 'Job',
+            'job' => $job, 'issues' => DriverService::ISSUES, 'next' => collect($job['stops'])->first(fn ($s) => $s['status'] !== 'completed'), 'pagetitle' => 'Job',
         ]);
     }
 
@@ -91,6 +91,21 @@ class HomeController extends Controller
         return $this->back($this->jobs->completeStop($request, $stop, app(StopService::class)), 'Done.');
     }
 
+    public function release(Request $request, string $shipment)
+    {
+        $res = $this->work->release($request, $shipment);
+        if ($res->getStatusCode() >= 400) {
+            return $this->back($res, '');
+        }
+
+        return redirect()->route('driver.home')->with('success', 'The job has gone back to your dispatcher.');
+    }
+
+    public function issue(Request $request, string $shipment)
+    {
+        return $this->back($this->work->issue($request, $shipment), 'Your company has been told.');
+    }
+
     /** Browser location pings, posted every few seconds while a job is live. */
     public function location(Request $request): JsonResponse
     {
@@ -103,7 +118,7 @@ class HomeController extends Controller
     {
         $d = $this->driver($request);
 
-        return view('driver.history', ['rows' => $this->drivers->history($d->id, 50), 'pagetitle' => 'Past jobs']);
+        return view('driver.history', ['rows' => $this->drivers->history($d->id, 50), 'earn' => $this->drivers->earnings($d->id), 'pagetitle' => 'Past jobs']);
     }
 
     // ----------------------------------------------------------------

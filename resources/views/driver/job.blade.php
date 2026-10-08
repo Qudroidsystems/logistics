@@ -38,6 +38,27 @@
             @endif
         </x-cb.card>
     @endforeach
+    @if($job['live'])
+    <x-cb.card title="Something wrong?" icon="ri-error-warning-line">
+        <form method="POST" action="{{ route('driver.job.issue', $job['shipment']) }}" class="mb-3">@csrf
+            <select name="reason" class="form-select mb-2" required>
+                <option value="">What went wrong?</option>
+                @foreach($issues as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+            </select>
+            <input name="note" class="form-control mb-2" maxlength="500" placeholder="Tell your company more (optional)">
+            <button class="btn btn-outline-warning w-100">Tell my company</button>
+        </form>
+        @if(in_array($job['status'], ['assigned', 'heading_to_pickup', 'at_pickup'], true))
+        <form method="POST" action="{{ route('driver.job.release', $job['shipment']) }}" onsubmit="return confirm('Hand this job back to your dispatcher?')">@csrf
+            <select name="reason" class="form-select mb-2" required>
+                <option value="">Why can you not do this job?</option>
+                @foreach($issues as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+            </select>
+            <button class="btn btn-outline-danger w-100">I cannot do this job</button>
+        </form>
+        @endif
+    </x-cb.card>
+    @endif
 </div></div></div>
 
 @if($job['live'])

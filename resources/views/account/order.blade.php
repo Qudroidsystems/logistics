@@ -39,6 +39,16 @@
             </x-cb.card>
             @endif
 
+            @if(!empty($links['customer']))
+            <x-cb.card title="Follow your delivery" icon="ri-map-pin-time-line" class="mb-3">
+                <a class="btn btn-primary w-100 mb-2" target="_blank" rel="noopener" href="{{ route('track', $links['customer']) }}">Open live map</a>
+                @if(!empty($links['recipient']))
+                <label class="form-label small">Send this link to the person receiving the goods</label>
+                <input class="form-control form-control-sm" readonly onclick="this.select()" value="{{ route('track', $links['recipient']) }}">
+                @endif
+            </x-cb.card>
+            @endif
+
             <x-cb.card title="Progress" icon="ri-time-line" :flush="true">
                 <table class="table mb-0"><tbody>
                 @forelse($timeline as $e)<tr><td>{{ ucfirst(str_replace('_', ' ', $e->type)) }}</td><td class="small text-muted text-end">{{ \Illuminate\Support\Carbon::parse($e->created_at)->format('d M H:i') }}</td></tr>

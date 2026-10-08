@@ -90,6 +90,35 @@ class DriverWorkController extends Controller
         });
     }
 
+    public function release(Request $request, string $shipment)
+    {
+        $d = $this->driver($request);
+        $data = $request->validate(['reason' => 'required|string|max:30', 'note' => 'nullable|string|max:500']);
+
+        return $this->run(function () use ($d, $shipment, $data) {
+            $this->drivers->release($d->id, $shipment, $data['reason'], $data['note'] ?? null);
+
+            return ['ok' => true];
+        });
+    }
+
+    public function issue(Request $request, string $shipment)
+    {
+        $d = $this->driver($request);
+        $data = $request->validate(['reason' => 'required|string|max:30', 'note' => 'nullable|string|max:500']);
+
+        return $this->run(function () use ($d, $shipment, $data) {
+            $this->drivers->reportIssue($d->id, $shipment, $data['reason'], $data['note'] ?? null);
+
+            return ['ok' => true];
+        });
+    }
+
+    public function earnings(Request $request)
+    {
+        return response()->json($this->drivers->earnings($this->driver($request)->id));
+    }
+
     // ----------------------------------------------------------------
 
     private function driver(Request $request): object

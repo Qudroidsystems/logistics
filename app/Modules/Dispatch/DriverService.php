@@ -2,6 +2,7 @@
 
 namespace App\Modules\Dispatch;
 
+use App\Modules\Notifications\NotificationService;
 use App\Modules\Partner\ShipmentEvents;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -99,7 +100,87 @@ class DriverService
         });
     }
 
+
+    public const ISSUES = [
+        'receiver_unreachable' => 'Receiver not answering',
+        'wrong_address' => 'Address is wrong or cannot be found',
+        'goods_issue' => 'Problem with the goods',
+        'vehicle_problem' => 'Vehicle problem',
+        'safety' => 'I do not feel safe',
+        'other' => 'Something else',
+    ];
+
+    /** Pay recorded on finished jobs: today, this week and this month, in kobo. Jobs given by hand carry no pay figure. */
+    public function earnings(int $driverId): array
+    {
+        $sum = fn ($from) => (int) DB::table('assignments')->where('driver_profile_id', $driverId)->where('status', 'completed')->where('completed_at', '>=', $from)->sum('payout_amount');
+
+        return ['today' => $sum(now()->startOfDay()), 'week' => $sum(now()->startOfWeek()), 'month' => $sum(now()->startOfMonth())];
+    }
+
+    /** Tell the company something is wrong. Nothing changes on the job; the dispatcher decides what to do. */
+    public function reportIssue(int $driverId, string $shipmentPublicId, string $reason, ?string $note = null): void
+    {
+        if (! isset(self::ISSUES[$reason])) {
+            throw new RuntimeException('Choose what went wrong.');
+        }
+        [$s, $a] = $this->liveJob($driverId, $shipmentPublicId);
+        app(ShipmentEvents::class)->record((int) $s->id, 'driver_issue', $s->status, $s->status, 'driver', $driverId, ['reason' => $reason, 'note' => $note ? mb_substr($note, 0, 500) : null]);
+        $this->tellCompany($s, 'delivery.driver_issue', ['order' => $this->orderNumber($s), 'reason' => self::ISSUES[$reason]]);
+    }
+
+    /**
+     * The driver cannot do this job. Only before the goods are picked up; after that, report an issue instead.
+     * The job goes back to the dispatcher to hand to someone else, and is not offered straight back to this driver.
+     */
+    public function release(int $driverId, string $shipmentPublicId, string $reason, ?string $note = null): void
+    {
+        if (! isset(self::ISSUES[$reason])) {
+            throw new RuntimeException('Choose why you cannot do this job.');
+        }
+        $s = DB::transaction(function () use ($driverId, $shipmentPublicId, $reason, $note) {
+            $s = DB::table('shipments')->where('public_id', $shipmentPublicId)->lockForUpdate()->first();
+            $a = $s ? DB::table('assignments')->where('shipment_id', $s->id)->where('driver_profile_id', $driverId)->whereIn('status', self::LIVE)->lockForUpdate()->first() : null;
+            if (! $a) {
+                throw new RuntimeException('This job is not yours.');
+            }
+            if (! in_array($s->status, ['assigned', 'heading_to_pickup', 'at_pickup'], true)) {
+                throw new RuntimeException('The goods are already picked up. Report a problem instead and your dispatcher will help.');
+            }
+            DB::table('assignments')->where('id', $a->id)->update(['status' => 'reassigned', 'reassign_reason' => 'driver released: '.$reason, 'updated_at' => now()]);
+            DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'pickup')->whereIn('status', ['en_route', 'arrived'])->update(['status' => 'pending', 'arrived_at' => null, 'updated_at' => now()]);
+            DB::table('shipments')->where('id', $s->id)->update(['status' => 'awaiting_dispatch', 'needs_manual_dispatch' => true, 'updated_at' => now()]);
+            DB::table('driver_profiles')->where(['id' => $driverId, 'availability' => 'on_job'])->update(['availability' => 'online', 'updated_at' => now()]);
+            app(ShipmentEvents::class)->record((int) $s->id, 'driver_released', $s->status, 'awaiting_dispatch', 'driver', $driverId, ['reason' => $reason, 'note' => $note ? mb_substr($note, 0, 500) : null]);
+
+            return $s;
+        });
+        $this->tellCompany($s, 'delivery.driver_released', ['order' => $this->orderNumber($s), 'reason' => self::ISSUES[$reason]]);
+    }
+
     // ----------------------------------------------------------------
+
+    /** @return array{0:object,1:object} the shipment and this driver's live assignment on it */
+    private function liveJob(int $driverId, string $shipmentPublicId): array
+    {
+        $s = DB::table('shipments')->where('public_id', $shipmentPublicId)->first();
+        $a = $s ? DB::table('assignments')->where('shipment_id', $s->id)->where('driver_profile_id', $driverId)->whereIn('status', self::LIVE)->first() : null;
+        if (! $a) {
+            throw new RuntimeException('This job is not yours.');
+        }
+
+        return [$s, $a];
+    }
+
+    private function orderNumber(object $shipment): string
+    {
+        return (string) DB::table('orders')->where('id', $shipment->order_id)->value('order_number');
+    }
+
+    private function tellCompany(object $shipment, string $event, array $vars): void
+    {
+        app(NotificationService::class)->notifyOperator((int) $shipment->operator_id, $event, $vars, "/provider/jobs/{$shipment->public_id}");
+    }
 
     /** Adds the pickup and drop-off lines so a list row can say "from A to B". */
     private function withEnds(object $row): array

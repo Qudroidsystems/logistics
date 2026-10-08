@@ -251,6 +251,7 @@ class AccountController extends Controller
         return $this->view('account.order', [
             's' => $s, 'timeline' => DB::table('shipment_events')->where('shipment_id', $s->id)->orderBy('seq')->get(['type', 'created_at']),
             'preview' => $preview, 'code' => $code, 'rated' => $rated,
+            'links' => DB::table('tracking_links')->where('shipment_id', $s->id)->whereNull('revoked_at')->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->pluck('token', 'audience')->all(),
             'canConfirm' => $s->status === 'delivered', 'canRate' => in_array($s->status, ['confirmed', 'completed'], true) && ! $rated,
             'pagetitle' => 'Order',
         ]);

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth')->prefix('provider')->name('provider.')->group(function () {
     Route::get('/', [W::class, 'dashboard'])->name('dashboard');
 
+    Route::get('/dispatch', [W::class, 'board'])->name('dispatch');
     Route::get('/jobs', [W::class, 'jobs'])->name('jobs');
     Route::get('/jobs/{shipment}', [W::class, 'job'])->name('job');
     Route::post('/jobs/{shipment}/assign', [W::class, 'assignJob'])->name('job.assign');

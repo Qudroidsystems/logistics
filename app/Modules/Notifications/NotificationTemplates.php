@@ -24,6 +24,8 @@ class NotificationTemplates
 
         // ---- delivery lifecycle (customer side)
         'delivery.job_assigned' => ['title' => 'New job for you', 'body' => 'You have been given order {order}. Open it for the pickup details.', 'email' => false],
+        'delivery.driver_issue' => ['title' => 'Driver reported a problem', 'body' => 'On order {order}: {reason}. Open the job to decide what to do.', 'email' => true],
+        'delivery.driver_released' => ['title' => 'Driver handed a job back', 'body' => 'Order {order} needs a new driver ({reason}). Assign someone from the job page.', 'email' => true],
         'delivery.assigned' => ['title' => 'Rider assigned', 'body' => 'Your order {order} has a rider and is on its way to pickup.', 'email' => false],
         'delivery.arrived' => ['title' => 'Rider has arrived', 'body' => 'The rider for {order} has arrived.', 'email' => false],
         'delivery.picked_up' => ['title' => 'Order picked up', 'body' => 'Order {order} is on its way. You can follow it live.', 'email' => false],
