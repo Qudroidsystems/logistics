@@ -153,7 +153,7 @@ class WorkspaceController extends Controller
             'w' => $this->payouts->wallet($request, $accounts)->getData(true),
             'payouts' => $this->payouts->payouts($request)->getData(true),
             'banks' => $this->payouts->bankAccounts($request)->getData(true),
-            'bankList' => self::BANKS,
+            'bankList' => app(\App\Modules\Payments\BankDirectory::class)->all(),
             'pagetitle' => 'Wallet',
         ], 'money');
     }
@@ -171,7 +171,7 @@ class WorkspaceController extends Controller
     {
         $this->ctx($request, 'money');
         $d = $request->validate(['bank_code' => 'required|string|max:12', 'account_number' => 'required|digits:10']);
-        $request->merge(['bank_name' => self::BANKS[$d['bank_code']] ?? null]);
+        $request->merge(['bank_name' => app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code'])]);
 
         return $this->back($this->payouts->addBankAccount($request, $banks), 'Bank account added.');
     }

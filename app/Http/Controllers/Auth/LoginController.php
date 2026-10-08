@@ -65,6 +65,14 @@ class LoginController extends Controller
             }
         }
 
+        // A driver who only drives (no management role anywhere) goes straight to the driver pages.
+        if (! $user->can('dashboard')) {
+            $roles = \Illuminate\Support\Facades\DB::table('operator_members')->where('user_id', $user->id)->where('status', 'active')->pluck('role');
+            if ($roles->isNotEmpty() && $roles->every(fn ($r) => $r === 'driver')) {
+                return redirect()->route('driver.home');
+            }
+        }
+
         // A provider who is not staff has no admin dashboard; send them to their own workspace.
         if (! $user->can('dashboard') && \Illuminate\Support\Facades\DB::table('operator_members')->where('user_id', $user->id)->where('status', 'active')->exists()) {
             return redirect()->route('provider.dashboard');

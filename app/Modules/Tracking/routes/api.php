@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Customer\CancellationController;
 use App\Http\Controllers\Api\Customer\CustomerWalletController;
 use App\Http\Controllers\Api\Customer\TrackingController;
 use App\Http\Controllers\Api\Driver\DriverJobController;
+use App\Http\Controllers\Api\Driver\DriverWorkController;
 use Illuminate\Support\Facades\Route;
 
 // Public, token-guarded tracking page data.
@@ -11,6 +12,14 @@ Route::get('/v1/track/{token}', [TrackingController::class, 'show'])->middleware
 
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::prefix('driver')->middleware('throttle:120,1')->group(function () {
+        Route::get('/me', [DriverWorkController::class, 'me']);
+        Route::post('/availability', [DriverWorkController::class, 'availability']);
+        Route::get('/offers', [DriverWorkController::class, 'offers']);
+        Route::post('/offers/{offer}/accept', [DriverWorkController::class, 'accept'])->whereNumber('offer');
+        Route::post('/offers/{offer}/decline', [DriverWorkController::class, 'decline'])->whereNumber('offer');
+        Route::get('/jobs', [DriverWorkController::class, 'jobs']);
+        Route::get('/jobs/{shipment}', [DriverWorkController::class, 'job']);
+        Route::post('/jobs/{shipment}/start', [DriverWorkController::class, 'start']);
         Route::post('/location', [DriverJobController::class, 'location']);
         Route::post('/stops/{stop}/complete', [DriverJobController::class, 'completeStop']);
     });

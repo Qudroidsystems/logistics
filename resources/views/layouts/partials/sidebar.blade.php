@@ -2,6 +2,8 @@
     @include('layouts.partials.provider-sidebar')
 @elseif(request()->routeIs('account.*'))
     @include('layouts.partials.account-sidebar')
+@elseif(request()->routeIs('driver.*'))
+    @include('layouts.partials.driver-sidebar')
 @else
 {{-- Admin sidebar. Items are gated by permission and by module feature flags.
      New modules add their block here as they are built. --}}

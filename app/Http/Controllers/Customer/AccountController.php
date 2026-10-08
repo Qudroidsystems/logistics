@@ -295,7 +295,7 @@ class AccountController extends Controller
     {
         return $this->view('account.wallet', [
             'w' => $this->wallet->show($request, $wallet)->getData(true), 'banks' => $this->wallet->bankAccounts($request)->getData(true),
-            'bankList' => WorkspaceController::BANKS,
+            'bankList' => app(\App\Modules\Payments\BankDirectory::class)->all(),
             'history' => DB::table('payout_requests as p')->join('wallets as w', 'w.id', '=', 'p.wallet_id')->where(['w.owner_type' => 'customer', 'w.owner_id' => $request->user()->id])
                 ->orderByDesc('p.id')->limit(20)->get(['p.amount', 'p.status', 'p.created_at']),
             'pagetitle' => 'Wallet',
@@ -316,7 +316,7 @@ class AccountController extends Controller
     public function addBank(Request $request, BankAccountService $banks)
     {
         $d = $request->validate(['bank_code' => 'required|string|max:12', 'account_number' => 'required|digits:10']);
-        $request->merge(['bank_name' => WorkspaceController::BANKS[$d['bank_code']] ?? null]);
+        $request->merge(['bank_name' => app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code'])]);
 
         return $this->done($this->wallet->addBankAccount($request, $banks), 'Bank account added.');
     }
