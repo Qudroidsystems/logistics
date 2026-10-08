@@ -481,8 +481,15 @@
                                 </div>
                             </div>
                             <div class="dropdown-divider"></div>
+                            @php
+                                $selfArea = request()->routeIs('driver.*') ? 'driver.phone' : (request()->routeIs('provider.*', 'merchant.*', 'account.*') ? 'account.phone' : null);
+                            @endphp
+                            @if($selfArea && \Illuminate\Support\Facades\Route::has($selfArea))
+                            <a class="dropdown-item" href="{{ route($selfArea) }}"><i class="mdi mdi-account-circle me-2"></i>My Profile</a>
+                            @else
                             <a class="dropdown-item" href="{{ route('users.overview', $userdata->id) }}"><i class="mdi mdi-account-circle me-2"></i>My Profile</a>
                             <a class="dropdown-item" href="{{ route('profile.settings', ['id' => $userdata->id]) }}"><i class="mdi mdi-cog me-2"></i>Account Settings</a>
+                            @endif
                             <div class="dropdown-divider"></div>
                             <form method="POST" action="{{ route('logout') }}" id="topbar-logout-form">@csrf<a class="dropdown-item text-danger" href="{{ route('logout') }}" onclick="event.preventDefault();document.getElementById('topbar-logout-form').submit();"><i class="mdi mdi-logout me-2"></i>Logout</a></form>
                         </div>

@@ -134,4 +134,5 @@ const ok = t && Math.abs(Date.now()/1000 - t) < 300 &&
 <tr><td>429</td><td><code>{"error":"rate_limited"}</code></td><td>Slow down; see <code>Retry-After</code>.</td></tr>
 </table>
 <p class="muted">Questions or a key request: contact {{ config('app.name') }} staff.</p>
+<p class="muted">Building a customer or driver app instead? See the <a href="{{ route('developers.app') }}">App API</a>.</p>
 </div></body></html>

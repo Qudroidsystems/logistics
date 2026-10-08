@@ -102,3 +102,60 @@
 
 <h2 id="tracking">Tracking (no sign-in)</h2>
 <p><span class="tag">GET</span><code>/track/{token}</code> returns the live state for a tracking link: status, the driver's last position and an estimated arrival. The token is in the link texted to the receiver and shown to the customer. Poll every 5 to 10 seconds while the screen is open; open the same link at <code>{{ url('/track') }}/{token}</code> in a web view if you prefer our map page.</p>
+
+<h2 id="driver">Driver</h2>
+<p>For users whose <code>/auth/me</code> shows a <code>driver</code> membership. All calls are under <code>/driver</code>.</p>
+<table>
+<tr><th>Call</th><th>Body / notes</th></tr>
+<tr><td><span class="tag">GET</span><code>/driver/me</code></td><td>Profile, vehicle, current availability and today's numbers.</td></tr>
+<tr><td><span class="tag">PUT</span><code>/driver/availability</code></td><td><code>status</code>: <code>online</code>, <code>offline</code> or <code>break</code>. Only online drivers get offers.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/offers</code></td><td>Open job offers with pickup, drop-off, distance, pay and seconds left. Also pushed as a notification and a text.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/offers/{id}/accept</code>, <code>/decline</code></td><td>Accept fails with <code>422</code> if it expired or someone else took it.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/jobs</code></td><td>Your active jobs.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/jobs/{shipment}</code></td><td>One job with its ordered stops, contacts, status and the failed-delivery terms.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/start</code></td><td>Heading to pickup.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/release</code></td><td>Hand the job back before pickup.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/issue</code></td><td>Report a problem: <code>type</code>, optional <code>note</code>.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/fail</code></td><td><code>reason</code> (<code>receiver_unreachable, receiver_refused, wrong_address</code>), optional <code>note</code>. Only at the drop-off, and only after the agreed wait time. Adds a return stop when the terms say the parcel goes back.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/stops/{id}/complete</code></td><td>See below.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/earnings</code></td><td>Totals, recent jobs and the driver's <code>wallet</code> balance. Pay is posted to the wallet when the customer confirms; withdraw it with the customer wallet calls.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/location</code></td><td>Batch of GPS pings (below).</td></tr>
+</table>
+
+<h3>Location pings</h3>
+<p>Send while online or on a job: every 5 to 10 seconds on a job, every 30 or so when idle. Queue pings offline and send up to 100 at once.</p>
+<pre><code>POST /driver/location
+{"pings": [
+  {"lat": 7.8012, "lng": 6.7411, "at": "2026-10-06T14:02:11+01:00",
+   "accuracy": 8, "speed": 6.4, "heading": 120, "battery": 71, "mocked": false}
+]}</code></pre>
+<p>Arrival at a stop is detected on the server from these pings. Pings flagged <code>mocked</code> are ignored and recorded.</p>
+
+<h3>Completing a stop</h3>
+<pre><code>POST /driver/stops/{id}/complete
+{"proof_type": "otp", "otp": "4821", "lat": 7.83, "lng": 6.76, "recipient_name": "Chi"}</code></pre>
+<p><code>proof_type</code> is <code>otp, photo, signature</code> or <code>qr_scan</code>. The driver must be within 300 m of the stop. A drop-off needs the receiver's 4-digit delivery code, or a photo. Pick-ups can use a photo or signature.</p>
+<p><b>Known gap:</b> there is no photo upload endpoint yet. The call accepts only a <code>file_path</code> string, so for now apps should complete drop-offs with the delivery code.</p>
+
+<h2 id="notifications">Notifications</h2>
+<table>
+<tr><th>Call</th><th>Notes</th></tr>
+<tr><td><span class="tag">GET</span><code>/notifications?limit=30&amp;unread=1</code></td><td>Returns <code>{"unread": 3, "items": [...]}</code>, newest first (limit up to 100). Each item has <code>id, category, title, body, data, read_at, created_at</code>; <code>data</code> carries the IDs you need to deep-link.</td></tr>
+<tr><td><span class="tag">POST</span><code>/notifications/{id}/read</code>, <code>/notifications/read-all</code></td><td></td></tr>
+<tr><td><span class="tag">GET / PUT</span><code>/notifications/preferences</code></td><td>Which channels (in-app, email, SMS) are on for each category. Delivery and payment alerts that the receiver or driver needs cannot be turned off.</td></tr>
+</table>
+<p>There is no push provider wired up yet, so poll while the app is open (every 20 to 30 seconds) and refresh on resume.</p>
+
+<h2 id="status">Shipment statuses</h2>
+<table>
+<tr><th>Status</th><th>Meaning</th></tr>
+<tr><td><code>created, awaiting_dispatch, offered</code></td><td>Paid and waiting for a driver.</td></tr>
+<tr><td><code>no_supply, unassigned</code></td><td>Nobody accepted yet; staff or the provider are looking.</td></tr>
+<tr><td><code>assigned, heading_to_pickup, at_pickup</code></td><td>Driver found and on the way.</td></tr>
+<tr><td><code>picked_up, in_transit, at_dropoff</code></td><td>Parcel is moving.</td></tr>
+<tr><td><code>delivered, confirmed, completed</code></td><td>Handed over, customer confirmed, money released.</td></tr>
+<tr><td><code>failed_attempt, returning, returned</code></td><td>Receiver not reached; parcel on its way back or back with the sender.</td></tr>
+<tr><td><code>cancelled</code></td><td>Cancelled by the customer or staff.</td></tr>
+</table>
+<p class="muted">Related: <a href="{{ route('developers.partner') }}">Partner API for merchants</a>.</p>
+</div></body></html>
