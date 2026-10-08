@@ -12,6 +12,10 @@
     @include('provider._flash')
     <div class="row g-3">
         <div class="col-lg-8">
+            <x-cb.card title="If the delivery fails" icon="ri-file-list-3-line" class="mb-3">
+                @foreach($terms as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
+                <div class="small text-muted">Agreed with the customer when the job was booked.</div>
+            </x-cb.card>
             <x-cb.card title="Timeline" icon="ri-time-line" :flush="true">
                 <table class="table mb-0"><tbody>
                 @forelse($timeline as $e)

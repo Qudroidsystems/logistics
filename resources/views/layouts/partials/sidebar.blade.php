@@ -4,6 +4,8 @@
     @include('layouts.partials.account-sidebar')
 @elseif(request()->routeIs('driver.*'))
     @include('layouts.partials.driver-sidebar')
+@elseif(request()->routeIs('merchant.*'))
+    @include('layouts.partials.merchant-sidebar')
 @else
 {{-- Admin sidebar. Items are gated by permission and by module feature flags.
      New modules add their block here as they are built. --}}
@@ -43,6 +45,7 @@
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>OPERATIONS</span></li>
                 @can('dashboard')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dashboard') ? 'active' : '' }}" href="{{ route('ops.dashboard') }}"><i class="ri-truck-line"></i> <span>Overview</span></a></li>@endcan
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.order*') ? 'active' : '' }}" href="{{ route('ops.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>Orders</span></a></li>@endcan
+                @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.failed') ? 'active' : '' }}" href="{{ route('ops.failed') }}"><i class="ri-error-warning-line"></i> <span>Failed deliveries</span></a></li>@endcan
                 @can('View dispute')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dispute*') ? 'active' : '' }}" href="{{ route('ops.disputes') }}"><i class="ri-scales-3-line"></i> <span>Disputes</span></a></li>@endcan
                 @can('View kyc')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.application*') ? 'active' : '' }}" href="{{ route('ops.applications') }}"><i class="ri-shield-user-line"></i> <span>Provider applications</span></a></li>@endcan
                 @if(auth()->user()->hasAnyPermission(['View vendor','View driver','View shopper']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.provider*') ? 'active' : '' }}" href="{{ route('ops.providers') }}"><i class="ri-team-line"></i> <span>Providers</span></a></li>@endif

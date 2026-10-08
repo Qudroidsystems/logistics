@@ -30,6 +30,17 @@
                 @if($m->website)<div class="small text-muted mt-2">{{ $m->website }}</div>@endif
             </x-cb.card>
 
+            <x-cb.card title="Account owner" icon="ri-user-star-line" class="mb-3">
+                @if($owner)<div class="small mb-2"><strong>{{ $owner->name }}</strong><div class="text-muted">{{ $owner->email }}</div></div>@else<div class="small text-warning mb-2">No owner yet. Deliveries cannot be booked until someone owns this merchant.</div>@endif
+                @can('Update vendor')
+                <form method="POST" action="{{ route('ops.merchant.owner', $m->id) }}" class="d-flex gap-2">@csrf
+                    <input type="email" name="email" class="form-control form-control-sm" placeholder="Email of an existing account" value="{{ old('email') }}" required>
+                    <button class="btn btn-sm btn-primary">Set owner</button>
+                </form>
+                <div class="small text-muted mt-1">They sign in to the merchant page, and deliveries and prepaid-wallet payments run under their account.</div>
+                @endcan
+            </x-cb.card>
+
             <x-cb.card title="Recent orders" icon="ri-shopping-bag-3-line" :flush="true">
                 <table class="table mb-0"><tbody>
                 @forelse($recent as $o)
@@ -42,6 +53,22 @@
         </div>
 
         <div class="col-lg-7">
+            @if($liveRequest)
+            <x-cb.card title="Live key request" icon="ri-rocket-line" class="mb-3">
+                <div class="small mb-2"><span class="badge bg-{{ $liveRequest->status === 'pending' ? 'warning text-dark' : ($liveRequest->status === 'declined' ? 'danger' : 'success') }}">{{ $liveRequest->status }}</span>
+                    <span class="text-muted">from {{ $liveRequest->by }}, {{ \Illuminate\Support\Carbon::parse($liveRequest->created_at)->diffForHumans() }}</span></div>
+                <div class="small mb-2" style="white-space:pre-line">{{ $liveRequest->note }}</div>
+                @if($liveRequest->decision_note)<div class="small text-muted mb-2">Reply: {{ $liveRequest->decision_note }}</div>@endif
+                @if($liveRequest->status === 'pending')@can('Update vendor')
+                <form method="POST" action="{{ route('ops.merchant.live.decide', [$m->id, $liveRequest->id]) }}">@csrf
+                    <input name="note" class="form-control form-control-sm mb-2" maxlength="300" placeholder="Note to the merchant (needed to decline)">
+                    <button name="decision" value="approve" class="btn btn-sm btn-success">Approve</button>
+                    <button name="decision" value="decline" class="btn btn-sm btn-outline-danger">Decline</button>
+                </form>
+                @endcan @endif
+            </x-cb.card>
+            @endif
+
             <x-cb.card title="API keys" icon="ri-key-2-line" :count="count($keys)" :flush="true">
                 <div class="table-responsive"><table class="table align-middle mb-0">
                     <thead><tr><th>Name</th><th>Key</th><th>Used</th><th></th></tr></thead>

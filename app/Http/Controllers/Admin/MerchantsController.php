@@ -21,14 +21,15 @@ class MerchantsController extends Controller
     private const SETTLEMENT = ['pay_at_checkout' => 'Customer pays at checkout', 'prepaid_wallet' => 'Merchant prepaid wallet', 'monthly_invoice' => 'Monthly invoice'];
 
     /** Delivery updates a merchant can subscribe to. '*' means all of them. */
-    private const EVENTS = ['delivery.created', 'delivery.assigned', 'delivery.driver_arrived', 'delivery.picked_up', 'delivery.delivered', 'delivery.confirmed', 'delivery.disputed', 'delivery.dispute_resolved', 'delivery.cancelled'];
+    private const EVENTS = ['delivery.created', 'delivery.assigned', 'delivery.driver_arrived', 'delivery.picked_up', 'delivery.delivered', 'delivery.confirmed', 'delivery.failed', 'delivery.returned', 'delivery.disputed', 'delivery.dispute_resolved', 'delivery.cancelled'];
 
     public function index()
     {
         $rows = DB::table('merchants as m')
             ->selectRaw('m.id, m.merchant_code, m.display_name, m.status, m.settlement_mode, m.created_at,
                 (select count(*) from api_clients c where c.merchant_id = m.id and c.revoked_at is null) as keys_active,
-                (select count(*) from orders o where o.merchant_id = m.id) as orders')
+                (select count(*) from orders o where o.merchant_id = m.id) as orders,
+                (select count(*) from live_key_requests r where r.merchant_id = m.id and r.status = \'pending\') as live_pending')
             ->orderByDesc('m.id')->limit(200)->get();
 
         return view('ops.merchants', ['rows' => $rows, 'settlement' => self::SETTLEMENT, 'pagetitle' => 'Merchants']);
@@ -75,6 +76,8 @@ class MerchantsController extends Controller
             'm' => $m,
             'keys' => DB::table('api_clients')->where('merchant_id', $m->id)->orderByDesc('id')->get(['id', 'name', 'environment', 'key_prefix', 'scopes', 'last_used_at', 'revoked_at', 'created_at']),
             'hooks' => DB::table('webhook_endpoints')->where('operator_id', $m->operator_id)->orderByDesc('id')->get(['id', 'url', 'events', 'active', 'is_test', 'created_at']),
+            'owner' => DB::table('operator_members as om')->join('users as u', 'u.id', '=', 'om.user_id')->where('om.operator_id', $m->operator_id)->where('om.role', 'owner')->where('om.status', 'active')->first(['u.name', 'u.email']),
+            'liveRequest' => DB::table('live_key_requests as r')->join('users as u', 'u.id', '=', 'r.requested_by')->where('r.merchant_id', $m->id)->orderByDesc('r.id')->first(['r.id', 'r.status', 'r.note', 'r.decision_note', 'r.created_at', 'u.name as by']),
             'recent' => DB::table('orders')->where('merchant_id', $m->id)->orderByDesc('id')->limit(10)->get(['order_number', 'external_order_id', 'total', 'payment_status', 'created_at']),
             'statuses' => self::STATUSES, 'settlement' => self::SETTLEMENT, 'events' => self::EVENTS,
             'newKey' => session('new_key'), 'newSecret' => session('new_secret'),
@@ -106,6 +109,67 @@ class MerchantsController extends Controller
         });
 
         return back()->with('success', 'Merchant saved.');
+    }
+
+    /** Gives an existing account ownership of the merchant: they sign in to the merchant page, and deliveries are booked and paid under their account. */
+    public function setOwner(Request $request, int $merchant)
+    {
+        $m = $this->find($merchant);
+        $d = $request->validate(['email' => ['required', 'email', 'max:160']]);
+        $u = DB::table('users')->where('email', $d['email'])->first();
+        if (! $u) {
+            return back()->withInput()->with('error', 'No account has that email. Ask them to sign up first, then add them here.');
+        }
+
+        DB::transaction(function () use ($m, $u, $request) {
+            DB::table('operator_members')->where('operator_id', $m->operator_id)->where('role', 'owner')->where('user_id', '!=', $u->id)->update(['role' => 'admin', 'updated_at' => now()]);
+            $row = DB::table('operator_members')->where(['operator_id' => $m->operator_id, 'user_id' => $u->id])->first();
+            if ($row) {
+                DB::table('operator_members')->where('id', $row->id)->update(['role' => 'owner', 'status' => 'active', 'updated_at' => now()]);
+            } else {
+                DB::table('operator_members')->insert([
+                    'operator_id' => $m->operator_id, 'user_id' => $u->id, 'role' => 'owner', 'status' => 'active',
+                    'invited_by' => $request->user()->id, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+            if (! $u->current_operator_id) {
+                DB::table('users')->where('id', $u->id)->update(['current_operator_id' => $m->operator_id, 'updated_at' => now()]);
+            }
+        });
+
+        return back()->with('success', $u->name.' is now the owner of this merchant.');
+    }
+
+    /** Approve or decline a merchant's request for a live key. Approval only allows it; the merchant makes the key themselves. */
+    public function decideLive(Request $request, int $merchant, int $req)
+    {
+        $m = $this->find($merchant);
+        $d = $request->validate(['decision' => ['required', Rule::in(['approve', 'decline'])], 'note' => ['nullable', 'string', 'max:300']]);
+        if ($d['decision'] === 'approve' && $m->status !== 'verified') {
+            return back()->with('error', 'Only a verified merchant can have a live key. Verify the merchant first.');
+        }
+        if ($d['decision'] === 'decline' && empty($d['note'])) {
+            return back()->withInput()->with('error', 'Tell them why, so they know what to fix.');
+        }
+
+        $r = DB::table('live_key_requests')->where('id', $req)->where('merchant_id', $m->id)->where('status', 'pending')->first();
+        if (! $r) {
+            return back()->with('error', 'That request has already been decided.');
+        }
+        DB::table('live_key_requests')->where('id', $r->id)->update([
+            'status' => $d['decision'] === 'approve' ? 'approved' : 'declined', 'decided_by' => $request->user()->id, 'decided_at' => now(),
+            'decision_note' => $d['note'] ?? null, 'updated_at' => now(),
+        ]);
+
+        $message = $d['decision'] === 'approve'
+            ? 'Your live key request was approved. Open API and webhooks to create your live key.'
+            : 'Your live key request was declined: '.$d['note'];
+        $notify = app(\App\Modules\Notifications\NotificationService::class);
+        foreach (DB::table('operator_members')->where('operator_id', $m->operator_id)->where('status', 'active')->whereIn('role', ['owner', 'admin'])->pluck('user_id') as $uid) {
+            $notify->notify((int) $uid, 'merchant.live_key_decided', ['message' => $message], '/merchant/api');
+        }
+
+        return back()->with('success', $d['decision'] === 'approve' ? 'Approved. They can now create their live key.' : 'Declined, and they have been told why.');
     }
 
     public function issueKey(Request $request, int $merchant, ApiClientService $keys)

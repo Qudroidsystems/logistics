@@ -12,7 +12,7 @@
             @forelse($rows as $r)
                 <tr>
                     <td><code>{{ $r->merchant_code }}</code></td>
-                    <td class="fw-semibold">{{ $r->display_name }}</td>
+                    <td class="fw-semibold">{{ $r->display_name }}@if($r->live_pending) <span class="badge bg-warning text-dark">live key requested</span>@endif</td>
                     <td><span class="badge bg-light text-dark">{{ $r->status }}</span></td>
                     <td class="small">{{ $settlement[$r->settlement_mode] ?? $r->settlement_mode }}</td>
                     <td class="text-end">{{ $r->keys_active }}</td>

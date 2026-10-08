@@ -32,7 +32,7 @@ class PartnerController extends Controller
             return response()->json(['error' => 'unavailable', 'message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['quote_id' => $q['quote_id'], 'total' => $q['total'], 'currency' => 'NGN', 'distance_m' => $q['route']['distance_m'], 'breakdown' => $q['lines']]);
+        return response()->json(['quote_id' => $q['quote_id'], 'total' => $q['total'], 'currency' => 'NGN', 'distance_m' => $q['route']['distance_m'], 'breakdown' => $q['lines'], 'failed_delivery_terms' => $q['failed_delivery_terms']]);
     }
 
     public function store(Request $request, MerchantDeliveryService $svc)

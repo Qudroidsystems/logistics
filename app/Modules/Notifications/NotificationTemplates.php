@@ -16,6 +16,10 @@ class NotificationTemplates
         'provider.suspended' => ['title' => 'Your account is suspended', 'body' => '{name} has been taken out of the directory. {note}', 'email' => true],
         'provider.reinstated' => ['title' => 'Your account is active again', 'body' => '{name} is back in the directory.', 'email' => true],
 
+        // ---- merchants
+        'merchant.live_key_requested' => ['title' => 'Live key requested', 'body' => '{merchant} has asked for a live API key. Review the request on the merchant page.', 'email' => false],
+        'merchant.live_key_decided' => ['title' => 'Your live key request', 'body' => '{message}', 'email' => true],
+
         // ---- negotiation
         'request.invited' => ['title' => 'New request for you', 'body' => 'A customer posted a {type} request. Send your offer before it expires.', 'email' => false],
         'offer.received' => ['title' => 'New offer', 'body' => '{provider} offered {amount} for your request.', 'email' => false],

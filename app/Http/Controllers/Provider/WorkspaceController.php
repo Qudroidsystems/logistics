@@ -125,8 +125,17 @@ class WorkspaceController extends Controller
             'drivers' => ManualAssignmentService::canAssign($s->status) ? app(ManualAssignmentService::class)->drivers($op->id) : [],
             'driver' => DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
                 ->where('a.shipment_id', $s->id)->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->first(['u.id as user_id', 'u.name', 'a.status']),
+            'terms' => $this->failedTerms((int) $s->order_id),
             'pagetitle' => 'Job',
         ], 'jobs');
+    }
+
+    /** The agreement's failed-delivery terms in plain sentences, for the job page. @return string[] */
+    private function failedTerms(int $orderId): array
+    {
+        $json = DB::table('orders as o')->join('agreements as a', 'a.id', '=', 'o.agreement_id')->where('o.id', $orderId)->value('a.failed_delivery_policy');
+
+        return \App\Modules\Marketplace\FailedDeliveryPolicy::describe($json ? json_decode($json, true) : null);
     }
 
     // ---------------------------------------------------------------- dispatch board

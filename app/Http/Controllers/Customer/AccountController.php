@@ -253,6 +253,9 @@ class AccountController extends Controller
             'preview' => $preview, 'code' => $code, 'rated' => $rated,
             'links' => DB::table('tracking_links')->where('shipment_id', $s->id)->whereNull('revoked_at')->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->pluck('token', 'audience')->all(),
             'canConfirm' => $s->status === 'delivered', 'canRate' => in_array($s->status, ['confirmed', 'completed'], true) && ! $rated,
+            'terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describe(
+                ($j = DB::table('agreements')->where('id', $s->agreement_id ?? 0)->value('failed_delivery_policy')) ? json_decode($j, true) : null
+            ),
             'pagetitle' => 'Order',
         ]);
     }

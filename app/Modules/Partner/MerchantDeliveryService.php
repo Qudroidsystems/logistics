@@ -58,7 +58,8 @@ class MerchantDeliveryService
             throw new RuntimeException('No provider can serve this delivery right now.');
         }
 
-        return $best;
+        // The terms a delivery created now would be bound by, so the merchant can show them to its customer.
+        return $best + ['failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::current()];
     }
 
     /** Create the delivery. Safe to retry: external_order_id is the idempotency key. */
@@ -116,6 +117,7 @@ class MerchantDeliveryService
         return [
             'agreement' => $a->number, 'status' => $a->status, 'price' => (int) $a->price, 'currency' => 'NGN',
             'payment_url' => $payUrl, 'order' => $order->order_number ?? null, 'tracking_url' => $track ? url("/track/{$track}") : null,
+            'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::normalize($a->failed_delivery_policy ? json_decode($a->failed_delivery_policy, true) : null),
         ];
     }
 

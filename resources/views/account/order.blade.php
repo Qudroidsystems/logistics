@@ -64,6 +64,14 @@
                 <div class="small text-muted text-center">Give this to the person receiving the goods. The rider needs it to finish the delivery.</div>
             </x-cb.card>
             @endif
+            @if(in_array($s->status, ['failed_attempt', 'returning', 'returned'], true))
+            <x-cb.card title="We could not deliver" icon="ri-error-warning-line" class="mb-3">
+                <p class="small mb-0">{{ $s->status === 'returning' ? 'The rider could not hand the parcel over and is taking it back to the pickup address.' : ($s->status === 'returned' ? 'The parcel has been returned to the pickup address.' : 'The rider could not hand the parcel over, so this delivery has ended.') }} Your payment was settled under the terms below.</p>
+            </x-cb.card>
+            @endif
+            <x-cb.card title="If a delivery fails" icon="ri-file-list-3-line" class="mb-3">
+                @foreach($terms as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
+            </x-cb.card>
             @if(!empty($preview['cancellable']))
             <x-cb.card title="Need to cancel?" icon="ri-close-circle-line">
                 <p class="small mb-2">Cancelling now costs <strong>{{ $naira($preview['fee'] ?? 0) }}</strong>. The rest is refunded to your wallet.</p>

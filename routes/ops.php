@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CityZoneController as Z;
+use App\Http\Controllers\Admin\FailedDeliveriesController as Fd;
 use App\Http\Controllers\Admin\MerchantsController as Mc;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
 use App\Http\Controllers\Admin\SettingsController as St;
@@ -12,6 +13,7 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
 
     Route::get('/orders', [C::class, 'orders'])->middleware('can:View delivery')->name('orders');
     Route::get('/orders/{order}', [C::class, 'order'])->middleware('can:View delivery')->name('order');
+    Route::get('/failed-deliveries', [Fd::class, 'index'])->middleware('can:View delivery')->name('failed');
 
     Route::get('/disputes', [C::class, 'disputes'])->middleware('can:View dispute')->name('disputes');
     Route::get('/disputes/{dispute}', [C::class, 'dispute'])->middleware('can:View dispute')->name('dispute');
@@ -55,6 +57,8 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::post('/merchants', [Mc::class, 'store'])->middleware('can:Create vendor')->name('merchant.store');
     Route::get('/merchants/{merchant}', [Mc::class, 'show'])->middleware('can:View vendor')->whereNumber('merchant')->name('merchant');
     Route::put('/merchants/{merchant}', [Mc::class, 'update'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.update');
+    Route::post('/merchants/{merchant}/owner', [Mc::class, 'setOwner'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.owner');
+    Route::post('/merchants/{merchant}/live-requests/{req}', [Mc::class, 'decideLive'])->middleware('can:Update vendor')->whereNumber(['merchant', 'req'])->name('merchant.live.decide');
     Route::post('/merchants/{merchant}/keys', [Mc::class, 'issueKey'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.key.issue');
     Route::delete('/merchants/{merchant}/keys/{client}', [Mc::class, 'revokeKey'])->middleware('can:Update vendor')->whereNumber(['merchant', 'client'])->name('merchant.key.revoke');
     Route::post('/merchants/{merchant}/webhooks', [Mc::class, 'addWebhook'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.hook.add');
