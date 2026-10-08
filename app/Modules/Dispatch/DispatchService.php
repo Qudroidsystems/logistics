@@ -22,6 +22,25 @@ class DispatchService
     public const MAX_ATTEMPTS = 5;
     public const RADIUS_STEPS_M = [2_000, 4_000, 8_000];
 
+    /** How long a driver has to answer an offer. Staff can change it in platform settings; the constant is the fallback. */
+    public function offerSeconds(): int
+    {
+        return $this->setting('dispatch.offer_timeout_seconds', self::OFFER_SECONDS, 10, 300);
+    }
+
+    public function maxAttempts(): int
+    {
+        return $this->setting('dispatch.max_offer_attempts', self::MAX_ATTEMPTS, 1, 20);
+    }
+
+    private function setting(string $key, int $default, int $min, int $max): int
+    {
+        $raw = DB::table('platform_settings')->whereNull('operator_id')->where('key', $key)->value('value');
+        $v = $raw === null ? $default : (int) (json_decode($raw, true) ?? $raw);
+
+        return max($min, min($max, $v ?: $default));
+    }
+
     public function start(int $shipmentId, string $strategy = 'scored'): int
     {
         $shipment = DB::table('shipments')->find($shipmentId);
@@ -37,7 +56,7 @@ class DispatchService
         $runId = DB::table('dispatch_runs')->insertGetId([
             'shipment_id' => $shipmentId,
             'strategy' => $strategy,
-            'config_snapshot' => json_encode(['offer_seconds' => self::OFFER_SECONDS, 'max_attempts' => self::MAX_ATTEMPTS, 'radius_steps_m' => self::RADIUS_STEPS_M]),
+            'config_snapshot' => json_encode(['offer_seconds' => $this->offerSeconds(), 'max_attempts' => $this->maxAttempts(), 'radius_steps_m' => self::RADIUS_STEPS_M]),
             'started_at' => now(),
         ]);
 
@@ -85,7 +104,7 @@ class DispatchService
                 ->whereNotIn('driver_profile_id', $tried ?: [0])
                 ->orderBy('rank')->first();
 
-            if (! $next || count($tried) >= self::MAX_ATTEMPTS) {
+            if (! $next || count($tried) >= $this->maxAttempts()) {
                 $this->toManualQueue($run, $shipment, $next ? 'repeated_decline' : 'no_supply');
 
                 return null;
@@ -99,7 +118,7 @@ class DispatchService
                 'operator_id' => $driverOperator,
                 'sequence' => count($tried) + 1,
                 'offered_at' => now(),
-                'expires_at' => now()->addSeconds(self::OFFER_SECONDS),
+                'expires_at' => now()->addSeconds($this->offerSeconds()),
                 'channel' => 'push',
             ]);
             DB::table('dispatch_runs')->where('id', $runId)->increment('candidates_offered');
@@ -107,7 +126,7 @@ class DispatchService
             $this->event($shipment->id, 'offer_sent', $shipment->status, 'offered', 'system', null, ['driver_profile_id' => $next->driver_profile_id, 'offer_id' => $offerId]);
 
             // Fires after commit so the worker never sees an offer that was rolled back.
-            ExpireDispatchOffer::dispatch($offerId)->delay(now()->addSeconds(self::OFFER_SECONDS + 1))->afterCommit();
+            ExpireDispatchOffer::dispatch($offerId)->delay(now()->addSeconds($this->offerSeconds() + 1))->afterCommit();
 
             return $offerId;
         });

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CityZoneController as Z;
+use App\Http\Controllers\Admin\MerchantsController as Mc;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
 use App\Http\Controllers\Admin\SettingsController as St;
 use Illuminate\Support\Facades\Route;
@@ -49,4 +50,13 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/settings', [St::class, 'index'])->name('settings');
     Route::post('/settings/fee', [St::class, 'saveFee'])->name('settings.fee');
     Route::post('/settings/rules', [St::class, 'saveRules'])->name('settings.rules');
+
+    Route::get('/merchants', [Mc::class, 'index'])->middleware('can:View vendor')->name('merchants');
+    Route::post('/merchants', [Mc::class, 'store'])->middleware('can:Create vendor')->name('merchant.store');
+    Route::get('/merchants/{merchant}', [Mc::class, 'show'])->middleware('can:View vendor')->whereNumber('merchant')->name('merchant');
+    Route::put('/merchants/{merchant}', [Mc::class, 'update'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.update');
+    Route::post('/merchants/{merchant}/keys', [Mc::class, 'issueKey'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.key.issue');
+    Route::delete('/merchants/{merchant}/keys/{client}', [Mc::class, 'revokeKey'])->middleware('can:Update vendor')->whereNumber(['merchant', 'client'])->name('merchant.key.revoke');
+    Route::post('/merchants/{merchant}/webhooks', [Mc::class, 'addWebhook'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.hook.add');
+    Route::post('/merchants/{merchant}/webhooks/{hook}/toggle', [Mc::class, 'toggleWebhook'])->middleware('can:Update vendor')->whereNumber(['merchant', 'hook'])->name('merchant.hook.toggle');
 });
