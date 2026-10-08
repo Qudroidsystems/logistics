@@ -71,6 +71,12 @@ call POST /customer/requests "$CT" "{\"type\":\"parcel\",\"service_type_id\":$SV
 RID=$(printf '%s' "$BODY" | jget "d['request_id']")
 [ -z "$RID" ] && exit 1
 
+step "Matching providers and payment methods (the apps' 'Finding providers' and pay screens)"
+call GET "/customer/requests/$RID/providers" "$CT"; expect "invited providers"
+echo "   $(printf '%s' "$BODY" | jget "[(o['provider'],o['invitation']) for o in d]")"
+call GET /customer/payment-methods "$CT"; expect "payment methods"
+echo "   $(printf '%s' "$BODY" | jget "[o['key'] for o in d['data']]")  (empty until a gateway is switched on in Finance > Payment Gateways; wallet pay still works)"
+
 step "Provider sees it and sends an offer"
 call GET /provider/requests "$PT"; expect "provider inbox"
 printf '%s' "$BODY" | grep -q "$RID" && ok "request is in the inbox" || bad "request not in the provider inbox (does the demo service area cover the pins?)"

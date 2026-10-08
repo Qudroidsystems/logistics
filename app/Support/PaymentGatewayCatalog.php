@@ -50,8 +50,9 @@ class PaymentGatewayCatalog
             ],
         ],
         'monnify' => [
-            'name'      => 'Monnify',
-            'supported' => false,
+            'name'      => 'Monnify (Moniepoint)',
+            'supported' => true,
+            'used_for'  => 'Customer payments and wallet top-ups (bank transfer, card, USSD)',
             'dashboard' => 'https://app.monnify.com/developer',
             'fields'    => [
                 'api_key'       => ['label' => 'API key', 'secret' => false, 'required' => true,
@@ -83,14 +84,15 @@ class PaymentGatewayCatalog
         ],
         'stripe' => [
             'name'      => 'Stripe',
-            'supported' => false,
+            'supported' => true,
+            'used_for'  => 'Customer card payments and wallet top-ups',
             'dashboard' => 'https://dashboard.stripe.com/apikeys',
             'fields'    => [
                 'public_key'     => ['label' => 'Publishable key', 'secret' => false, 'required' => true,
                                      'prefix' => ['test' => 'pk_test_', 'live' => 'pk_live_']],
                 'secret_key'     => ['label' => 'Secret key', 'secret' => true, 'required' => true,
                                      'prefix' => ['test' => 'sk_test_', 'live' => 'sk_live_']],
-                'webhook_secret' => ['label' => 'Webhook signing secret', 'secret' => true, 'required' => false,
+                'webhook_secret' => ['label' => 'Webhook signing secret', 'secret' => true, 'required' => true,
                                      'prefix' => ['test' => 'whsec_', 'live' => 'whsec_']],
             ],
         ],

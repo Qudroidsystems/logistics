@@ -44,7 +44,9 @@ Route::get('/refresh-csrf', function () {
 
 // Payment provider webhooks / return URL (public; CSRF-exempt in bootstrap/app.php)
 Route::post('/webhook/paystack', [PaymentWebhookController::class, 'paystack'])->name('webhook.paystack');
-Route::post('/webhook/opay', [PaymentWebhookController::class, 'opay'])->name('webhook.opay');
+Route::post('/webhook/opay', [PaymentWebhookController::class, 'opay'])->middleware('throttle:120,1')->name('webhook.opay');
+Route::post('/webhook/monnify', [PaymentWebhookController::class, 'monnify'])->middleware('throttle:120,1')->name('webhook.monnify');
+Route::post('/webhook/stripe', [PaymentWebhookController::class, 'stripe'])->middleware('throttle:120,1')->name('webhook.stripe');
 Route::get('/payment/callback', [PaymentWebhookController::class, 'callback'])->name('payments.callback');
 
 Route::middleware('auth')->group(function () {

@@ -42,5 +42,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::post('/bank-accounts', [CustomerWalletController::class, 'addBankAccount']);
         Route::post('/wallet/withdraw', [CustomerWalletController::class, 'withdraw']);
         Route::post('/agreements/{agreement}/pay', [CustomerWalletController::class, 'payAgreement']);
+        Route::get('/payment-methods', [CustomerWalletController::class, 'gateways']);
+        Route::post('/payments/{reference}/check', [CustomerWalletController::class, 'checkPayment'])->middleware('throttle:30,1');
     });
 });

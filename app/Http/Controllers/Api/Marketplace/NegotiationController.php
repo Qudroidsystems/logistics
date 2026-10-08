@@ -65,6 +65,21 @@ class NegotiationController extends Controller
             ->get());
     }
 
+    /**
+     * The providers a request went to, and where each one is: notified, looking, offered or passed.
+     * Shown on the "Finding providers" screen while the first offers come in.
+     */
+    public function invited(Request $request, string $serviceRequest)
+    {
+        $req = DB::table('service_requests')->where('public_id', $serviceRequest)->where('customer_id', $request->user()->id)->first();
+        abort_unless($req, 404);
+
+        return response()->json(DB::table('request_invitations as i')->join('operators as o', 'o.id', '=', 'i.operator_id')
+            ->leftJoin('provider_profiles as p', 'p.operator_id', '=', 'i.operator_id')->where('i.request_id', $req->id)
+            ->orderByRaw("CASE p.tier WHEN 'preferred' THEN 0 WHEN 'trusted' THEN 1 WHEN 'verified' THEN 2 ELSE 3 END")->orderByDesc('p.rating_avg')
+            ->get(['o.display_name as provider', 'p.public_slug as slug', 'p.rating_avg', 'p.tier', 'p.jobs_completed', 'i.status as invitation']));
+    }
+
     public function customerThread(Request $request, string $thread)
     {
         $t = DB::table('negotiation_threads')->where('public_id', $thread)->where('customer_id', $request->user()->id)->first();

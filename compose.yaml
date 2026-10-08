@@ -127,6 +127,21 @@ services:
             pgsql:
                 condition: service_healthy
 
+    # Road routing for quotes and ETAs. Off by default (needs map data first):
+    #   bash scripts/osrm-prepare.sh        then       sail --profile routing up -d osrm
+    # and set ROUTING_DRIVER=osrm in .env.
+    osrm:
+        image: 'ghcr.io/project-osrm/osrm-backend:latest'
+        profiles: ['routing']
+        command: 'osrm-routed --algorithm mld /data/region.osrm'
+        volumes:
+            - './storage/osrm:/data:ro'
+        ports:
+            - '${OSRM_PORT:-5000}:5000'
+        networks:
+            - logistics
+        restart: unless-stopped
+
 networks:
     logistics:
         driver: bridge
