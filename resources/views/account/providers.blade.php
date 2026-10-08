@@ -13,6 +13,7 @@
             <div class="d-flex justify-content-between"><div class="fw-semibold fs-5">{{ $p['name'] }}</div><span class="badge bg-light text-dark">{{ ucfirst($p['tier']) }}</span></div>
             <div class="text-muted small mb-2">{{ $p['headline'] }}</div>
             <div class="small mb-3">{{ $p['rating_count'] ? number_format($p['rating_avg'], 1).' ★ ('.$p['rating_count'].')' : 'New' }} · {{ $p['jobs_completed'] }} jobs</div>
+            <a href="{{ route('provider.public', $p['public_slug']) }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm w-100 mb-2">View profile and reviews</a>
             <a href="{{ route('account.request.new', ['provider' => $p['id'], 'service_type_id' => $sid]) }}" class="btn btn-primary btn-sm w-100">Ask {{ $p['name'] }} for a price</a>
         </x-cb.card></div>
         @empty
