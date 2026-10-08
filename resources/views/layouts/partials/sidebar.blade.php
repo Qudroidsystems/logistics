@@ -47,6 +47,7 @@
                 @can('View settlement')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.settlement*') ? 'active' : '' }}" href="{{ route('ops.settlements') }}"><i class="ri-bank-line"></i> <span>Settlements</span></a></li>@endcan
                 @can('View payment')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.refunds') ? 'active' : '' }}" href="{{ route('ops.refunds') }}"><i class="ri-refund-2-line"></i> <span>Refunds</span></a></li>@endcan
                 @can('View rating')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.rating*') ? 'active' : '' }}" href="{{ route('ops.ratings') }}"><i class="ri-star-line"></i> <span>Ratings</span></a></li>@endcan
+                @can('View zone')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.cit*') ? 'active' : '' }}" href="{{ route('ops.cities') }}"><i class="ri-map-pin-2-line"></i> <span>Cities and zones</span></a></li>@endcan
                 @can('Manage fraud flags')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.risk*') ? 'active' : '' }}" href="{{ route('ops.risk') }}"><i class="ri-alarm-warning-line"></i> <span>Risk events</span></a></li>@endcan
                 @endif
                 {{-- ===== Marketplace (Phase 2-4: vendors, drivers, shoppers, stores, business) ===== --}}

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CityZoneController as Z;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
 use Illuminate\Support\Facades\Route;
 
@@ -36,4 +37,11 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
 
     Route::get('/risk', [C::class, 'risk'])->middleware('can:Manage fraud flags')->name('risk');
     Route::post('/risk/{event}/review', [C::class, 'reviewRisk'])->middleware('can:Manage fraud flags')->whereNumber('event')->name('risk.review');
+
+    Route::get('/cities', [Z::class, 'index'])->middleware('can:View zone')->name('cities');
+    Route::post('/cities', [Z::class, 'storeCity'])->middleware('can:Create zone')->name('city.store');
+    Route::get('/cities/{city}', [Z::class, 'city'])->middleware('can:View zone')->whereNumber('city')->name('city');
+    Route::put('/cities/{city}', [Z::class, 'updateCity'])->middleware('can:Update zone')->whereNumber('city')->name('city.update');
+    Route::post('/cities/{city}/zones', [Z::class, 'storeZone'])->middleware('can:Create zone')->whereNumber('city')->name('zone.store');
+    Route::post('/zones/{zone}/toggle', [Z::class, 'toggleZone'])->middleware('can:Update zone')->whereNumber('zone')->name('zone.toggle');
 });
