@@ -24,7 +24,7 @@
         .logo { width: 72px; height: 72px; object-fit: contain; border-radius: 14px; background: #fff; padding: 8px; margin-bottom: 20px; }
         .icon { font-size: 46px; margin-bottom: 12px; }
         h1 { font-size: 1.5rem; margin: 0 0 6px; color: #fff; }
-        .school { font-size: .9rem; letter-spacing: .04em; text-transform: uppercase; opacity: .7; margin-bottom: 22px; }
+        .brand { font-size: .9rem; letter-spacing: .04em; text-transform: uppercase; opacity: .7; margin-bottom: 22px; }
         p { line-height: 1.6; margin: 0 0 16px; opacity: .92; }
         .contact { margin-top: 24px; font-size: .9rem; opacity: .8; }
         .contact a { color: #7dd3fc; }
@@ -36,7 +36,7 @@
 <body>
     <div class="card">
         @if($logo)<img src="{{ $logo }}" alt="{{ $name }}" class="logo">@else<div class="icon">🛠️</div>@endif
-        <div class="school">{{ $name }}</div>
+        <div class="brand">{{ $name }}</div>
         <h1>{{ $m->title ?: 'We\'ll be back shortly' }}</h1>
         <p>{{ $m->message ?: 'The portal is temporarily unavailable while we carry out maintenance. Please check back soon.' }}</p>
         @if($m->contact_info)

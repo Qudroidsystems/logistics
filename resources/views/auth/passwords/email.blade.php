@@ -7,9 +7,9 @@
 <head>
 
     <meta charset="utf-8">
-    <title>Sign In | Vite-ESchool</title>
+    <title>Sign In | {{ config('app.name') }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta content="school  App" name="description">
+    <meta content="logistics platform" name="description">
     <meta content="Themesbrand" name="author">
     <!-- App favicon -->
     <link rel="shortcut icon" href="{{ asset('theme/layouts/assets/images/favicon.ico')}}">
@@ -46,14 +46,14 @@
                                     <div class="card-body py-5 d-flex justify-content-between flex-column">
                                         <div class="text-center">
                                             <h3 class="text-white">Start your journey with us.</h3>
-                                            <p class="text-white opacity-75 fs-base">It makes school operations SEEMLESS...</p>
+                                            <p class="text-white opacity-75 fs-base">Commerce, shopping and logistics — one platform.</p>
                                         </div>
                         
                                         <div class="auth-effect-main my-5 position-relative rounded-circle d-flex align-items-center justify-content-center mx-auto">
                                             <div class="effect-circle-1 position-relative mx-auto rounded-circle d-flex align-items-center justify-content-center">
                                                 <div class="effect-circle-2 position-relative mx-auto rounded-circle d-flex align-items-center justify-content-center">
                                                     <div class="effect-circle-3 mx-auto rounded-circle position-relative text-white fs-4xl d-flex align-items-center justify-content-center">
-                                                        Welcome to <span class="text-primary ms-1">Vite-ESchool</span>
+                                                        Welcome to <span class="text-primary ms-1">{{ config('app.name') }}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -98,7 +98,7 @@
                         
                                         <div class="text-center">
                                             <p class="text-white opacity-75 mb-0 mt-3">
-                                                &copy; <script>document.write(new Date().getFullYear())</script> Vite-ESchool. Created with <i class="mdi mdi-heart text-danger"></i> by Qudroid Systems
+                                                &copy; <script>document.write(new Date().getFullYear())</script> {{ config('app.name') }}. Created with <i class="mdi mdi-heart text-danger"></i> by Qudroid Systems
                                             </p>
                                         </div>
                                     </div>

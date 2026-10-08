@@ -1,5 +1,5 @@
 {{-- Maintenance status + scheduled-downtime countdown.
-     The countdown is shown to EVERYONE who is signed in, so the school gets
+     The countdown is shown to EVERYONE who is signed in, so everyone gets
      advance warning. The manage/cancel controls show only to admins. --}}
 @php
     $mb = null;

@@ -729,7 +729,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function initAddUserModal() {
         const staffCbs   = document.querySelectorAll('#addUserModalgrid .staff-checkbox');
-        const studentCbs = [];
         const allCbs     = document.querySelectorAll('#addUserModalgrid .user-checkbox');
 
         document.getElementById('staff-count').textContent   = staffCbs.length;
@@ -758,12 +757,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Select all staff
         document.getElementById('select-all-staff')?.addEventListener('change', function() {
             staffCbs.forEach(c=>{ c.checked=this.checked; c.closest('.user-card-sel')?.classList.toggle('selected',this.checked); });
-            updateCount();
-        });
-
-        // Select all students
-        document.getElementById('select-all-students')?.addEventListener('change', function() {
-            studentCbs.forEach(c=>{ c.checked=this.checked; c.closest('.user-card-sel')?.classList.toggle('selected',this.checked); });
             updateCount();
         });
 

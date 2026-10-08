@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * Turns a raw permission name (e.g. "View student", "Manage payroll settings")
+ * Turns a raw permission name (e.g. "View delivery", "Manage payroll settings")
  * into a friendly action chip + a plain-English description, so the role editor
  * can explain what each permission actually allows. Works for every permission
  * with no database changes; specific names can be given an exact description in
@@ -42,7 +42,6 @@ class PermissionMeta
     protected const OVERRIDES = [
         'dashboard'                 => ['View',   'Open the main administration dashboard.'],
         'finance dashboard'         => ['View',   'See the finance analytics dashboard.'],
-        'academics dashboard'       => ['View',   'See the academics analytics dashboard.'],
         'View management dashboard' => ['View',   'See the management overview dashboard.'],
         'Add user-role'             => ['Assign', 'Add users to this role.'],
         'Update user-role'          => ['Edit',   'Change the users assigned to this role.'],
@@ -82,7 +81,7 @@ class PermissionMeta
         return self::for($name)['action'];
     }
 
-    /** "student-report" / "online-fee-payments" => "student report / online fee payments" */
+    /** "delivery-report" / "online-payments" => "delivery report / online payments" */
     protected static function pretty(string $s): string
     {
         return trim(strtolower(str_replace(['-', '_'], ' ', $s)));

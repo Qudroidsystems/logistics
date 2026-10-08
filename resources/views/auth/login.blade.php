@@ -365,8 +365,8 @@
             font-weight: 500;
         }
 
-        /* School logo styling */
-        .school-login-logo {
+        /* Logo styling */
+        .login-logo {
             height: 55px;
             width: auto;
             border-radius: 14px;
@@ -374,7 +374,7 @@
             transition: transform 0.3s ease;
         }
 
-        .school-login-logo:hover {
+        .login-logo:hover {
             transform: scale(1.02);
         }
 
@@ -479,16 +479,14 @@
                 from { transform: rotate(0deg) translate(80px, 0) rotate(0deg); }
                 to { transform: rotate(-360deg) translate(80px, 0) rotate(360deg); }
             }
-            .school-login-logo { height: 40px; }
+            .login-logo { height: 40px; }
             .login-success { top: 12px; right: 12px; left: 12px; max-width: none; min-width: auto; }
         }
     </style>
 </head>
 
 <body>
-    @php $schoolInfo = null; @endphp
-
-    <section class="auth-page-wrapper position-relative d-flex align-items-center justify-content-center min-vh-100">
+        <section class="auth-page-wrapper position-relative d-flex align-items-center justify-content-center min-vh-100">
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-lg-11">
@@ -526,18 +524,11 @@
                             <div class="col-xxl-6 mx-auto">
                                 <div class="card mb-0 border-0 shadow-none mb-0" style="background: transparent;">
                                     <div class="card-body p-sm-5 m-lg-4" id="loginCardBody">
-                                        <!-- School Logo on Login Form -->
+                                        <!-- Logo -->
                                         <div class="logo-container">
-                                            @if($schoolInfo?->school_logo)
-                                                <img src="{{ $schoolInfo->getLogoUrlAttribute() }}"
-                                                     alt="{{ $schoolInfo->school_name }}"
-                                                     class="school-login-logo"
-                                                     onerror="this.onerror=null; this.src='{{ asset('theme/layouts/assets/images/logo-dark.png') }}'">
-                                            @else
-                                                <img src="{{ asset('theme/layouts/assets/images/logo-dark.png') }}"
-                                                     alt="School Logo"
-                                                     class="school-login-logo">
-                                            @endif
+                                            <img src="{{ asset('theme/layouts/assets/images/logo-dark.png') }}"
+                                                 alt="{{ config('app.name') }}"
+                                                 class="login-logo">
                                         </div>
 
                                         <div class="text-center mt-2">

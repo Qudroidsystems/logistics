@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * OPay Checkout (cashier) for online school fees — Nigeria (country NG, NGN).
+ * OPay Checkout (cashier) for online order payments — Nigeria (country NG, NGN).
  *
  * Keys come from Finance › Payment Gateways (provider_key "opay"):
  *   merchant_id, public_key (used to create the cashier), secret_key (the
@@ -96,12 +96,12 @@ class OpayGateway
             'callbackUrl' => route('webhook.opay'),
             'expireAt' => 30,
             'product' => [
-                'name' => mb_substr((string) ($meta['product_name'] ?? 'School fees'), 0, 100),
-                'description' => mb_substr((string) ($meta['product_description'] ?? ('School fees ' . $reference)), 0, 200),
+                'name' => mb_substr((string) ($meta['product_name'] ?? 'Delivery payment'), 0, 100),
+                'description' => mb_substr((string) ($meta['product_description'] ?? ('Payment ' . $reference)), 0, 200),
             ],
             'userInfo' => array_filter([
                 'userEmail' => $email,
-                'userId' => isset($meta['student_id']) ? (string) $meta['student_id'] : null,
+                'userId' => isset($meta['user_id']) ? (string) $meta['user_id'] : null,
                 'userName' => $meta['user_name'] ?? null,
                 'userMobile' => $meta['user_mobile'] ?? null,
             ]),

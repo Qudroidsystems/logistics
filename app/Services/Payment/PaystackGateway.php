@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Thin Paystack client for school-fee checkouts.
+ * Thin Paystack client for checkouts.
  *
  * Keys come from Finance › Payment Gateways (payment_gateways row with
  * provider_key "paystack": live keys in secret_key/public_key, test keys in

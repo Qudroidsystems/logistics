@@ -175,7 +175,6 @@ return [
     ])->toArray(),
 
     // Add at the bottom of config/app.php
-    'student_email_domain' => env('STUDENT_EMAIL_DOMAIN', '@csskabba.ng'),
 
 ];
 

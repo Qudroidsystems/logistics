@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 /**
  * Card payments end to end through the public webhook. QUEUE_CONNECTION=sync in phpunit.xml runs the
- * ProcessGatewayEvent job inline. If the route is blocked by the school portal's FeatureRouteGuard or
+ * ProcessGatewayEvent job inline. If the route is blocked by the FeatureRouteGuard or
  * MaintenanceMode middleware, whitelist 'webhook/*' there.
  */
 class PaystackWebhookTest extends TestCase

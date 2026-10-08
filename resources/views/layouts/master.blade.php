@@ -259,11 +259,6 @@
            ===================================================== */
         .finance-stat-card { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border-radius: 12px; padding: 20px; color: white; transition: transform .3s,box-shadow .3s; }
         .finance-stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(102,126,234,.35); }
-        .payment-progress { height: 8px; border-radius: 4px; background: #e2e8f0; }
-        .payment-progress-bar { height: 100%; border-radius: 4px; transition: width .4s ease; }
-        .scholarship-card { border-left: 4px solid #10b981; transition: transform .2s,box-shadow .2s; }
-        .scholarship-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
-        .payroll-table th { background: #1e293b; color: white; }
 
         /* =====================================================
            CARD / BUTTON MICRO-INTERACTIONS
@@ -356,10 +351,6 @@
     @if (Route::is('profile.*'))              @include('layouts.pages-assets.css.users-list-css') @endif
     @if (Route::is('roles.*'))                @include('layouts.pages-assets.css.roles-list-css') @endif
     @if (Route::is('permissions.*'))          @include('layouts.pages-assets.css.permission-list-css') @endif
-    @if (Route::is('admin.scholarship.*') || Route::is('admin.discount.*') || Route::is('sibling.*') ||
-        Route::is('payment.*') || Route::is('reports.financial.*') || Route::is('reports.analysis.*') ||
-        Route::is('payroll.*') || Route::is('staff.payments.*'))
-    @endif
 
     {{-- CB UI design system (hero / stat / card look used across the portal).
          Loaded LAST so page-specific CSS partials above can't override it.
@@ -482,12 +473,14 @@
                             </div>
                             <div class="dropdown-divider"></div>
                             @php
-                                $selfArea = request()->routeIs('driver.*') ? 'driver.phone' : (request()->routeIs('provider.*', 'merchant.*', 'account.*') ? 'account.phone' : null);
+                                $selfRoute = request()->routeIs('driver.*') ? 'driver.me' : (request()->routeIs('provider.*', 'merchant.*', 'account.*') ? 'account.me' : null);
                             @endphp
-                            @if($selfArea && \Illuminate\Support\Facades\Route::has($selfArea))
-                            <a class="dropdown-item" href="{{ route($selfArea) }}"><i class="mdi mdi-account-circle me-2"></i>My Profile</a>
+                            @if($selfRoute)
+                            <a class="dropdown-item" href="{{ route($selfRoute) }}"><i class="mdi mdi-account-circle me-2"></i>My account</a>
                             @else
+                            @can('View user')
                             <a class="dropdown-item" href="{{ route('users.overview', $userdata->id) }}"><i class="mdi mdi-account-circle me-2"></i>My Profile</a>
+                            @endcan
                             <a class="dropdown-item" href="{{ route('profile.settings', ['id' => $userdata->id]) }}"><i class="mdi mdi-cog me-2"></i>Account Settings</a>
                             @endif
                             <div class="dropdown-divider"></div>
@@ -1250,12 +1243,6 @@
 @if (Route::is('profile.*'))               @include('layouts.pages-assets.js.users-list-js') @endif
 @if (Route::is('roles.*'))                 @include('layouts.pages-assets.js.role-list-js') @endif
 @if (Route::is('permissions.*'))           @include('layouts.pages-assets.js.permissions-list-js') @endif
-{{-- subjects.index is Subject Registration: it has its own scripts, and subject-list.init.js
-     (Subjects page) overrides its filterData(), hijacks pagination and loads Bootstrap twice. --}}
-@if (Route::is('admin.scholarship.*') || Route::is('admin.discount.*') || Route::is('sibling.*') ||
-    Route::is('payment.*') || Route::is('reports.financial.*') || Route::is('reports.analysis.*') ||
-    Route::is('payroll.*') || Route::is('staff.payments.*'))
-@endif
 
 <script>
 /* Expired session on an AJAX / fetch call (HTTP 419) → go to the login page

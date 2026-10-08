@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Paystack Transfers (paying money out to Nigerian bank accounts).
- * Uses the same keys and test/live mode as school-fee checkout.
+ * Uses the same keys and test/live mode as card checkout.
  * Account numbers are passed in and never logged.
  */
 class PaystackTransfers extends PaystackGateway

@@ -158,7 +158,7 @@ class DatabaseBackupService
         if (!$gz) throw new \RuntimeException('Cannot open backup file for writing.');
 
         $w = fn ($s) => gzwrite($gz, $s);
-        $w("-- CSS Kabba database backup\n-- Generated: " . now()->toDateTimeString() . "\n");
+        $w("-- Database backup\n-- Generated: " . now()->toDateTimeString() . "\n");
         $w("SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n\n");
 
         $tables = [];

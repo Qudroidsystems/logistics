@@ -22,13 +22,6 @@
                     <h6 class="mb-0">
                         <a href="{{ route('users.show', $user->id) }}" class="text-reset products">{{ $user->name }}</a>
                     </h6>
-                    <small class="text-muted">
-                        @if($user->isStudent() && $user->student)
-                            {{ $user->student->admissionNo ?? '' }}
-                        @elseif($user->isStaff() && $user->staffemploymentDetails)
-                            {{ $user->staffemploymentDetails->designation ?? 'Staff' }}
-                        @endif
-                    </small>
                 </div>
             </div>
         </td>

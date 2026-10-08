@@ -55,7 +55,7 @@
                     </div>
                     <hr class="my-3">
                     <label class="form-label small">Email backups to</label>
-                    <input type="email" name="email" class="form-control mb-2" value="{{ $settings->email }}" placeholder="accountant@school.com">
+                    <input type="email" name="email" class="form-control mb-2" value="{{ $settings->email }}" placeholder="ops@example.com">
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" name="email_attach" id="bkAttach" value="1" @checked($settings->email_attach)>
                         <label class="form-check-label small" for="bkAttach">Attach the file to the email (only if under 15 MB)</label>
@@ -63,7 +63,7 @@
                     <label class="form-label small">Keep the last</label>
                     <div class="input-group mb-3" style="max-width:200px"><input type="number" name="keep_last" class="form-control" min="1" max="365" value="{{ $settings->keep_last }}"><span class="input-group-text">backups</span></div>
                     <button class="action-btn btn-primary-cb w-100 justify-content-center"><i class="ri-save-line"></i>Save schedule</button>
-                    <div class="small text-muted mt-2">Automatic backups need the cron scheduler running (the same one used for reminders). MySQL/MariaDB only.</div>
+                    <div class="small text-muted mt-2">Automatic backups need the cron scheduler running . PostgreSQL backups need the pg_dump client tools on the server.</div>
                 </form>
             </x-cb.card>
         </div>
