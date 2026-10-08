@@ -43,6 +43,7 @@ class OrdersController extends Controller
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->value('token');
 
         $agreement = DB::table('agreements')->where('id', $s->agreement_id ?? 0)->first();
+        $isShopping = $agreement && DB::table('shopping_requests')->where('agreement_id', $agreement->id)->exists();
         $stage = $cancel->stage($s->status);
         $policy = $agreement && $agreement->failed_delivery_policy ? json_decode($agreement->failed_delivery_policy, true) : null;
 
@@ -54,6 +55,7 @@ class OrdersController extends Controller
             'can_cancel' => $stage !== 'not_cancellable', 'can_confirm' => $s->status === 'delivered',
             'can_rate' => in_array($s->status, ['confirmed', 'completed'], true) && ! $rated,
             'shows_code' => ! in_array($s->status, [...self::FINISHED, 'created', 'awaiting_dispatch'], true),
+            'agreement' => $agreement->public_id ?? null, 'is_shopping' => $isShopping,
             'terms' => $this->terms($policy),
         ]);
     }

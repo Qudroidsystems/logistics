@@ -10,6 +10,7 @@ use App\Modules\Ratings\ProviderScoreService;
 use App\Modules\Settlements\SettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The staff console: browser pages over the same code the JSON admin API uses, so a rule (who may decide a dispute,
@@ -35,7 +36,10 @@ class OpsConsoleController extends Controller
 
     public function order(string $order)
     {
-        return view('ops.order', ['o' => $this->ops->order($order)->getData(true)]);
+        $data = $this->ops->order($order)->getData(true);
+        $shipmentId = DB::table('shipments')->where('public_id', $data['shipment']['public_id'] ?? '')->value('id');
+
+        return view('ops.order', ['o' => $data, 'proofs' => $this->proofs($shipmentId)]);
     }
 
     // ---------------------------------------------------------------- disputes
@@ -45,9 +49,20 @@ class OpsConsoleController extends Controller
         return view('ops.disputes', ['rows' => $this->ops->disputes($request)->getData(true), 'status' => $request->query('status', 'open')]);
     }
 
+    /** Proof rows for the shared partial; the photo itself is streamed by proofs.show. */
+    private function proofs($shipmentId)
+    {
+        return $shipmentId
+            ? DB::table('proofs')->where('shipment_id', $shipmentId)->orderBy('id')->get(['public_id', 'type', 'file_path', 'otp_verified', 'recipient_name', 'created_at'])
+            : collect();
+    }
+
     public function dispute(string $dispute)
     {
-        return view('ops.dispute', ['x' => $this->ops->dispute($dispute)->getData(true), 'id' => $dispute]);
+        return view('ops.dispute', [
+            'x' => $this->ops->dispute($dispute)->getData(true), 'id' => $dispute,
+            'proofs' => $this->proofs(DB::table('disputes')->where('public_id', $dispute)->value('shipment_id')),
+        ]);
     }
 
     public function decide(Request $request, string $dispute, DisputeService $svc)

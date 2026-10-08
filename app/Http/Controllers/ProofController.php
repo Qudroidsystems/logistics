@@ -23,7 +23,7 @@ class ProofController extends Controller
         abort_unless($row && $row->file_path, 404);
 
         $u = $request->user();
-        $allowed = $u->can('View delivery')
+        $allowed = $u->can('View delivery') || $u->can('View dispute')
             || (int) $row->customer_id === (int) $u->id
             || DB::table('operator_members')->where('user_id', $u->id)->where('status', 'active')
                 ->whereIn('operator_id', array_filter([$row->order_operator, $row->ship_operator]))->exists();

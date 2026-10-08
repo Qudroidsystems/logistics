@@ -32,6 +32,7 @@
                 {{ $o['shipment']['provider'] ?? 'Not assigned yet' }}
                 @if($o['shipment'])<div class="small text-muted">Tracking {{ $o['shipment']['tracking_code'] }}</div>@endif
             </x-cb.card>
+            <div class="mt-3">@include('partials.proofs')</div>
             <x-cb.card title="Escrow" icon="ri-safe-2-line" class="mt-3">
                 @if($o['escrow'])
                     Held {{ $naira($o['escrow']['amount']) }} · {{ $o['escrow']['status'] }}

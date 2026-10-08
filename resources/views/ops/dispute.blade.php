@@ -18,6 +18,7 @@
                 @empty <span class="text-muted">No evidence was added.</span> @endforelse
             </x-cb.card>
             @if(count($x['receipts']))
+            <div class="mt-3">@include('partials.proofs')</div>
             <x-cb.card title="Shopping receipts" icon="ri-receipt-line" class="mt-3" :flush="true">
                 <table class="table mb-0"><thead><tr><th>Vendor</th><th class="text-end">Amount</th><th>Customer verified</th></tr></thead><tbody>
                 @foreach($x['receipts'] as $r)<tr><td>{{ $r['vendor_name'] }}</td><td class="text-end">{{ $naira($r['amount']) }}</td><td>{{ $r['verified_by_customer'] ? 'Yes' : 'No' }}</td></tr>@endforeach

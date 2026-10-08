@@ -92,7 +92,7 @@
 <table>
 <tr><th>Call</th><th>Notes</th></tr>
 <tr><td><span class="tag">GET</span><code>/customer/orders?status=all|active|done</code></td><td>The customer's orders, newest first: <code>shipment, status, tracking_code, order_number, total, provider, created_at, active</code>.</td></tr>
-<tr><td><span class="tag">GET</span><code>/customer/orders/{shipment}</code></td><td>One order: stops, timeline, <code>tracking_token</code> (use it with <code>GET /track/{token}</code> for the live driver position), <code>can_cancel, can_confirm, can_rate, shows_code</code> and the failed-delivery <code>terms</code>.</td></tr>
+<tr><td><span class="tag">GET</span><code>/customer/orders/{shipment}</code></td><td>One order: stops, timeline, <code>tracking_token</code> (use it with <code>GET /track/{token}</code> for the live driver position), <code>agreement, is_shopping, can_cancel, can_confirm, can_rate, shows_code</code> and the failed-delivery <code>terms</code>.</td></tr>
 <tr><td><span class="tag">GET</span><code>/customer/shipments/{shipment}/delivery-code</code></td><td>The 4-digit code the receiver gives the driver. Show it large; it is also texted to the receiver.</td></tr>
 <tr><td><span class="tag">GET</span><code>/customer/shipments/{shipment}/cancel-preview</code></td><td><code>{"cancellable": true, "stage": "after_assignment", "fee": 18500}</code> so you can show the fee first.</td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/shipments/{shipment}/cancel</code></td><td><code>reason</code> (short code). Returns <code>stage, fee, refunded</code>. Not possible once the parcel is picked up.</td></tr>
