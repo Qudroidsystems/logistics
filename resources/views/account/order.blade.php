@@ -10,6 +10,7 @@
 
     <div class="row g-3">
         <div class="col-lg-7">
+            @include('partials.proofs')
             @if($canConfirm)
             <x-cb.card title="Delivered. Is everything right?" icon="ri-checkbox-circle-line" class="mb-3">
                 <p class="small text-muted">Confirming pays the provider. If something is wrong, report it instead and we hold the money while we look into it.</p>

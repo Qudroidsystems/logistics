@@ -47,7 +47,7 @@
  "staff": false}</code></pre>
 
 <h2 id="catalog">Catalogue</h2>
-<p><span class="tag">GET</span><code>/provider/catalog</code> works for any signed-in user and returns the lists you need to fill in a request: <code>service_types</code> (<code>id, code, name</code>), <code>vehicle_types</code> (<code>id, code, name, max_weight_g</code>) and <code>cities</code> (<code>id, name</code>). Cache it for the session.</p>
+<p><span class="tag">GET</span><code>/provider/catalog</code> works for any signed-in user and returns the lists you need to fill in a request: <code>service_types</code> (<code>id, code, name</code>), <code>vehicle_types</code> (<code>id, code, name, max_weight_g</code>) and <code>cities</code> (<code>id, name, lat, lng</code>). Cache it for the session.</p>
 
 <h2 id="customer">Customer</h2>
 <h3>Find a provider and post a request</h3>
@@ -56,7 +56,7 @@
 <tr><td><span class="tag">GET</span><code>/customer/providers?service_type_id=1&amp;limit=20</code></td><td>Listed providers for a service, best first, with rating, jobs done, on-time rate and a starting price hint. <code>public_slug</code> opens the public profile at <code>GET /providers/{slug}</code>.</td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/requests</code></td><td>Creates a service request (below). Providers who can serve it are invited and send offers.</td></tr>
 <tr><td><span class="tag">GET</span><code>/customer/requests</code></td><td>Your requests.</td></tr>
-<tr><td><span class="tag">GET</span><code>/customer/requests/{request}/offers</code></td><td>Offers received, each with a negotiation thread.</td></tr>
+<tr><td><span class="tag">GET</span><code>/customer/requests/{request}/offers</code></td><td>Offers received, one per provider: <code>thread, status, provider, rating_avg, tier, jobs_completed, latest_price</code> (kobo), and once agreed <code>agreement</code> and <code>agreement_status</code>.</td></tr>
 </table>
 <pre><code>POST /customer/requests
 {"type": "parcel", "service_type_id": 1, "city_id": 1,
@@ -71,7 +71,7 @@
 <tr><td><span class="tag">GET</span><code>/customer/negotiations/{thread}</code></td><td>The thread: offers, counters and messages.</td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/negotiations/{thread}/counter</code></td><td><code>price</code> (kobo, required); optional <code>tip, goods_budget, vehicle_type_id, note, message</code></td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/negotiations/{thread}/messages</code></td><td><code>text</code></td></tr>
-<tr><td><span class="tag">POST</span><code>/customer/negotiations/{thread}/accept</code></td><td><code>offer_id</code>. Locks an agreement and returns it.</td></tr>
+<tr><td><span class="tag">POST</span><code>/customer/negotiations/{thread}/accept</code></td><td><code>offer_id</code>: the <code>id</code> of the latest message with <code>kind</code> <code>counter_offer</code> in the thread. Locks an agreement and returns <code>agreement, number, status, price, platform_fee, goods_budget, tip</code>.</td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/negotiations/{thread}/reject</code></td><td></td></tr>
 </table>
 <p>The agreement carries the price, the cancellation fee and the <b>failed-delivery terms</b> (<code>failed_delivery_policy</code>): how long the driver waits, how much you still pay if the receiver cannot be reached, and whether the parcel comes back. Show these to the customer before they pay; they are fixed when the agreement is created.</p>
@@ -91,6 +91,8 @@
 <h3>During and after a delivery</h3>
 <table>
 <tr><th>Call</th><th>Notes</th></tr>
+<tr><td><span class="tag">GET</span><code>/customer/orders?status=all|active|done</code></td><td>The customer's orders, newest first: <code>shipment, status, tracking_code, order_number, total, provider, created_at, active</code>.</td></tr>
+<tr><td><span class="tag">GET</span><code>/customer/orders/{shipment}</code></td><td>One order: stops, timeline, <code>tracking_token</code> (use it with <code>GET /track/{token}</code> for the live driver position), <code>can_cancel, can_confirm, can_rate, shows_code</code> and the failed-delivery <code>terms</code>.</td></tr>
 <tr><td><span class="tag">GET</span><code>/customer/shipments/{shipment}/delivery-code</code></td><td>The 4-digit code the receiver gives the driver. Show it large; it is also texted to the receiver.</td></tr>
 <tr><td><span class="tag">GET</span><code>/customer/shipments/{shipment}/cancel-preview</code></td><td><code>{"cancellable": true, "stage": "after_assignment", "fee": 18500}</code> so you can show the fee first.</td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/shipments/{shipment}/cancel</code></td><td><code>reason</code> (short code). Returns <code>stage, fee, refunded</code>. Not possible once the parcel is picked up.</td></tr>
@@ -107,18 +109,18 @@
 <p>For users whose <code>/auth/me</code> shows a <code>driver</code> membership. All calls are under <code>/driver</code>.</p>
 <table>
 <tr><th>Call</th><th>Body / notes</th></tr>
-<tr><td><span class="tag">GET</span><code>/driver/me</code></td><td>Profile, vehicle, current availability and today's numbers.</td></tr>
-<tr><td><span class="tag">PUT</span><code>/driver/availability</code></td><td><code>status</code>: <code>online</code>, <code>offline</code> or <code>break</code>. Only online drivers get offers.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/me</code></td><td>One call for the home screen: <code>{"driver": {"availability", "company", "rating_avg", ...}, "offers": [...], "jobs": [...]}</code>. <code>availability</code> is <code>online</code>, <code>offline</code>, <code>break</code> or <code>on_job</code>. Returns <code>403</code> when the user has no active driver profile.</td></tr>
+<tr><td><span class="tag">POST</span><code>/driver/availability</code></td><td><code>availability</code>: <code>online</code>, <code>offline</code> or <code>break</code>. Only online drivers get offers. Refused with <code>422</code> while the driver is on a job.</td></tr>
 <tr><td><span class="tag">GET</span><code>/driver/offers</code></td><td>Open job offers with pickup, drop-off, distance, pay and seconds left. Also pushed as a notification and a text.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/offers/{id}/accept</code>, <code>/decline</code></td><td>Accept fails with <code>422</code> if it expired or someone else took it.</td></tr>
-<tr><td><span class="tag">GET</span><code>/driver/jobs</code></td><td>Your active jobs.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/jobs</code></td><td><code>{"live": [...], "done": [...]}</code>: jobs in progress and recently finished ones.</td></tr>
 <tr><td><span class="tag">GET</span><code>/driver/jobs/{shipment}</code></td><td>One job with its ordered stops, contacts, status and the failed-delivery terms.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/start</code></td><td>Heading to pickup.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/release</code></td><td>Hand the job back before pickup.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/issue</code></td><td>Report a problem: <code>type</code>, optional <code>note</code>.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/fail</code></td><td><code>reason</code> (<code>receiver_unreachable, receiver_refused, wrong_address</code>), optional <code>note</code>. Only at the drop-off, and only after the agreed wait time. Adds a return stop when the terms say the parcel goes back.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/stops/{id}/complete</code></td><td>See below.</td></tr>
-<tr><td><span class="tag">GET</span><code>/driver/earnings</code></td><td>Totals, recent jobs and the driver's <code>wallet</code> balance. Pay is posted to the wallet when the customer confirms; withdraw it with the customer wallet calls.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/earnings</code></td><td><code>today, week, month</code> (kobo, from finished jobs) and the driver's <code>wallet</code> balance. Pay is posted to the wallet when the customer confirms. Cash out with <code>GET /banks</code>, <code>GET|POST /customer/bank-accounts</code> and <code>POST /customer/wallet/withdraw</code>.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/location</code></td><td>Batch of GPS pings (below).</td></tr>
 </table>
 
@@ -135,7 +137,7 @@
 <pre><code>POST /driver/stops/{id}/complete
 {"proof_type": "otp", "otp": "4821", "lat": 7.83, "lng": 6.76, "recipient_name": "Chi"}</code></pre>
 <p><code>proof_type</code> is <code>otp, photo, signature</code> or <code>qr_scan</code>. The driver must be within 300 m of the stop. A drop-off needs the receiver's 4-digit delivery code, or a photo. Pick-ups can use a photo or signature.</p>
-<p><b>Known gap:</b> there is no photo upload endpoint yet. The call accepts only a <code>file_path</code> string, so for now apps should complete drop-offs with the delivery code.</p>
+<p>To send a photo (or a signature image), post the call as <code>multipart/form-data</code> and put the image in the <code>photo</code> field (JPEG or PNG, up to 6 MB). Use <code>proof_type</code> <code>photo</code> or <code>signature</code>. The server stores the file; any path sent by the app is ignored. Compress to about 1600 px on the long side before uploading.</p>
 
 <h2 id="notifications">Notifications</h2>
 <table>
@@ -144,7 +146,14 @@
 <tr><td><span class="tag">POST</span><code>/notifications/{id}/read</code>, <code>/notifications/read-all</code></td><td></td></tr>
 <tr><td><span class="tag">GET / PUT</span><code>/notifications/preferences</code></td><td>Which channels (in-app, email, SMS) are on for each category. Delivery and payment alerts that the receiver or driver needs cannot be turned off.</td></tr>
 </table>
-<p>There is no push provider wired up yet, so poll while the app is open (every 20 to 30 seconds) and refresh on resume.</p>
+<h3>Push notifications</h3>
+<p>Every in-app notification is also sent as a push (Firebase Cloud Messaging) to the user's registered devices. Use the <code>firebase_messaging</code> plugin, then register the token after sign-in and whenever it changes:</p>
+<table>
+<tr><th>Call</th><th>Body</th></tr>
+<tr><td><span class="tag">POST</span><code>/devices</code></td><td><code>device_id</code> (a stable ID the app generates and keeps), <code>push_token</code>; optional <code>platform</code> (<code>android, ios, web</code>), <code>os, app_version</code></td></tr>
+<tr><td><span class="tag">DELETE</span><code>/devices/{device_id}</code></td><td>Call on sign-out so the phone stops receiving this account's pushes.</td></tr>
+</table>
+<p>The push carries <code>title</code>, <code>body</code> and a <code>data</code> map with <code>event</code> (for example <code>delivery.failed</code>) and <code>url</code>. A token can belong to one account at a time. Keep polling <code>/notifications</code> when the app opens, so nothing is missed if a push is dropped.</p>
 
 <h2 id="status">Shipment statuses</h2>
 <table>

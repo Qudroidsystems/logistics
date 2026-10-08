@@ -125,6 +125,7 @@ class WorkspaceController extends Controller
             'drivers' => ManualAssignmentService::canAssign($s->status) ? app(ManualAssignmentService::class)->drivers($op->id) : [],
             'driver' => DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
                 ->where('a.shipment_id', $s->id)->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->first(['u.id as user_id', 'u.name', 'a.status']),
+            'proofs' => DB::table('proofs')->where('shipment_id', $s->id)->orderBy('id')->get(['public_id', 'type', 'file_path', 'otp_verified', 'recipient_name', 'created_at']),
             'terms' => $this->failedTerms((int) $s->order_id),
             'pagetitle' => 'Job',
         ], 'jobs');

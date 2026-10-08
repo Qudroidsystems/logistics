@@ -16,6 +16,7 @@
                 @foreach($terms as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
                 <div class="small text-muted">Agreed with the customer when the job was booked.</div>
             </x-cb.card>
+            @include('partials.proofs')
             <x-cb.card title="Timeline" icon="ri-time-line" :flush="true">
                 <table class="table mb-0"><tbody>
                 @forelse($timeline as $e)

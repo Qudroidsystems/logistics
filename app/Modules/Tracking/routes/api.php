@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Customer\CancellationController;
 use App\Http\Controllers\Api\Customer\CustomerWalletController;
+use App\Http\Controllers\Api\Customer\OrdersController;
 use App\Http\Controllers\Api\Customer\TrackingController;
 use App\Http\Controllers\Api\Driver\DriverJobController;
 use App\Http\Controllers\Api\Driver\DriverWorkController;
@@ -27,7 +28,10 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::post('/location', [DriverJobController::class, 'location']);
         Route::post('/stops/{stop}/complete', [DriverJobController::class, 'completeStop']);
     });
+    Route::get('/banks', [CustomerWalletController::class, 'banks']);
     Route::prefix('customer')->group(function () {
+        Route::get('/orders', [OrdersController::class, 'index']);
+        Route::get('/orders/{shipment}', [OrdersController::class, 'show']);
         Route::get('/shipments/{shipment}/delivery-code', [TrackingController::class, 'deliveryCode']);
         Route::get('/shipments/{shipment}/cancel-preview', [CancellationController::class, 'preview']);
         Route::post('/shipments/{shipment}/cancel', [CancellationController::class, 'cancel']);

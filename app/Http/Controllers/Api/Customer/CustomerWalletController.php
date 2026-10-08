@@ -32,6 +32,17 @@ class CustomerWalletController extends Controller
         return $this->run(fn () => $wallet->startTopUp($request->user()->id, (int) $d['amount']), 201);
     }
 
+    /** Nigerian banks for the "add account" picker: [{code, name}]. */
+    public function banks(\App\Modules\Payments\BankDirectory $directory)
+    {
+        $out = [];
+        foreach ($directory->all() as $code => $name) {
+            $out[] = ['code' => (string) $code, 'name' => $name];
+        }
+
+        return response()->json($out);
+    }
+
     public function bankAccounts(Request $request)
     {
         return response()->json(DB::table('bank_accounts')->where(['owner_type' => 'customer', 'owner_id' => $request->user()->id])->whereNull('deleted_at')
@@ -42,7 +53,7 @@ class CustomerWalletController extends Controller
     {
         $d = $request->validate(['bank_code' => 'required|string|max:12', 'bank_name' => 'nullable|string|max:80', 'account_number' => 'required|digits:10']);
 
-        return $this->run(fn () => $banks->add('customer', $request->user()->id, $d['bank_code'], $d['bank_name'] ?? null, $d['account_number']), 201);
+        return $this->run(fn () => $banks->add('customer', $request->user()->id, $d['bank_code'], $d['bank_name'] ?? app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code']), $d['account_number']), 201);
     }
 
     public function withdraw(Request $request, PayoutService $payouts)

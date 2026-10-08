@@ -14,7 +14,7 @@ use Throwable;
  * for the messages that need one. Sending is best effort: a notification problem is logged and never breaks the money or
  * delivery step that triggered it.
  *
- * SMS goes through Notifications\Sms\SmsService (Termii; set SMS_DRIVER=termii). Push is not wired to a provider yet.
+ * SMS goes through Notifications\Sms\SmsService (Termii; set SMS_DRIVER=termii). Push goes through Notifications\Push\PushService (Firebase; set PUSH_DRIVER=fcm).
  */
 class NotificationService
 {
@@ -37,6 +37,7 @@ class NotificationService
                 $title = self::render($tpl['title'], $vars);
                 $body = self::render($tpl['body'], $vars);
                 if ($inApp) {
+                    app(Push\PushService::class)->toUser($userId, $title, $body, ['event' => $event, 'url' => $url]);
                     DB::table('notifications')->insert([
                         'id' => (string) Str::uuid(), 'type' => $event, 'notifiable_type' => User::class, 'notifiable_id' => $userId,
                         'data' => json_encode(['event' => $event, 'title' => $title, 'body' => $body, 'url' => $url]),

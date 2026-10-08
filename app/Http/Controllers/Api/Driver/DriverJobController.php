@@ -32,11 +32,14 @@ class DriverJobController extends Controller
     {
         $d = $request->validate([
             'proof_type' => 'required|in:otp,photo,signature,qr_scan',
-            'file_path' => 'nullable|string|max:255', 'otp' => 'nullable|string|max:12',
+            'photo' => 'nullable|image|max:6144', 'otp' => 'nullable|string|max:12',
             'lat' => 'required|numeric', 'lng' => 'required|numeric', 'recipient_name' => 'nullable|string|max:120',
         ]);
+        // Never trust a client-supplied path: the file is stored here, on the private disk.
+        $path = $request->attributes->get('proof_path')
+            ?: ($request->hasFile('photo') ? $request->file('photo')->store('proofs/'.date('Y/m')) : null);
         try {
-            $stops->complete($this->driverId($request), $stop, $d['proof_type'], $d['file_path'] ?? null, $d['otp'] ?? null, (float) $d['lat'], (float) $d['lng'], $d['recipient_name'] ?? null);
+            $stops->complete($this->driverId($request), $stop, $d['proof_type'], $path, $d['otp'] ?? null, (float) $d['lat'], (float) $d['lng'], $d['recipient_name'] ?? null);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

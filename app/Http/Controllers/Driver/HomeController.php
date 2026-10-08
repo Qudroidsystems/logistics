@@ -86,7 +86,8 @@ class HomeController extends Controller
         abort_unless($job && collect($job['stops'])->contains('id', $stop), 404);
 
         $path = $request->file('photo') ? $request->file('photo')->store('proofs/'.date('Y/m')) : null;
-        $request->merge(['proof_type' => $request->filled('otp') ? 'otp' : 'photo', 'file_path' => $path]);
+        $request->merge(['proof_type' => $request->filled('otp') ? 'otp' : 'photo']);
+        $request->attributes->set('proof_path', $path);
 
         return $this->back($this->jobs->completeStop($request, $stop, app(StopService::class)), 'Done.');
     }

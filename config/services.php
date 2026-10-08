@@ -55,6 +55,16 @@ return [
         'live_public_key' => env('PAYSTACK_LIVE_PUBLIC_KEY'),
     ],
 
+    'push' => [
+        // log (default, nothing is sent) | fcm
+        'driver' => env('PUSH_DRIVER', 'log'),
+    ],
+
+    'fcm' => [
+        // Path to the Firebase service-account JSON (keep it outside git, e.g. storage/app/private/fcm.json)
+        'credentials' => env('FCM_CREDENTIALS'),
+    ],
+
     'sms' => [
         // log (default, nothing is sent) | termii
         'driver' => env('SMS_DRIVER', 'log'),

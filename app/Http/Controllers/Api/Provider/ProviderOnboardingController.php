@@ -28,7 +28,7 @@ class ProviderOnboardingController extends Controller
             'required_documents' => ProviderOnboardingService::REQUIRED_DOCS,
             'service_types' => DB::table('service_types')->where('active', true)->orderBy('id')->get(['id', 'code', 'name']),
             'vehicle_types' => DB::table('vehicle_types')->where('active', true)->orderBy('id')->get(['id', 'code', 'name', 'max_weight_g']),
-            'cities' => DB::table('cities')->orderBy('name')->get(['id', 'name']),
+            'cities' => DB::table('cities')->orderBy('name')->get(['id', 'name', 'lat', 'lng']),
         ]);
     }
 

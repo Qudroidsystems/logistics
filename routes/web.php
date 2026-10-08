@@ -55,6 +55,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Proof-of-delivery photos (private disk, access checked per file)
+    Route::get('/proofs/{proof}', [\App\Http\Controllers\ProofController::class, 'show'])->where('proof', '[A-Za-z0-9]{26}')->middleware('throttle:120,1')->name('proofs.show');
+
     // ------------------------------------------------------------ users, roles, permissions
     Route::get('/users/roles', [UserController::class, 'roles'])->name('users.roles');
     Route::get('/user/overview/{id}', [UserController::class, 'show'])->name('users.overview');
