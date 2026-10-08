@@ -114,7 +114,7 @@
 <tr><td><span class="tag">GET</span><code>/driver/offers</code></td><td>Open job offers with pickup, drop-off, distance, pay and seconds left. Also pushed as a notification and a text.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/offers/{id}/accept</code>, <code>/decline</code></td><td>Accept fails with <code>422</code> if it expired or someone else took it.</td></tr>
 <tr><td><span class="tag">GET</span><code>/driver/jobs</code></td><td><code>{"live": [...], "done": [...]}</code>: jobs in progress and recently finished ones.</td></tr>
-<tr><td><span class="tag">GET</span><code>/driver/jobs/{shipment}</code></td><td>One job with its ordered stops, contacts, status and the failed-delivery terms.</td></tr>
+<tr><td><span class="tag">GET</span><code>/driver/jobs/{shipment}</code></td><td>One job with its ordered stops, contacts, status and <code>failed_delivery_terms</code>, a list of plain sentences about waiting, returning and pay if the delivery fails.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/start</code></td><td>Heading to pickup.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/release</code></td><td>Hand the job back before pickup.</td></tr>
 <tr><td><span class="tag">POST</span><code>/driver/jobs/{shipment}/issue</code></td><td>Report a problem: <code>type</code>, optional <code>note</code>.</td></tr>

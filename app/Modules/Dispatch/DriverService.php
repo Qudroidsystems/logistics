@@ -81,7 +81,13 @@ class DriverService
              ST_Y(point::geometry) as lat, ST_X(point::geometry) as lng'
         )->where('shipment_id', $row->shipment_id)->orderBy('seq')->get()->map(fn ($s) => (array) $s)->all();
 
-        return (array) $row + ['stops' => $stops, 'live' => in_array($row->assignment, self::LIVE, true)];
+        $policyJson = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->join('agreements as g', 'g.id', '=', 'o.agreement_id')
+            ->where('s.id', $row->shipment_id)->value('g.failed_delivery_policy');
+
+        return (array) $row + [
+            'stops' => $stops, 'live' => in_array($row->assignment, self::LIVE, true),
+            'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describeForDriver($policyJson ? json_decode($policyJson, true) : null),
+        ];
     }
 
     /** Driver sets off for the pickup. Arrival is then picked up from their location. */

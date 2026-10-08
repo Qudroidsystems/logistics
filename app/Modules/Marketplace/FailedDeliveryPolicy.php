@@ -93,4 +93,16 @@ class FailedDeliveryPolicy
 
         return $lines;
     }
+    /** Pure: the same policy in plain sentences for the driver. @return string[] */
+    public static function describeForDriver(?array $policy): array
+    {
+        $p = self::normalize($policy);
+        $lines = ["Wait {$p['wait_minutes']} minutes at the drop-off and try to reach the receiver before you report a failed delivery."];
+        $lines[] = $p['return_to_sender']
+            ? 'If it fails, bring the parcel back to the pickup address. A return stop appears in the job.'
+            : 'If it fails, you do not bring the parcel back; your company will contact the sender.';
+        $lines[] = $p['driver_paid'] ? 'You are still paid for a failed trip.' : 'A failed trip is not paid.';
+
+        return $lines;
+    }
 }
