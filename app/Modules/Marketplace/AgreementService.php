@@ -109,8 +109,6 @@ class AgreementService
             'updated_at' => now(),
         ]);
 
-<<<<<<< HEAD
-=======
         if (($terms['errand'] ?? null) === 'shopping') {
             DB::table('shopping_requests')->insertOrIgnore([
                 'agreement_id' => $a->id, 'market_id' => $terms['market_id'] ?? null, 'list' => json_encode($terms['list'] ?? []),
@@ -119,7 +117,6 @@ class AgreementService
             ]);
         }
 
->>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
         return 'locked';
     }
 

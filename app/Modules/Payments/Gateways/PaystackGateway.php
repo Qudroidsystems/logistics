@@ -38,8 +38,6 @@ class PaystackGateway
 
         return $res->json('data');
     }
-<<<<<<< HEAD
-=======
 
     /** @return string the transfer recipient code */
     public function createRecipient(string $name, string $accountNumber, string $bankCode): string
@@ -90,5 +88,4 @@ class PaystackGateway
 
         return (string) $res->json('data.account_name');
     }
->>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
 }

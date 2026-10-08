@@ -65,6 +65,16 @@ class LoginController extends Controller
             }
         }
 
+        // A provider who is not staff has no admin dashboard; send them to their own workspace.
+        if (! $user->can('dashboard') && \Illuminate\Support\Facades\DB::table('operator_members')->where('user_id', $user->id)->where('status', 'active')->exists()) {
+            return redirect()->route('provider.dashboard');
+        }
+
+        // Everyone else who is not staff is a customer.
+        if (! $user->can('dashboard')) {
+            return redirect()->route('account.dashboard');
+        }
+
         return redirect()->intended($this->redirectPath());
     }
 

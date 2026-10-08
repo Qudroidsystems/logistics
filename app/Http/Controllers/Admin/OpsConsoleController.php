@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\Admin\AdminOpsController;
 use App\Http\Controllers\Api\Admin\AdminProviderController;
 use App\Http\Controllers\Controller;
 use App\Modules\Marketplace\DisputeService;
+use App\Modules\Ratings\ProviderScoreService;
+use App\Modules\Settlements\SettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -95,6 +97,95 @@ class OpsConsoleController extends Controller
         };
 
         return $this->back($res, ['approve' => 'Application approved. The provider is now live.', 'request_changes' => 'Sent back for changes.', 'reject' => 'Application rejected.'][$action]);
+    }
+
+    // ---------------------------------------------------------------- money
+
+    public function refunds(Request $request)
+    {
+        return view('ops.refunds', ['rows' => $this->ops->refunds($request)->getData(true), 'status' => $request->query('status', '')]);
+    }
+
+    public function settlements(Request $request)
+    {
+        return view('ops.settlements', ['rows' => $this->ops->settlements($request)->getData(true), 'status' => $request->query('status', '')]);
+    }
+
+    public function approveSettlement(string $settlement, SettlementService $svc)
+    {
+        $this->ops->approveSettlement($settlement, $svc);
+
+        return back()->with('success', 'Settlement approved.');
+    }
+
+    public function runSettlements(SettlementService $svc)
+    {
+        $r = $this->ops->runSettlements($svc)->getData(true);
+
+        return back()->with('success', "Draft statements built for {$r['providers']} provider(s), {$r['period'][0]} to {$r['period'][1]}.");
+    }
+
+    // ---------------------------------------------------------------- providers
+
+    public function providersList(Request $request)
+    {
+        $this->needAny($request, ['View vendor', 'View driver', 'View shopper']);
+
+        return view('ops.providers', ['rows' => $this->ops->providers($request)->getData(true), 'f' => $request->only('q', 'status')]);
+    }
+
+    public function refreshScore(Request $request, string $operator, ProviderScoreService $scores)
+    {
+        $this->needAny($request, ['View vendor', 'View driver', 'View shopper']);
+        $this->ops->refreshProvider($operator, $scores);
+
+        return back()->with('success', 'Score recalculated.');
+    }
+
+    public function suspend(Request $request, string $operator)
+    {
+        $this->needAny($request, ['Suspend vendor', 'Suspend driver', 'Suspend shopper']);
+
+        return $this->back($this->providers->suspend($request, $operator), 'Provider suspended.');
+    }
+
+    public function reinstate(Request $request, string $operator)
+    {
+        $this->needAny($request, ['Suspend vendor', 'Suspend driver', 'Suspend shopper']);
+
+        return $this->back($this->providers->reinstate($operator), 'Provider reinstated.');
+    }
+
+    // ---------------------------------------------------------------- ratings and risk
+
+    public function ratings(Request $request)
+    {
+        return view('ops.ratings', ['rows' => $this->ops->ratings($request)->getData(true), 'f' => $request->only('max_score', 'status')]);
+    }
+
+    public function moderate(Request $request, int $rating, ProviderScoreService $scores)
+    {
+        $this->ops->moderateRating($request, $rating, $scores);
+
+        return back()->with('success', 'Rating updated.');
+    }
+
+    public function risk(Request $request)
+    {
+        return view('ops.risk', ['rows' => $this->ops->riskEvents($request)->getData(true), 'status' => $request->query('status', 'open')]);
+    }
+
+    public function reviewRisk(Request $request, int $event)
+    {
+        $this->ops->reviewRiskEvent($request, $event);
+
+        return back()->with('success', 'Marked.');
+    }
+
+    /** Spatie's route middleware cannot express "any of these", so the controller checks. */
+    private function needAny(Request $request, array $permissions): void
+    {
+        abort_unless($request->user()->hasAnyPermission($permissions), 403);
     }
 
     // ----------------------------------------------------------------

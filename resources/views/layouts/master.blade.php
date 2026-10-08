@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>{{ $pagetitle }} | {{ config('app.name') }}</title>
+    <title>{{ $pagetitle ?? "Operations" }} | {{ config('app.name') }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta content="city commerce, shopping and logistics platform" name="description">
     <meta content="" name="author">

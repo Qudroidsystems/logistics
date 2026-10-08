@@ -10,17 +10,12 @@ use RuntimeException;
 
 class PaymentService
 {
-<<<<<<< HEAD
-    public function __construct(private PaystackGateway $paystack, private EscrowService $escrow)
-    {
-=======
     public function __construct(
         private PaystackGateway $paystack,
         private EscrowService $escrow,
         private \App\Modules\Marketplace\OrderFromAgreement $orders,
         private \App\Modules\Dispatch\DispatchService $dispatch,
     ) {
->>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
     }
 
     /** Customer pays a locked agreement by card/transfer. Returns the hosted checkout URL. */
@@ -51,8 +46,6 @@ class PaymentService
 
         return ['reference' => $intent->reference, 'authorization_url' => $init['authorization_url'], 'amount' => (int) $intent->amount];
     }
-<<<<<<< HEAD
-=======
 
     /** Pays a locked agreement from the customer's wallet. Throws InsufficientFunds when the balance is short. */
     public function payWithWallet(int $agreementId, int $customerId): array
@@ -76,5 +69,4 @@ class PaymentService
 
         return $made;
     }
->>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
 }

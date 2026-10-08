@@ -1,3 +1,8 @@
+@if(request()->routeIs('provider.*'))
+    @include('layouts.partials.provider-sidebar')
+@elseif(request()->routeIs('account.*'))
+    @include('layouts.partials.account-sidebar')
+@else
 {{-- Admin sidebar. Items are gated by permission and by module feature flags.
      New modules add their block here as they are built. --}}
 <div class="app-menu navbar-menu">
@@ -32,12 +37,17 @@
                 @endcan
 
                 {{-- ===== Operations (Phase 1+: deliveries, dispatch, tracking) ===== --}}
-                @if(auth()->user()->can('dashboard') || auth()->user()->can('View delivery') || auth()->user()->can('View dispute') || auth()->user()->can('View kyc'))
+                @if(auth()->user()->hasAnyPermission(['dashboard','View delivery','View dispute','View kyc','View payment','View settlement','View rating','Manage fraud flags','View vendor','View driver','View shopper']))
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>OPERATIONS</span></li>
                 @can('dashboard')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dashboard') ? 'active' : '' }}" href="{{ route('ops.dashboard') }}"><i class="ri-truck-line"></i> <span>Overview</span></a></li>@endcan
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.order*') ? 'active' : '' }}" href="{{ route('ops.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>Orders</span></a></li>@endcan
                 @can('View dispute')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dispute*') ? 'active' : '' }}" href="{{ route('ops.disputes') }}"><i class="ri-scales-3-line"></i> <span>Disputes</span></a></li>@endcan
                 @can('View kyc')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.application*') ? 'active' : '' }}" href="{{ route('ops.applications') }}"><i class="ri-shield-user-line"></i> <span>Provider applications</span></a></li>@endcan
+                @if(auth()->user()->hasAnyPermission(['View vendor','View driver','View shopper']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.provider*') ? 'active' : '' }}" href="{{ route('ops.providers') }}"><i class="ri-team-line"></i> <span>Providers</span></a></li>@endif
+                @can('View settlement')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.settlement*') ? 'active' : '' }}" href="{{ route('ops.settlements') }}"><i class="ri-bank-line"></i> <span>Settlements</span></a></li>@endcan
+                @can('View payment')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.refunds') ? 'active' : '' }}" href="{{ route('ops.refunds') }}"><i class="ri-refund-2-line"></i> <span>Refunds</span></a></li>@endcan
+                @can('View rating')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.rating*') ? 'active' : '' }}" href="{{ route('ops.ratings') }}"><i class="ri-star-line"></i> <span>Ratings</span></a></li>@endcan
+                @can('Manage fraud flags')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.risk*') ? 'active' : '' }}" href="{{ route('ops.risk') }}"><i class="ri-alarm-warning-line"></i> <span>Risk events</span></a></li>@endcan
                 @endif
                 {{-- ===== Marketplace (Phase 2-4: vendors, drivers, shoppers, stores, business) ===== --}}
                 {{-- ===== Finance (payments, wallets, settlements) ===== --}}
@@ -101,3 +111,4 @@
 
     <div class="sidebar-background"></div>
 </div><!-- /app-menu -->
+@endif

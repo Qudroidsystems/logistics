@@ -39,8 +39,6 @@ class ProcessGatewayEvent implements ShouldQueue
                 $shipmentId = $this->chargeSucceeded($payload['data'], $escrow, $orders);
             }
 
-<<<<<<< HEAD
-=======
             $ref = $payload['data']['reference'] ?? '';
             if ($event->type === 'refund.processed') {
                 app(\App\Modules\Payments\RefundService::class)->complete((string) ($payload['data']['id'] ?? ''));
@@ -53,7 +51,6 @@ class ProcessGatewayEvent implements ShouldQueue
                 app(\App\Modules\Settlements\PayoutService::class)->fail($ref, (string) ($payload['data']['reason'] ?? $event->type));
             }
 
->>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
             DB::table('gateway_events')->where('id', $event->id)->update(['processed_at' => now(), 'error' => null, 'updated_at' => now()]);
         });
 
@@ -83,13 +80,9 @@ class ProcessGatewayEvent implements ShouldQueue
         ]);
 
         if (! $intent->agreement_id) {
-<<<<<<< HEAD
-            return null; // wallet top-ups are handled by their own flow
-=======
             app(\App\Modules\Payments\WalletService::class)->creditTopUp((int) $intent->id); // wallet top-up
 
             return null;
->>>>>>> f13ef7283d8990e676f244093d5e997780b4fb1d
         }
 
         $escrow->hold((int) $intent->agreement_id, 'gateway');

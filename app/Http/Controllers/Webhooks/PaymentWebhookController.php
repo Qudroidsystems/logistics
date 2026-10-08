@@ -48,6 +48,8 @@ class PaymentWebhookController extends Controller
     /** Browser return URL. Never trusted for payment status; the webhook is the source of truth. */
     public function callback(Request $request)
     {
-        return redirect()->route('home')->with('success', 'Payment received. We are confirming it now.');
+        $to = auth()->check() && ! auth()->user()->can('dashboard') ? route('account.orders') : route('home');
+
+        return redirect($to)->with('success', 'Payment received. We are confirming it now.');
     }
 }

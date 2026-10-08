@@ -23,6 +23,7 @@ class NotificationTemplates
         'offer.counter_to_customer' => ['title' => 'Provider countered', 'body' => '{provider} proposed {amount}. Accept or reply.', 'email' => false],
 
         // ---- delivery lifecycle (customer side)
+        'delivery.job_assigned' => ['title' => 'New job for you', 'body' => 'You have been given order {order}. Open it for the pickup details.', 'email' => false],
         'delivery.assigned' => ['title' => 'Rider assigned', 'body' => 'Your order {order} has a rider and is on its way to pickup.', 'email' => false],
         'delivery.arrived' => ['title' => 'Rider has arrived', 'body' => 'The rider for {order} has arrived.', 'email' => false],
         'delivery.picked_up' => ['title' => 'Order picked up', 'body' => 'Order {order} is on its way. You can follow it live.', 'email' => false],

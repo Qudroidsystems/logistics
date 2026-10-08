@@ -117,3 +117,5 @@ Route::middleware('auth')->group(function () {
 
 // Staff console for the delivery marketplace
 require __DIR__.'/ops.php';
+require __DIR__.'/provider.php';
+require __DIR__.'/account.php';
