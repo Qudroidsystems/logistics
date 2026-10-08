@@ -13,6 +13,7 @@
                 <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('account.request', 'account.requests', 'account.thread') ? 'active' : '' }}" href="{{ route('account.requests') }}"><i class="ri-chat-quote-line"></i> <span>My requests</span></a></li>
                 <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('account.order*', 'account.pay') ? 'active' : '' }}" href="{{ route('account.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>My orders</span></a></li>
                 <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('account.wallet') ? 'active' : '' }}" href="{{ route('account.wallet') }}"><i class="ri-wallet-3-line"></i> <span>Wallet</span></a></li>
+                <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('account.phone*') ? 'active' : '' }}" href="{{ route('account.phone') }}"><i class="ri-smartphone-line"></i> <span>Phone number</span></a></li>
                 @if(\Illuminate\Support\Facades\Route::has('provider.start'))<li class="nav-item"><a class="nav-link menu-link" href="{{ route('provider.start') }}"><i class="ri-truck-line"></i> <span>Become a provider</span></a></li>@endif
             </ul>
         </div>

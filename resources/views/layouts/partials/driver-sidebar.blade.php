@@ -9,6 +9,7 @@
                 <li class="menu-title"><span>DRIVING</span></li>
                 <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('driver.home') || request()->routeIs('driver.job') ? 'active' : '' }}" href="{{ route('driver.home') }}"><i class="ri-steering-2-line"></i> <span>Today</span></a></li>
                 <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('driver.history') ? 'active' : '' }}" href="{{ route('driver.history') }}"><i class="ri-history-line"></i> <span>Past jobs</span></a></li>
+                <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('driver.phone*') ? 'active' : '' }}" href="{{ route('driver.phone') }}"><i class="ri-smartphone-line"></i> <span>Phone number</span></a></li>
             </ul>
         </div>
     </div>

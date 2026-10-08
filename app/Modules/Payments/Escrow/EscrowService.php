@@ -2,6 +2,7 @@
 
 namespace App\Modules\Payments\Escrow;
 
+use App\Modules\Payments\DriverPayService;
 use App\Modules\Payments\Ledger\AccountResolver;
 use App\Modules\Payments\Ledger\LedgerPoster;
 use Illuminate\Support\Facades\DB;
@@ -278,11 +279,15 @@ class EscrowService
         if (! $shipmentId) {
             return;
         }
-        DB::table('commissions')->insertOrIgnore([
+        $added = DB::table('commissions')->insertOrIgnore([
             'shipment_id' => $shipmentId, 'agreement_id' => $agreement->id, 'operator_id' => $agreement->provider_operator_id,
             'commission_rule_id' => $agreement->fee_rule_id, 'gross_amount' => $fee + $providerNet, 'platform_fee' => $fee,
             'operator_net' => $providerNet, 'ledger_tx_id' => $txId, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
         ]);
+        // The company's money has just landed in its wallet; pay the driver their agreed share out of it.
+        if ($added) {
+            app(DriverPayService::class)->payForShipment((int) $shipmentId, $providerNet, (int) $agreement->provider_operator_id, (bool) $agreement->is_test);
+        }
     }
 
     /** Customer approved extra goods money (shopping budget amendment): move it from their wallet into escrow. */

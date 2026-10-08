@@ -115,7 +115,10 @@ class DriverService
     {
         $sum = fn ($from) => (int) DB::table('assignments')->where('driver_profile_id', $driverId)->where('status', 'completed')->where('completed_at', '>=', $from)->sum('payout_amount');
 
-        return ['today' => $sum(now()->startOfDay()), 'week' => $sum(now()->startOfWeek()), 'month' => $sum(now()->startOfMonth())];
+        $userId = DB::table('driver_profiles')->where('id', $driverId)->value('user_id');
+        $wallet = $userId ? (int) app(\App\Modules\Payments\WalletService::class)->balance((int) $userId) : 0;
+
+        return ['today' => $sum(now()->startOfDay()), 'week' => $sum(now()->startOfWeek()), 'month' => $sum(now()->startOfMonth()), 'wallet' => $wallet];
     }
 
     /** Tell the company something is wrong. Nothing changes on the job; the dispatcher decides what to do. */

@@ -106,10 +106,24 @@ class CityZoneController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'type' => ['required', Rule::in(self::ZONE_TYPES)],
-            'lat' => ['required', 'numeric', 'between:-90,90'],
-            'lng' => ['required', 'numeric', 'between:-180,180'],
-            'radius_km' => ['required', 'numeric', 'between:0.1,200'],
+            'shape' => ['nullable', Rule::in(['circle', 'polygon'])],
+            'lat' => ['required_unless:shape,polygon', 'nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['required_unless:shape,polygon', 'nullable', 'numeric', 'between:-180,180'],
+            'radius_km' => ['required_unless:shape,polygon', 'nullable', 'numeric', 'between:0.1,200'],
+            'points' => ['required_if:shape,polygon', 'nullable', 'string', 'max:20000'],
         ]);
+
+        if (($data['shape'] ?? 'circle') === 'polygon') {
+            $ring = $this->parsePoints($data['points'] ?? '');
+            if (! $ring) {
+                return back()->withInput()->with('error', 'Click at least 3 points on the map to outline the zone.');
+            }
+            if (! $this->insertPolygonZone($city, $data['name'], $data['type'], $ring)) {
+                return back()->withInput()->with('error', 'That outline crosses itself or is too small or too large. Redraw it without crossing lines.');
+            }
+
+            return back()->with('success', 'Zone added.');
+        }
 
         $this->insertZone($city, $data['name'], $data['type'], (float) $data['lat'], (float) $data['lng'], (float) $data['radius_km'] * 1000);
 
@@ -135,6 +149,59 @@ class CityZoneController extends Controller
         return DB::table('cities')
             ->selectRaw('id, name, region, slug, launch_status, ST_Y(centre::geometry) as lat, ST_X(centre::geometry) as lng')
             ->where('id', $id)->first();
+    }
+
+    /**
+     * Pure: the JSON the map sends ([[lat,lng],...]) as a closed ring of [lng,lat] pairs, or null when it is not a usable outline
+     * (fewer than 3 distinct points, more than 300, or coordinates out of range).
+     *
+     * @return array<int,array{0:float,1:float}>|null
+     */
+    public static function parsePoints(string $json): ?array
+    {
+        $raw = json_decode($json, true);
+        if (! is_array($raw) || count($raw) < 3 || count($raw) > 300) {
+            return null;
+        }
+        $ring = [];
+        foreach ($raw as $p) {
+            if (! is_array($p) || count($p) !== 2 || ! is_numeric($p[0]) || ! is_numeric($p[1])) {
+                return null;
+            }
+            [$lat, $lng] = [(float) $p[0], (float) $p[1]];
+            if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+                return null;
+            }
+            $pair = [$lng, $lat];
+            if ($ring === [] || end($ring) !== $pair) {
+                $ring[] = $pair;
+            }
+        }
+        if (count($ring) < 3) {
+            return null;
+        }
+        if ($ring[0] !== end($ring)) {
+            $ring[] = $ring[0];
+        }
+
+        return count($ring) >= 4 ? $ring : null;
+    }
+
+    /** A drawn zone. Refused (false) when the outline is not a valid polygon or is outside 0.01 to 40,000 km2. */
+    private function insertPolygonZone(int $cityId, string $name, string $type, array $ring): bool
+    {
+        $wkt = 'POLYGON(('.implode(',', array_map(fn ($p) => sprintf('%F %F', $p[0], $p[1]), $ring)).'))';
+        $check = DB::selectOne('select ST_IsValid(g) as ok, ST_Area(g::geography) / 1000000 as km2 from (select ST_GeomFromText(?, 4326) as g) t', [$wkt]);
+        if (! $check || ! $check->ok || $check->km2 < 0.01 || $check->km2 > 40000) {
+            return false;
+        }
+        DB::table('zones')->insert([
+            'city_id' => $cityId, 'name' => $name, 'type' => $type,
+            'boundary' => DB::raw(sprintf("ST_Multi(ST_GeomFromText('%s', 4326))::geography", $wkt)),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return true;
     }
 
     /** A round zone: the circle around a point, stored as a one-part multipolygon on the geography type. */

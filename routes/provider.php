@@ -34,6 +34,7 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::put('/team/members/{user}/role', [W::class, 'changeRole'])->whereNumber('user')->name('team.role');
     Route::delete('/team/members/{user}', [W::class, 'removeMember'])->whereNumber('user')->name('team.remove');
     Route::put('/team/members/{user}/driver-status', [W::class, 'driverStatus'])->whereNumber('user')->name('team.driver');
+    Route::put('/team/members/{user}/driver-pay', [W::class, 'driverPay'])->whereNumber('user')->name('team.pay');
     Route::put('/team/members/{user}/vehicle', [W::class, 'assignVehicle'])->whereNumber('user')->name('team.vehicle');
 
     // Becoming a provider and getting the account ready

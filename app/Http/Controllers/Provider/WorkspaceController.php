@@ -255,6 +255,13 @@ class WorkspaceController extends Controller
         return $this->back($this->team->driverStatus($request, $user), 'Driver updated.');
     }
 
+    public function driverPay(Request $request, int $user)
+    {
+        $this->ctx($request, 'team');
+
+        return $this->back($this->team->driverPay($request, $user), 'Driver pay updated.');
+    }
+
     public function assignVehicle(Request $request, int $user)
     {
         $this->ctx($request, 'team');

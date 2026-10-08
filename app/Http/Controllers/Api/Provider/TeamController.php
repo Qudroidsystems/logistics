@@ -82,6 +82,18 @@ class TeamController extends Controller
         });
     }
 
+    public function driverPay(Request $request, int $user)
+    {
+        $op = $this->operatorId($request, self::MANAGERS);
+        $d = $request->validate(['percent' => 'required|numeric|between:0,100']);
+
+        return $this->run(function () use ($op, $user, $d) {
+            $this->team->setDriverPay($op, $user, (float) $d['percent']);
+
+            return ['ok' => true];
+        });
+    }
+
     public function assignVehicle(Request $request, int $user)
     {
         $op = $this->operatorId($request, self::MANAGERS);

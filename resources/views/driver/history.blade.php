@@ -9,6 +9,10 @@
         <div class="col-4"><div class="p-3 border rounded text-center"><div class="small text-muted">{{ $label }}</div><div class="fs-5 fw-semibold">{{ $naira($earn[$k]) }}</div></div></div>
         @endforeach
     </div>
+    <div class="p-3 border rounded mb-3 d-flex justify-content-between align-items-center">
+        <div><div class="small text-muted">In your wallet</div><div class="fs-5 fw-semibold">{{ $naira($earn['wallet'] ?? 0) }}</div></div>
+        <a href="{{ route('account.wallet') }}" class="btn btn-sm btn-outline-primary">Wallet and withdrawals</a>
+    </div>
     <x-cb.card title="Finished" icon="ri-check-double-line" :count="count($rows)" :flush="true">
         <div class="table-responsive"><table class="table align-middle mb-0">
             <thead><tr><th>Route</th><th class="text-end">Pay</th><th>Date</th></tr></thead>

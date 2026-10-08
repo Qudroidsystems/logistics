@@ -16,4 +16,8 @@ Route::middleware('auth')->prefix('driver')->name('driver.')->group(function () 
     Route::post('/jobs/{shipment}/issue', [D::class, 'issue'])->name('job.issue');
     Route::post('/location', [D::class, 'location'])->middleware('throttle:120,1')->name('location');
     Route::get('/history', [D::class, 'history'])->name('history');
+    Route::get('/phone', [\App\Http\Controllers\PhonePageController::class, 'show'])->name('phone');
+    Route::post('/phone', [\App\Http\Controllers\PhonePageController::class, 'save'])->middleware('throttle:10,1')->name('phone.save');
+    Route::post('/phone/send', [\App\Http\Controllers\PhonePageController::class, 'send'])->middleware('throttle:6,1')->name('phone.send');
+    Route::post('/phone/verify', [\App\Http\Controllers\PhonePageController::class, 'verify'])->middleware('throttle:10,1')->name('phone.verify');
 });

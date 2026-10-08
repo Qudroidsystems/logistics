@@ -11,6 +11,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('v1')->group(functi
         Route::put('/members/{user}/role', [TeamController::class, 'changeRole'])->whereNumber('user');
         Route::delete('/members/{user}', [TeamController::class, 'remove'])->whereNumber('user');
         Route::put('/members/{user}/driver-status', [TeamController::class, 'driverStatus'])->whereNumber('user');
+        Route::put('/members/{user}/driver-pay', [TeamController::class, 'driverPay'])->whereNumber('user');
         Route::put('/members/{user}/vehicle', [TeamController::class, 'assignVehicle'])->whereNumber('user');
     });
 

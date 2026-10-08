@@ -14,6 +14,7 @@
                 @if($nav['money'] ?? false)<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('provider.wallet') ? 'active' : '' }}" href="{{ route('provider.wallet') }}"><i class="ri-wallet-3-line"></i> <span>Wallet and payouts</span></a></li>@endif
                 @if($nav['team'] ?? false)<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('provider.team*') ? 'active' : '' }}" href="{{ route('provider.team') }}"><i class="ri-team-line"></i> <span>Team</span></a></li>@endif
                 @if(Route::has('provider.onboarding'))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('provider.onboarding*') || request()->routeIs('provider.profile*') ? 'active' : '' }}" href="{{ route('provider.onboarding') }}"><i class="ri-settings-3-line"></i> <span>Profile and setup</span></a></li>@endif
+                <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('account.phone*') ? 'active' : '' }}" href="{{ route('account.phone') }}"><i class="ri-smartphone-line"></i> <span>Phone number</span></a></li>
             </ul>
         </div>
     </div>

@@ -47,7 +47,7 @@ class TeamService
         return DB::table('operator_members as m')->join('users as u', 'u.id', '=', 'm.user_id')->leftJoin('driver_profiles as d', function ($j) {
             $j->on('d.user_id', '=', 'm.user_id')->on('d.operator_id', '=', 'm.operator_id');
         })->where('m.operator_id', $opId)->where('m.status', 'active')->orderBy('m.id')
-            ->get(['u.id as user_id', 'u.name', 'u.email', 'u.phone_number as phone', 'm.role', 'm.joined_at', 'd.status as driver_status', 'd.availability', 'd.current_vehicle_id']);
+            ->get(['u.id as user_id', 'u.name', 'u.email', 'u.phone_number as phone', 'm.role', 'm.joined_at', 'd.status as driver_status', 'd.availability', 'd.current_vehicle_id', 'd.pay_share_bp']);
     }
 
     public function invitations(int $opId)
@@ -188,6 +188,20 @@ class TeamService
         $n = DB::table('driver_profiles')->where(['user_id' => $driverUserId, 'operator_id' => $opId])->whereNotIn('status', ['offboarded'])
             ->update(['status' => $status, 'kyc_status' => $status === 'active' ? 'company_verified' : DB::raw('kyc_status'), 'availability' => $status === 'active' ? DB::raw('availability') : 'offline',
                 'onboarded_at' => $status === 'active' ? DB::raw('COALESCE(onboarded_at, now())') : DB::raw('onboarded_at'), 'updated_at' => now()]);
+        if (! $n) {
+            throw new RuntimeException('That person is not a driver on your team.');
+        }
+    }
+
+    /** The share of each finished job's net that goes to this driver, as a percentage (0 to 100; 0 = paid outside the platform). */
+    public function setDriverPay(int $opId, int $driverUserId, float $percent): void
+    {
+        if ($percent < 0 || $percent > 100) {
+            throw new RuntimeException('Pay share must be between 0 and 100 percent.');
+        }
+        $this->member($opId, $driverUserId);
+        $n = DB::table('driver_profiles')->where(['user_id' => $driverUserId, 'operator_id' => $opId])->whereNotIn('status', ['offboarded'])
+            ->update(['pay_share_bp' => (int) round($percent * 100) ?: null, 'updated_at' => now()]);
         if (! $n) {
             throw new RuntimeException('That person is not a driver on your team.');
         }

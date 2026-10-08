@@ -33,6 +33,11 @@
                                         @if($m->driver_status !== 'active')<button name="status" value="active" class="btn btn-sm btn-success">Approve</button>
                                         @else<button name="status" value="suspended" class="btn btn-sm btn-outline-danger">Suspend</button>@endif
                                     </form>
+                                    <form method="POST" action="{{ route('provider.team.pay', $m->user_id) }}" class="d-flex gap-1 align-items-center mt-1">@csrf @method('PUT')
+                                        <input type="number" name="percent" min="0" max="100" step="0.5" value="{{ $m->pay_share_bp ? rtrim(rtrim(number_format($m->pay_share_bp / 100, 2, '.', ''), '0'), '.') : 0 }}" class="form-control form-control-sm" style="width:5.5rem" title="Share of each job's net paid to this driver (0 = you pay them yourself)">
+                                        <span class="small text-muted">% of job</span>
+                                        <button class="btn btn-sm btn-outline-primary">Save</button>
+                                    </form>
                                     @if($m->driver_status === 'active' && count($vehicles))
                                     <form method="POST" action="{{ route('provider.team.vehicle', $m->user_id) }}" class="d-flex gap-1 mt-1">@csrf @method('PUT')
                                         <select name="vehicle_id" class="form-select form-select-sm">

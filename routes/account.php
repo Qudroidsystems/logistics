@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Route;
 /** The customer's own area: requests and offers, paying, orders, wallet. Every query is scoped to the signed-in user. */
 Route::middleware('auth')->prefix('account')->name('account.')->group(function () {
     Route::get('/', [A::class, 'dashboard'])->name('dashboard');
+    Route::get('/phone', [\App\Http\Controllers\PhonePageController::class, 'show'])->name('phone');
+    Route::post('/phone', [\App\Http\Controllers\PhonePageController::class, 'save'])->middleware('throttle:10,1')->name('phone.save');
+    Route::post('/phone/send', [\App\Http\Controllers\PhonePageController::class, 'send'])->middleware('throttle:6,1')->name('phone.send');
+    Route::post('/phone/verify', [\App\Http\Controllers\PhonePageController::class, 'verify'])->middleware('throttle:10,1')->name('phone.verify');
 
     Route::get('/providers', [A::class, 'providers'])->name('providers');
     Route::get('/requests', [A::class, 'requests'])->name('requests');
