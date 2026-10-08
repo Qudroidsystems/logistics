@@ -14,6 +14,7 @@ Route::middleware('auth')->prefix('driver')->name('driver.')->group(function () 
     Route::post('/jobs/{shipment}/stops/{stop}/complete', [D::class, 'completeStop'])->whereNumber('stop')->name('stop.complete');
     Route::post('/jobs/{shipment}/release', [D::class, 'release'])->name('job.release');
     Route::post('/jobs/{shipment}/issue', [D::class, 'issue'])->name('job.issue');
+    Route::post('/jobs/{shipment}/fail', [D::class, 'fail'])->name('job.fail');
     Route::post('/location', [D::class, 'location'])->middleware('throttle:120,1')->name('location');
     Route::get('/history', [D::class, 'history'])->name('history');
     Route::get('/phone', [\App\Http\Controllers\PhonePageController::class, 'show'])->name('phone');

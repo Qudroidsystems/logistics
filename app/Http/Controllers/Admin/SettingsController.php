@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Marketplace\FailedDeliveryPolicy;
 use App\Modules\Marketplace\ShoppingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,8 @@ class SettingsController extends Controller
         'window' => 'escrow.default_confirmation_window_hours',
         'advance' => 'shopper.advance_max_bp',
         'tracking' => 'tracking.location_interval_seconds',
+        'offer_seconds' => 'dispatch.offer_timeout_seconds',
+        'max_attempts' => 'dispatch.max_offer_attempts',
     ];
 
     public function index(Request $request)
@@ -33,6 +36,9 @@ class SettingsController extends Controller
             'window' => (int) ($this->get(self::KEYS['window']) ?? 24),
             'advance' => ((int) ($this->get(self::KEYS['advance']) ?? ShoppingService::DEFAULT_ADVANCE_MAX_BP)) / 100,
             'tracking' => (int) ($this->get(self::KEYS['tracking']) ?? 8),
+            'offerSeconds' => (int) ($this->get(self::KEYS['offer_seconds']) ?? 30),
+            'maxAttempts' => (int) ($this->get(self::KEYS['max_attempts']) ?? 5),
+            'failed' => FailedDeliveryPolicy::current(),
             'otherRules' => DB::table('commission_rules')->when($fee, fn ($q) => $q->where('id', '!=', $fee->id))->where('active', true)->orderByDesc('id')->limit(30)->get(),
             'canFee' => $request->user()->can('Manage commission'),
             'canRules' => $request->user()->can('Manage pricing rules'),
@@ -63,13 +69,32 @@ class SettingsController extends Controller
             'window_hours' => 'required|integer|min:1|max:168',
             'advance_percent' => 'required|numeric|min:0|max:100',
             'tracking_seconds' => 'required|integer|min:3|max:60',
+            'offer_seconds' => 'sometimes|required|integer|min:10|max:300',
+            'max_attempts' => 'sometimes|required|integer|min:1|max:20',
+            'failed_fee_percent' => 'sometimes|required|numeric|min:0|max:100',
+            'failed_return' => 'sometimes|required|in:yes,no',
+            'failed_return_fee_percent' => 'sometimes|required|numeric|min:0|max:100',
+            'failed_driver_paid' => 'sometimes|required|in:yes,no',
+            'failed_wait_minutes' => 'sometimes|required|integer|min:0|max:120',
         ]);
 
         $this->put(self::KEYS['window'], (int) $d['window_hours'], $request->user()->id);
         $this->put(self::KEYS['advance'], (int) round($d['advance_percent'] * 100), $request->user()->id);
         $this->put(self::KEYS['tracking'], (int) $d['tracking_seconds'], $request->user()->id);
+        if (isset($d['offer_seconds'])) {
+            $this->put(self::KEYS['offer_seconds'], (int) $d['offer_seconds'], $request->user()->id);
+            $this->put(self::KEYS['max_attempts'], (int) $d['max_attempts'], $request->user()->id);
+        }
+        if (isset($d['failed_fee_percent'])) {
+            $uid = $request->user()->id;
+            $this->put(FailedDeliveryPolicy::KEYS['customer_fee_bp'], (int) round($d['failed_fee_percent'] * 100), $uid);
+            $this->put(FailedDeliveryPolicy::KEYS['return_to_sender'], $d['failed_return'] === 'yes', $uid);
+            $this->put(FailedDeliveryPolicy::KEYS['return_fee_bp'], (int) round(($d['failed_return_fee_percent'] ?? 0) * 100), $uid);
+            $this->put(FailedDeliveryPolicy::KEYS['driver_paid'], $d['failed_driver_paid'] === 'yes', $uid);
+            $this->put(FailedDeliveryPolicy::KEYS['wait_minutes'], (int) $d['failed_wait_minutes'], $uid);
+        }
 
-        return back()->with('success', 'Settings saved. The confirmation window and advance cap apply to new agreements.');
+        return back()->with('success', 'Settings saved. The confirmation window, advance cap and failed-delivery terms apply to new agreements; signed ones keep theirs.');
     }
 
     // ----------------------------------------------------------------

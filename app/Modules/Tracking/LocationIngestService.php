@@ -103,6 +103,9 @@ class LocationIngestService
             [$shipmentId, $stop->id, $driverProfileId, (int) round($stop->d), $p['lng'], $p['lat']]
         );
         DB::table('shipment_stops')->where('id', $stop->id)->update(['status' => 'arrived', 'arrived_at' => now(), 'updated_at' => now()]);
+        if ($stop->type === 'return') {
+            return; // back at the pickup address with the parcel: the driver completes the stop themselves
+        }
         $to = $stop->type === 'pickup' ? 'at_pickup' : 'at_dropoff';
         $from = DB::table('shipments')->where('id', $shipmentId)->value('status');
         DB::table('shipments')->where('id', $shipmentId)->update(['status' => $to, 'updated_at' => now()]);

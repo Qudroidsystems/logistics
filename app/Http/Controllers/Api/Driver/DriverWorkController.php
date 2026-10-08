@@ -114,6 +114,14 @@ class DriverWorkController extends Controller
         });
     }
 
+    public function fail(Request $request, string $shipment, \App\Modules\Marketplace\FailedDeliveryService $failed)
+    {
+        $d = $this->driver($request);
+        $data = $request->validate(['reason' => 'required|string|max:30', 'note' => 'nullable|string|max:500']);
+
+        return $this->run(fn () => $failed->markFailed($d->id, $shipment, $data['reason'], $data['note'] ?? null));
+    }
+
     public function earnings(Request $request)
     {
         return response()->json($this->drivers->earnings($this->driver($request)->id));

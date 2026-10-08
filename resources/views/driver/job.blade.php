@@ -23,7 +23,7 @@
             @endif
             <a class="btn btn-sm btn-outline-secondary mt-2" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ $s['lat'] }},{{ $s['lng'] }}"><i class="ri-navigation-line"></i> Directions</a>
 
-            @if($job['live'] && $isNext && in_array($job['status'], ['heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff'], true))
+            @if($job['live'] && $isNext && in_array($job['status'], ['heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff', 'returning'], true))
             <hr>
             <form method="POST" action="{{ route('driver.stop.complete', [$job['shipment'], $s['id']]) }}" enctype="multipart/form-data" class="stop-form">@csrf
                 <input type="hidden" name="lat" class="geo-lat"><input type="hidden" name="lng" class="geo-lng">
@@ -32,7 +32,7 @@
                     <label class="form-label small">Receiver's name (optional)</label><input name="recipient_name" class="form-control mb-2" maxlength="120">
                     @unless($s['needs_code'])<label class="form-label small">Photo of the delivery</label><input type="file" name="photo" accept="image/*" capture="environment" class="form-control mb-2" required>@endunless
                 @endif
-                <button class="btn btn-success btn-lg w-100">{{ $s['type'] === 'pickup' ? 'Picked up' : 'Delivered' }}</button>
+                <button class="btn btn-success btn-lg w-100">{{ $s['type'] === 'pickup' ? 'Picked up' : ($s['type'] === 'return' ? 'Parcel handed back' : 'Delivered') }}</button>
                 <div class="small text-muted mt-1">You must be at the stop. Your location is checked.</div>
             </form>
             @endif
@@ -48,6 +48,17 @@
             <input name="note" class="form-control mb-2" maxlength="500" placeholder="Tell your company more (optional)">
             <button class="btn btn-outline-warning w-100">Tell my company</button>
         </form>
+        @if($job['status'] === 'at_dropoff')
+        <form method="POST" action="{{ route('driver.job.fail', $job['shipment']) }}" class="mb-3" onsubmit="return confirm('Close this delivery as failed? The agreement terms will be applied.')">@csrf
+            <div class="small text-muted mb-1">Cannot hand over the parcel? You can only do this after waiting at the drop-off for the time in the agreement.</div>
+            <select name="reason" class="form-select mb-2" required>
+                <option value="">Why could you not deliver?</option>
+                @foreach($failReasons as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+            </select>
+            <input name="note" class="form-control mb-2" maxlength="500" placeholder="Anything else to add (optional)">
+            <button class="btn btn-danger w-100">Delivery failed</button>
+        </form>
+        @endif
         @if(in_array($job['status'], ['assigned', 'heading_to_pickup', 'at_pickup'], true))
         <form method="POST" action="{{ route('driver.job.release', $job['shipment']) }}" onsubmit="return confirm('Hand this job back to your dispatcher?')">@csrf
             <select name="reason" class="form-select mb-2" required>

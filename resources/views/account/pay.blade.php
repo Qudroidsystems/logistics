@@ -13,6 +13,10 @@
             <hr><div class="d-flex justify-content-between fw-semibold fs-5"><span>Total</span><span>{{ $naira($total) }}</span></div>
             <div class="small text-muted mt-2">Your money is held safely and only released to the provider when you confirm the delivery.</div>
         </x-cb.card>
+        <x-cb.card title="If the delivery fails" icon="ri-file-list-3-line" class="mt-3">
+            @foreach(\App\Modules\Marketplace\FailedDeliveryPolicy::describe($a->failed_delivery_policy ? json_decode($a->failed_delivery_policy, true) : null) as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
+            <div class="small text-muted">These terms are part of your agreement and were fixed when it was created.</div>
+        </x-cb.card>
         <form method="POST" action="{{ route('account.pay.do', $a->public_id) }}" class="mt-3">@csrf
             <button name="method" value="wallet" class="btn btn-success w-100 mb-2" @disabled(! $enough)>Pay {{ $naira($total) }} from my wallet ({{ $naira($balance) }})</button>
             @unless($enough)<div class="small text-muted mb-2">Your wallet is short by {{ $naira($total - $balance) }}. <a href="{{ route('account.wallet') }}">Top it up</a>, or pay by card.</div>@endunless

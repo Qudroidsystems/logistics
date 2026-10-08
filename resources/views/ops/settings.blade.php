@@ -43,6 +43,38 @@
                     <input type="number" min="3" max="60" name="tracking_seconds" class="form-control mb-1" value="{{ old('tracking_seconds', $tracking) }}" required @disabled(!$canRules)>
                     <div class="form-text mb-3">Shorter feels livelier but uses more data and server load.</div>
 
+                    <label class="form-label">Seconds a driver has to answer a job offer</label>
+                    <input type="number" min="10" max="300" name="offer_seconds" class="form-control mb-3" value="{{ old('offer_seconds', $offerSeconds) }}" required @disabled(!$canRules)>
+
+                    <label class="form-label">Drivers asked before a job goes to the dispatcher</label>
+                    <input type="number" min="1" max="20" name="max_attempts" class="form-control mb-3" value="{{ old('max_attempts', $maxAttempts) }}" required @disabled(!$canRules)>
+
+                    <hr>
+                    <h6 class="mb-1">If a delivery fails</h6>
+                    <div class="form-text mb-3">When the receiver cannot be reached, refuses the parcel or the address is wrong. These terms are copied onto every new agreement, shown to the customer before they pay, and cannot change afterwards.</div>
+
+                    <label class="form-label">Minutes the driver waits at the drop-off first</label>
+                    <input type="number" min="0" max="120" name="failed_wait_minutes" class="form-control mb-3" value="{{ old('failed_wait_minutes', $failed['wait_minutes']) }}" required @disabled(!$canRules)>
+
+                    <label class="form-label">Share of the delivery price the customer still pays</label>
+                    <div class="input-group mb-3"><input type="number" step="0.01" min="0" max="100" name="failed_fee_percent" class="form-control" value="{{ old('failed_fee_percent', $failed['customer_fee_bp'] / 100) }}" required @disabled(!$canRules)><span class="input-group-text">%</span></div>
+
+                    <label class="form-label">Does the driver bring the parcel back to the sender?</label>
+                    <select name="failed_return" class="form-select mb-3" @disabled(!$canRules)>
+                        <option value="yes" @selected(old('failed_return', $failed['return_to_sender'] ? 'yes' : 'no') === 'yes')>Yes, back to the pickup address</option>
+                        <option value="no" @selected(old('failed_return', $failed['return_to_sender'] ? 'yes' : 'no') === 'no')>No, the provider sorts it out</option>
+                    </select>
+
+                    <label class="form-label">Extra the customer pays for the return trip</label>
+                    <div class="input-group mb-1"><input type="number" step="0.01" min="0" max="100" name="failed_return_fee_percent" class="form-control" value="{{ old('failed_return_fee_percent', $failed['return_fee_bp'] / 100) }}" @disabled(!$canRules)><span class="input-group-text">% of the price</span></div>
+                    <div class="form-text mb-3">Only applies when the parcel is returned. Zero means the provider covers the return. Together with the share above it can never be more than 100%.</div>
+
+                    <label class="form-label">Is the driver paid for a failed trip?</label>
+                    <select name="failed_driver_paid" class="form-select mb-3" @disabled(!$canRules)>
+                        <option value="yes" @selected(old('failed_driver_paid', $failed['driver_paid'] ? 'yes' : 'no') === 'yes')>Yes, their usual share of what the company earns</option>
+                        <option value="no" @selected(old('failed_driver_paid', $failed['driver_paid'] ? 'yes' : 'no') === 'no')>No</option>
+                    </select>
+
                     @if($canRules)<button class="btn btn-primary">Save settings</button>@else<span class="text-muted small">You can view these but not change them.</span>@endif
                 </form>
             </x-cb.card>

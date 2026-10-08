@@ -137,6 +137,8 @@ class NotificationService
         'disputed' => ['provider' => 'delivery.disputed_provider'],
         'dispute_resolved' => ['customer' => 'delivery.dispute_resolved_customer', 'provider' => 'delivery.dispute_resolved_provider'],
         'cancelled' => ['customer' => 'delivery.cancelled_customer', 'provider' => 'delivery.cancelled_provider'],
+        'delivery_failed' => ['customer' => 'delivery.failed_customer', 'provider' => 'delivery.failed_provider'],
+        'returned' => ['customer' => 'delivery.returned_customer', 'provider' => 'delivery.returned_provider'],
     ];
 
     // ---------------------------------------------------------------- helpers

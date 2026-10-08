@@ -46,7 +46,9 @@ class StopService
             );
             DB::table('shipment_stops')->where('id', $stopId)->update(['status' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
 
-            if ($stop->type === 'pickup') {
+            if ($stop->type === 'return') {
+                app(\App\Modules\Marketplace\FailedDeliveryService::class)->completeReturn((int) $stop->shipment_id, $driverProfileId);
+            } elseif ($stop->type === 'pickup') {
                 DB::table('shipments')->where('id', $stop->shipment_id)->update(['status' => 'in_transit', 'updated_at' => now()]);
                 app(\App\Modules\Partner\ShipmentEvents::class)->record((int) $stop->shipment_id, 'picked_up', 'at_pickup', 'in_transit', 'driver', $driverProfileId);
                 DB::table('assignments')->where('shipment_id', $stop->shipment_id)->where('driver_profile_id', $driverProfileId)->update(['status' => 'active', 'updated_at' => now()]);

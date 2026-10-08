@@ -63,7 +63,7 @@ class HomeController extends Controller
         abort_unless($job, 404);
 
         return view('driver.job', [
-            'job' => $job, 'issues' => DriverService::ISSUES, 'next' => collect($job['stops'])->first(fn ($s) => $s['status'] !== 'completed'), 'pagetitle' => 'Job',
+            'job' => $job, 'issues' => DriverService::ISSUES, 'next' => collect($job['stops'])->first(fn ($s) => ! in_array($s['status'], ['completed', 'failed', 'skipped'], true)), 'failReasons' => \App\Modules\Marketplace\FailedDeliveryService::REASONS, 'pagetitle' => 'Job',
         ]);
     }
 
@@ -99,6 +99,18 @@ class HomeController extends Controller
         }
 
         return redirect()->route('driver.home')->with('success', 'The job has gone back to your dispatcher.');
+    }
+
+    public function fail(Request $request, string $shipment)
+    {
+        $res = $this->work->fail($request, $shipment, app(\App\Modules\Marketplace\FailedDeliveryService::class));
+        if ($res->getStatusCode() >= 400) {
+            return $this->back($res, '');
+        }
+        $d = $res->getData(true);
+
+        return redirect()->route($d['returning'] ? 'driver.job' : 'driver.home', $d['returning'] ? [$shipment] : [])
+            ->with('success', $d['returning'] ? 'Noted. Take the parcel back to the pickup address.' : 'Noted. The job is closed as a failed delivery.');
     }
 
     public function issue(Request $request, string $shipment)

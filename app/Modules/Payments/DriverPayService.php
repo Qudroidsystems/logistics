@@ -44,6 +44,9 @@ class DriverPayService
                 if (! $a || (int) $a->driver_operator !== $operatorId) {
                     return 0; // nobody to pay, or a driver who is not on this company's team
                 }
+                if (! $this->paidOnFailure($shipmentId)) {
+                    return 0;
+                }
                 $pay = self::share($companyNet, $a->pay_share_bp ? (int) $a->pay_share_bp : null);
                 if ($pay <= 0) {
                     return 0;
@@ -64,5 +67,30 @@ class DriverPayService
 
             return 0;
         }
+    }
+
+    /** Pays a job whose money was released earlier but whose driver only just finished (the return trip of a failed delivery). */
+    public function payFromCommission(int $shipmentId): int
+    {
+        $c = DB::table('commissions')->where('shipment_id', $shipmentId)->first(['operator_id', 'operator_net', 'agreement_id']);
+        if (! $c) {
+            return 0;
+        }
+        $test = (bool) DB::table('agreements')->where('id', $c->agreement_id)->value('is_test');
+
+        return $this->payForShipment($shipmentId, (int) $c->operator_net, (int) $c->operator_id, $test);
+    }
+
+    /** False when the shipment ended as a failed delivery and the agreement says the driver is not paid for that. */
+    private function paidOnFailure(int $shipmentId): bool
+    {
+        $row = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->join('agreements as a', 'a.id', '=', 'o.agreement_id')
+            ->where('s.id', $shipmentId)->first(['s.status', 'a.failed_delivery_policy']);
+        if (! $row || ! in_array($row->status, ['failed_attempt', 'returning', 'returned'], true)) {
+            return true;
+        }
+        $policy = \App\Modules\Marketplace\FailedDeliveryPolicy::normalize($row->failed_delivery_policy ? json_decode($row->failed_delivery_policy, true) : null);
+
+        return $policy['driver_paid'];
     }
 }

@@ -24,6 +24,8 @@ class ShipmentEvents
         'disputed' => 'delivery.disputed',
         'dispute_resolved' => 'delivery.dispute_resolved',
         'cancelled' => 'delivery.cancelled',
+        'delivery_failed' => 'delivery.failed',
+        'returned' => 'delivery.returned',
     ];
 
     public function __construct(private WebhookService $webhooks)

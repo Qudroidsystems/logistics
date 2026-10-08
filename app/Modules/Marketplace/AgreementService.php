@@ -37,6 +37,7 @@ class AgreementService
                 'platform_fee' => 0,
                 'provider_net' => $d['price'],
                 'confirmation_window_hours' => (int) (DB::table('platform_settings')->whereNull('operator_id')->where('key', 'escrow.default_confirmation_window_hours')->value('value') ?? 24),
+                'failed_delivery_policy' => json_encode(FailedDeliveryPolicy::current()),
                 'status' => 'draft',
                 'created_at' => now(), 'updated_at' => now(),
             ]);
