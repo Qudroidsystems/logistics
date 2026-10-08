@@ -17,6 +17,9 @@ Route::middleware('auth')->prefix('driver')->name('driver.')->group(function () 
     Route::post('/jobs/{shipment}/fail', [D::class, 'fail'])->name('job.fail');
     Route::post('/location', [D::class, 'location'])->middleware('throttle:120,1')->name('location');
     Route::get('/history', [D::class, 'history'])->name('history');
+    Route::get('/me', [\App\Http\Controllers\MeController::class, 'show'])->name('me');
+    Route::post('/me', [\App\Http\Controllers\MeController::class, 'profile'])->middleware('throttle:20,1')->name('me.profile');
+    Route::post('/me/password', [\App\Http\Controllers\MeController::class, 'password'])->middleware('throttle:6,1')->name('me.password');
     Route::get('/phone', [\App\Http\Controllers\PhonePageController::class, 'show'])->name('phone');
     Route::post('/phone', [\App\Http\Controllers\PhonePageController::class, 'save'])->middleware('throttle:10,1')->name('phone.save');
     Route::post('/phone/send', [\App\Http\Controllers\PhonePageController::class, 'send'])->middleware('throttle:6,1')->name('phone.send');
