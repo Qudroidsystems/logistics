@@ -64,7 +64,7 @@ class TrackingService
             );
             $vehicle = DB::selectOne('SELECT v.plate, v.make, v.model FROM vehicles v JOIN driver_profiles p ON p.current_vehicle_id = v.id WHERE p.id = ?', [$assignment->driver_profile_id]);
             $next = collect($stops)->first(fn ($x) => $x->status !== 'completed');
-            $eta = $next && $d->lat ? $this->etaMinutes($this->haversineM($d->lat, $d->lng, $next->lat, $next->lng)) : null;
+            $eta = $next && $d->lat ? max(1, (int) ceil(app(\App\Modules\Routing\RoutingEngine::class)->route((float) $d->lat, (float) $d->lng, (float) $next->lat, (float) $next->lng)['duration_s'] / 60)) : null;
             $driver = [
                 'first_name' => Str::before($d->name, ' '), 'rating' => $d->rating_avg,
                 'vehicle' => $vehicle ? trim("{$vehicle->make} {$vehicle->model}")." · {$vehicle->plate}" : null,
@@ -82,7 +82,7 @@ class TrackingService
         ];
     }
 
-    /** Straight-line distance padded for roads (x1.35); a placeholder until the routing engine supplies real ETAs. */
+    /** Straight-line fallback (padded x1.35). Live ETAs now come from the RoutingEngine; this stays for callers that only have a distance. */
     public function etaMinutes(float $metres): int
     {
         return max(1, (int) ceil(($metres * 1.35 / 1000) / self::CITY_SPEED_KMH * 60));

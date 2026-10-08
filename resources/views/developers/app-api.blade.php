@@ -56,7 +56,7 @@
 <tr><td><span class="tag">GET</span><code>/customer/providers?service_type_id=1&amp;limit=20</code></td><td>Listed providers for a service, best first, with rating, jobs done, on-time rate and a starting price hint. <code>public_slug</code> opens the public profile at <code>GET /providers/{slug}</code>.</td></tr>
 <tr><td><span class="tag">POST</span><code>/customer/requests</code></td><td>Creates a service request (below). Providers who can serve it are invited and send offers.</td></tr>
 <tr><td><span class="tag">GET</span><code>/customer/requests</code></td><td>Your requests.</td></tr>
-<tr><td><span class="tag">GET</span><code>/customer/requests/{request}/offers</code></td><td>Offers received, one per provider: <code>thread, status, provider, rating_avg, tier, jobs_completed, latest_price</code> (kobo), and once agreed <code>agreement</code> and <code>agreement_status</code>.</td></tr>
+<tr><td><span class="tag">GET</span><code>/customer/requests/{request}/offers</code></td><td>Offers received, one per provider: <code>thread, status, provider, slug, rating_avg, tier, jobs_completed, latest_price</code> (kobo), and once agreed <code>agreement</code> and <code>agreement_status</code>.</td></tr>
 </table>
 <pre><code>POST /customer/requests
 {"type": "parcel", "service_type_id": 1, "city_id": 1,

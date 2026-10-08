@@ -60,7 +60,7 @@ class NegotiationController extends Controller
 
         return response()->json(DB::table('negotiation_threads as t')->join('operators as o', 'o.id', '=', 't.operator_id')
             ->leftJoin('provider_profiles as p', 'p.operator_id', '=', 't.operator_id')->leftJoin('agreements as a', 'a.thread_id', '=', 't.id')->where('t.request_id', $req->id)
-            ->selectRaw("t.public_id as thread, t.status, o.display_name as provider, p.rating_avg, p.tier, p.jobs_completed, a.public_id as agreement, a.status as agreement_status,
+            ->selectRaw("t.public_id as thread, t.status, o.display_name as provider, p.rating_avg, p.tier, p.jobs_completed, p.public_slug as slug, a.public_id as agreement, a.status as agreement_status,
                 (SELECT (m.terms::jsonb ->> 'price')::bigint FROM negotiation_messages m WHERE m.thread_id = t.id AND m.kind = 'counter_offer' ORDER BY m.id DESC LIMIT 1) AS latest_price")
             ->get());
     }
