@@ -2,7 +2,7 @@
 
 namespace App\Modules\Payments;
 
-use App\Modules\Payments\Gateways\PaystackGateway;
+use App\Modules\Payments\Gateways\GatewayManager;
 use App\Modules\Payments\Ledger\AccountResolver;
 use App\Modules\Payments\Ledger\LedgerPoster;
 use Illuminate\Support\Facades\DB;
@@ -19,16 +19,20 @@ use RuntimeException;
  */
 class RefundService
 {
-    public function __construct(private LedgerPoster $ledger, private AccountResolver $accounts, private PaystackGateway $paystack)
+    public function __construct(private LedgerPoster $ledger, private AccountResolver $accounts, private GatewayManager $gateways)
     {
     }
 
     public function toOriginalPayment(int $orderId, int $amount, int $staffId): int
     {
         $order = DB::table('orders')->find($orderId);
-        $intent = $order ? DB::table('payment_intents')->where('agreement_id', $order->agreement_id)->where('status', 'succeeded')->where('gateway', 'paystack')->first() : null;
+        $intent = $order ? DB::table('payment_intents')->where('agreement_id', $order->agreement_id)->where('status', 'succeeded')->whereIn('gateway', ['paystack', 'stripe', 'monnify', 'opay'])->first() : null;
         if (! $intent) {
-            throw new RuntimeException('No card payment found for this order.');
+            throw new RuntimeException('No online payment found for this order.');
+        }
+        $gateway = $this->gateways->get($intent->gateway);
+        if (! $gateway->supportsRefund()) {
+            throw new RuntimeException($gateway->label().' payments are refunded from its own dashboard, or credit the customer wallet instead.');
         }
         $already = (int) DB::table('refunds')->where('payment_intent_id', $intent->id)->where('reason_code', 'refund_to_source')->whereIn('status', ['processing', 'completed'])->sum('amount');
         if ($amount <= 0 || $amount + $already > (int) $intent->amount) {
@@ -55,7 +59,7 @@ class RefundService
         });
 
         try {
-            $ref = $this->paystack->refund($intent->reference, $amount);
+            $ref = $gateway->refund($intent->reference, $amount, json_decode((string) $intent->raw, true) ?: null);
             DB::table('refunds')->where('id', $id)->update(['gateway_ref' => $ref, 'updated_at' => now()]);
         } catch (RuntimeException $e) {
             $this->fail($id, $e->getMessage()); // rejected outright: nothing left the gateway

@@ -34,3 +34,6 @@ Schedule::command('agreements:expire-unpaid')->hourly()->withoutOverlapping(10);
 
 // Providers: refresh ratings, completion and dispute rates, score and tier every night.
 Schedule::command('providers:refresh-scores')->dailyAt('04:00')->withoutOverlapping(30);
+
+// Payments: confirm online payments whose webhook never arrived.
+Schedule::command('payments:reconcile')->everyFiveMinutes()->withoutOverlapping(10);

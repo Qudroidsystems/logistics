@@ -3,7 +3,7 @@
 namespace App\Modules\Payments;
 
 use App\Modules\Payments\Escrow\EscrowService;
-use App\Modules\Payments\Gateways\PaystackGateway;
+use App\Modules\Payments\Gateways\GatewayManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -11,40 +11,46 @@ use RuntimeException;
 class PaymentService
 {
     public function __construct(
-        private PaystackGateway $paystack,
+        private GatewayManager $gateways,
         private EscrowService $escrow,
         private \App\Modules\Marketplace\OrderFromAgreement $orders,
         private \App\Modules\Dispatch\DispatchService $dispatch,
     ) {
     }
 
-    /** Customer pays a locked agreement by card/transfer. Returns the hosted checkout URL. */
-    public function initiateForAgreement(int $agreementId, int $customerId): array
+    /** Customer pays a locked agreement online. Returns the hosted checkout URL. $gateway = the customer's choice (null = default). */
+    public function initiateForAgreement(int $agreementId, int $customerId, ?string $gateway = null): array
     {
         $a = DB::table('agreements')->where('id', $agreementId)->where('customer_id', $customerId)->first();
         if (! $a || $a->status !== 'locked') {
             throw new RuntimeException('Only a locked agreement can be paid.');
         }
         $total = $this->escrow->escrowTotal($a);
+        $gw = $this->gateways->choose($gateway);
 
-        // Reuse a pending intent so a double-tap never creates two charges.
+        // A pending checkout on the SAME gateway is reused so a double-tap never creates two charges.
+        // One on another gateway is closed first: its late webhook can no longer pay this agreement twice.
         $intent = DB::table('payment_intents')->where('agreement_id', $agreementId)->whereIn('status', ['initiated', 'pending'])->first();
+        if ($intent && $intent->gateway !== $gw->key()) {
+            DB::table('payment_intents')->where('id', $intent->id)->update(['status' => 'abandoned', 'updated_at' => now()]);
+            $intent = null;
+        }
         if (! $intent) {
             $ref = 'LG-'.strtoupper(Str::random(18));
             $id = DB::table('payment_intents')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'operator_id' => $a->provider_operator_id,
-                'agreement_id' => $agreementId, 'payer_id' => $customerId, 'gateway' => 'paystack',
+                'agreement_id' => $agreementId, 'payer_id' => $customerId, 'gateway' => $gw->key(),
                 'amount' => $total, 'reference' => $ref, 'status' => 'initiated', 'is_test' => $a->is_test,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $intent = DB::table('payment_intents')->find($id);
         }
 
-        $email = DB::table('users')->where('id', $customerId)->value('email');
-        $init = $this->paystack->initialize($email, (int) $intent->amount, $intent->reference, route('payments.callback'), ['agreement' => $a->number]);
-        DB::table('payment_intents')->where('id', $intent->id)->update(['status' => 'pending', 'updated_at' => now()]);
+        $user = DB::table('users')->where('id', $customerId)->first(['email', 'name']);
+        $init = $gw->initialize((string) $user->email, (int) $intent->amount, $intent->reference, route('payments.callback'), ['agreement' => $a->number, 'user_name' => $user->name, 'product_name' => 'Delivery '.$a->number]);
+        DB::table('payment_intents')->where('id', $intent->id)->update(['status' => 'pending', 'raw' => json_encode(['gateway_ref' => $init['gateway_ref'] ?? null]), 'updated_at' => now()]);
 
-        return ['reference' => $intent->reference, 'authorization_url' => $init['authorization_url'], 'amount' => (int) $intent->amount];
+        return ['reference' => $intent->reference, 'authorization_url' => $init['authorization_url'], 'amount' => (int) $intent->amount, 'gateway' => $gw->key()];
     }
 
     /** Pays a locked agreement from the customer's wallet. Throws InsufficientFunds when the balance is short. */

@@ -2,7 +2,7 @@
 
 namespace App\Modules\Payments;
 
-use App\Modules\Payments\Gateways\PaystackGateway;
+use App\Modules\Payments\Gateways\GatewayManager;
 use App\Modules\Payments\Ledger\AccountResolver;
 use App\Modules\Payments\Ledger\LedgerPoster;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +14,7 @@ class WalletService
     public const MIN_TOPUP_KOBO = 10_000;        // N100
     public const MAX_TOPUP_KOBO = 100_000_000;   // N1,000,000 per top-up
 
-    public function __construct(private LedgerPoster $ledger, private AccountResolver $accounts, private PaystackGateway $paystack)
+    public function __construct(private LedgerPoster $ledger, private AccountResolver $accounts, private GatewayManager $gateways)
     {
     }
 
@@ -23,25 +23,27 @@ class WalletService
         return (int) DB::table('ledger_accounts')->where('id', $this->accounts->wallet('customer', $userId, 1))->value('balance');
     }
 
-    /** Starts a card top-up. The wallet is only credited when Paystack's webhook confirms the exact amount. */
-    public function startTopUp(int $userId, int $amount): array
+    /** Starts an online top-up. The wallet is only credited once the gateway confirms the exact amount. */
+    public function startTopUp(int $userId, int $amount, ?string $gateway = null): array
     {
         if ($amount < self::MIN_TOPUP_KOBO || $amount > self::MAX_TOPUP_KOBO) {
             throw new RuntimeException('Top-up must be between N'.number_format(self::MIN_TOPUP_KOBO / 100).' and N'.number_format(self::MAX_TOPUP_KOBO / 100).'.');
         }
+        $gw = $this->gateways->choose($gateway);
         $walletId = $this->ensureWallet($userId);
         $ref = 'WT-'.strtoupper(Str::random(18));
 
         $intentId = DB::table('payment_intents')->insertGetId([
-            'public_id' => (string) Str::ulid(), 'operator_id' => 1, 'payer_id' => $userId, 'gateway' => 'paystack', 'amount' => $amount,
+            'public_id' => (string) Str::ulid(), 'operator_id' => 1, 'payer_id' => $userId, 'gateway' => $gw->key(), 'amount' => $amount,
             'reference' => $ref, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('wallet_topups')->insert(['wallet_id' => $walletId, 'payment_intent_id' => $intentId, 'amount' => $amount, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
 
-        $email = DB::table('users')->where('id', $userId)->value('email');
-        $init = $this->paystack->initialize($email, $amount, $ref, route('payments.callback'), ['purpose' => 'wallet_topup']);
+        $user = DB::table('users')->where('id', $userId)->first(['email', 'name']);
+        $init = $gw->initialize((string) $user->email, $amount, $ref, route('payments.callback'), ['purpose' => 'wallet_topup', 'user_name' => $user->name, 'product_name' => 'Wallet top-up']);
+        DB::table('payment_intents')->where('id', $intentId)->update(['raw' => json_encode(['gateway_ref' => $init['gateway_ref'] ?? null]), 'updated_at' => now()]);
 
-        return ['reference' => $ref, 'authorization_url' => $init['authorization_url'], 'amount' => $amount];
+        return ['reference' => $ref, 'authorization_url' => $init['authorization_url'], 'amount' => $amount, 'gateway' => $gw->key()];
     }
 
     /** Called by the gateway-event job once the charge is verified. Idempotent. */

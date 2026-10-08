@@ -27,9 +27,29 @@ class CustomerWalletController extends Controller
 
     public function topUp(Request $request, WalletService $wallet)
     {
-        $d = $request->validate(['amount' => 'required|integer|min:1']);
+        $d = $request->validate(['amount' => 'required|integer|min:1', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe']);
 
-        return $this->run(fn () => $wallet->startTopUp($request->user()->id, (int) $d['amount']), 201);
+        return $this->run(fn () => $wallet->startTopUp($request->user()->id, (int) $d['amount'], $d['gateway'] ?? null), 201);
+    }
+
+    /** Online payment methods the customer can pick on the pay and top-up screens. */
+    public function gateways(\App\Modules\Payments\Gateways\GatewayManager $gateways)
+    {
+        try {
+            return response()->json(['data' => $gateways->options()]);
+        } catch (RuntimeException) {
+            return response()->json(['data' => []]);
+        }
+    }
+
+    /** The app calls this when the customer returns from the checkout page, so the order does not wait for the webhook. */
+    public function checkPayment(Request $request, string $reference, \App\Modules\Payments\PaymentReconciler $reconciler)
+    {
+        $intent = DB::table('payment_intents')->where('reference', $reference)->where('payer_id', $request->user()->id)->first();
+        abort_unless($intent, 404);
+        $reconciler->check($reference);
+
+        return response()->json(['reference' => $reference, 'status' => DB::table('payment_intents')->where('id', $intent->id)->value('status')]);
     }
 
     /** Nigerian banks for the "add account" picker: [{code, name}]. */
@@ -69,16 +89,16 @@ class CustomerWalletController extends Controller
         }, 201);
     }
 
-    /** method=card returns a Paystack link; method=wallet pays now from the balance. */
+    /** method=card returns a hosted checkout link (optional gateway); method=wallet pays now from the balance. */
     public function payAgreement(Request $request, string $agreement, PaymentService $payments)
     {
-        $d = $request->validate(['method' => 'required|in:card,wallet']);
+        $d = $request->validate(['method' => 'required|in:card,wallet', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe']);
         $a = DB::table('agreements')->where('public_id', $agreement)->where('customer_id', $request->user()->id)->first();
         abort_unless($a, 404);
 
         return $this->run(function () use ($payments, $request, $a, $d) {
             if ($d['method'] === 'card') {
-                return $payments->initiateForAgreement((int) $a->id, $request->user()->id);
+                return $payments->initiateForAgreement((int) $a->id, $request->user()->id, $d['gateway'] ?? null);
             }
             $made = $payments->payWithWallet((int) $a->id, $request->user()->id);
 
