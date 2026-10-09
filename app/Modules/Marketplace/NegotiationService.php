@@ -3,6 +3,7 @@
 namespace App\Modules\Marketplace;
 
 use App\Modules\Partner\RouteEstimator;
+use App\Support\Platform;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -28,6 +29,11 @@ class NegotiationService
         $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
         $visibility = $d['visibility'] ?? 'open';
         $operatorIds = array_map('intval', $d['operator_ids'] ?? []);
+        if (Platform::companyOnly()) {
+            // Single-company install: the house operator prices every request.
+            $visibility = 'direct';
+            $operatorIds = [Platform::houseOperatorId()];
+        }
         if ($visibility !== 'open' && ! $operatorIds) {
             throw new InvalidArgumentException('Choose at least one provider.');
         }

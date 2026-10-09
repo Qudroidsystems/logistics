@@ -18,8 +18,8 @@ Route::middleware(['auth:sanctum', 'throttle:120,1'])->prefix('v1/admin')->group
     Route::post('/settlements/run', [AdminOpsController::class, 'runSettlements'])->middleware('permission:Run settlement');
     Route::post('/settlements/{settlement}/approve', [AdminOpsController::class, 'approveSettlement'])->middleware('permission:Run settlement');
 
-    Route::get('/providers', [AdminOpsController::class, 'providers'])->middleware('permission:View vendor|View driver|View shopper');
-    Route::post('/providers/{operator}/refresh-score', [AdminOpsController::class, 'refreshProvider'])->middleware('permission:View vendor|View driver|View shopper');
+    Route::get('/providers', [AdminOpsController::class, 'providers'])->middleware('marketplace')->middleware('permission:View vendor|View driver|View shopper');
+    Route::post('/providers/{operator}/refresh-score', [AdminOpsController::class, 'refreshProvider'])->middleware('marketplace')->middleware('permission:View vendor|View driver|View shopper');
 
     Route::get('/ratings', [AdminOpsController::class, 'ratings'])->middleware('permission:View rating');
     Route::post('/ratings/{rating}/moderate', [AdminOpsController::class, 'moderateRating'])->middleware('permission:Moderate rating');

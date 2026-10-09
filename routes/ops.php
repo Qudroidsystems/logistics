@@ -19,22 +19,22 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/disputes/{dispute}', [C::class, 'dispute'])->middleware('can:View dispute')->name('dispute');
     Route::post('/disputes/{dispute}/decide', [C::class, 'decide'])->middleware('can:Resolve dispute')->name('dispute.decide');
 
-    Route::get('/applications', [C::class, 'applications'])->middleware('can:View kyc')->name('applications');
-    Route::get('/applications/{operator}', [C::class, 'application'])->middleware('can:View kyc')->name('application');
-    Route::get('/documents/{doc}', [C::class, 'document'])->middleware('can:View kyc')->name('document');
-    Route::post('/documents/{doc}/approve', [C::class, 'approveDocument'])->middleware('can:Approve kyc')->name('document.approve');
-    Route::post('/documents/{doc}/reject', [C::class, 'rejectDocument'])->middleware('can:Reject kyc')->name('document.reject');
-    Route::post('/applications/{operator}/decide', [C::class, 'decideApplication'])->middleware('can:View kyc')->name('application.decide');
+    Route::get('/applications', [C::class, 'applications'])->middleware('can:View kyc')->middleware('marketplace')->name('applications');
+    Route::get('/applications/{operator}', [C::class, 'application'])->middleware('can:View kyc')->middleware('marketplace')->name('application');
+    Route::get('/documents/{doc}', [C::class, 'document'])->middleware('can:View kyc')->middleware('marketplace')->name('document');
+    Route::post('/documents/{doc}/approve', [C::class, 'approveDocument'])->middleware('can:Approve kyc')->middleware('marketplace')->name('document.approve');
+    Route::post('/documents/{doc}/reject', [C::class, 'rejectDocument'])->middleware('can:Reject kyc')->middleware('marketplace')->name('document.reject');
+    Route::post('/applications/{operator}/decide', [C::class, 'decideApplication'])->middleware('can:View kyc')->middleware('marketplace')->name('application.decide');
 
     Route::get('/refunds', [C::class, 'refunds'])->middleware('can:View payment')->name('refunds');
     Route::get('/settlements', [C::class, 'settlements'])->middleware('can:View settlement')->name('settlements');
     Route::post('/settlements/run', [C::class, 'runSettlements'])->middleware('can:Run settlement')->name('settlements.run');
     Route::post('/settlements/{settlement}/approve', [C::class, 'approveSettlement'])->middleware('can:Run settlement')->name('settlement.approve');
 
-    Route::get('/providers', [C::class, 'providersList'])->name('providers');
-    Route::post('/providers/{operator}/refresh-score', [C::class, 'refreshScore'])->name('provider.refresh');
-    Route::post('/providers/{operator}/suspend', [C::class, 'suspend'])->name('provider.suspend');
-    Route::post('/providers/{operator}/reinstate', [C::class, 'reinstate'])->name('provider.reinstate');
+    Route::get('/providers', [C::class, 'providersList'])->middleware('marketplace')->name('providers');
+    Route::post('/providers/{operator}/refresh-score', [C::class, 'refreshScore'])->middleware('marketplace')->name('provider.refresh');
+    Route::post('/providers/{operator}/suspend', [C::class, 'suspend'])->middleware('marketplace')->name('provider.suspend');
+    Route::post('/providers/{operator}/reinstate', [C::class, 'reinstate'])->middleware('marketplace')->name('provider.reinstate');
 
     Route::get('/ratings', [C::class, 'ratings'])->middleware('can:View rating')->name('ratings');
     Route::post('/ratings/{rating}/moderate', [C::class, 'moderate'])->middleware('can:Moderate rating')->whereNumber('rating')->name('rating.moderate');

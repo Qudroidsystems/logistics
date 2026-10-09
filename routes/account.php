@@ -14,7 +14,7 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::post('/phone/send', [\App\Http\Controllers\PhonePageController::class, 'send'])->middleware('throttle:6,1')->name('phone.send');
     Route::post('/phone/verify', [\App\Http\Controllers\PhonePageController::class, 'verify'])->middleware('throttle:10,1')->name('phone.verify');
 
-    Route::get('/providers', [A::class, 'providers'])->name('providers');
+    Route::get('/providers', [A::class, 'providers'])->middleware('marketplace')->name('providers');
     Route::get('/requests', [A::class, 'requests'])->name('requests');
     Route::get('/requests/new', [A::class, 'newRequest'])->name('request.new');
     Route::post('/requests', [A::class, 'createRequest'])->middleware('throttle:20,1')->name('request.create');

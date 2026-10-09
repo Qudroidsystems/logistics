@@ -38,8 +38,8 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::put('/team/members/{user}/vehicle', [W::class, 'assignVehicle'])->whereNumber('user')->name('team.vehicle');
 
     // Becoming a provider and getting the account ready
-    Route::get('/start', [S::class, 'start'])->name('start');
-    Route::post('/start', [S::class, 'register'])->middleware('throttle:10,1')->name('register');
+    Route::get('/start', [S::class, 'start'])->middleware('marketplace')->name('start');
+    Route::post('/start', [S::class, 'register'])->middleware(['marketplace', 'throttle:10,1'])->name('register');
     Route::get('/setup', [S::class, 'onboarding'])->name('onboarding');
     Route::post('/setup/profile', [S::class, 'saveProfile'])->name('profile.save');
     Route::post('/setup/availability', [S::class, 'availability'])->name('availability');

@@ -5,7 +5,7 @@ use App\Http\Controllers\Api\RatingController;
 use Illuminate\Support\Facades\Route;
 
 // Public provider page (listed, active providers only).
-Route::get('/v1/providers/{slug}', [RatingController::class, 'providerPage'])->middleware('throttle:60,1');
+Route::get('/v1/providers/{slug}', [RatingController::class, 'providerPage'])->middleware(['marketplace', 'throttle:60,1']);
 
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('v1')->group(function () {
     Route::prefix('customer')->group(function () {

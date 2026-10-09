@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('v1')->group(function () {
     Route::prefix('provider')->group(function () {
         Route::get('/catalog', [ProviderOnboardingController::class, 'catalog']);
-        Route::post('/register', [ProviderOnboardingController::class, 'register']);
+        Route::post('/register', [ProviderOnboardingController::class, 'register'])->middleware('marketplace');
 
         Route::get('/onboarding', [ProviderOnboardingController::class, 'onboarding']);
         Route::get('/profile', [ProviderOnboardingController::class, 'profile']);
@@ -31,7 +31,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('v1')->group(functi
         Route::post('/submit', [ProviderOnboardingController::class, 'submit']);
     });
 
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('marketplace')->group(function () {
         Route::get('/provider-applications', [AdminProviderController::class, 'applications'])->middleware('permission:View kyc');
         Route::get('/provider-applications/{operator}', [AdminProviderController::class, 'application'])->middleware('permission:View kyc');
         Route::get('/kyc-documents/{doc}/file', [AdminProviderController::class, 'document'])->middleware('permission:View kyc');

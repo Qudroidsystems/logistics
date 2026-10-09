@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'remote.portal' => \App\Http\Middleware\VerifyRemotePortal::class,
             'maintenance.mode' => \App\Http\Middleware\MaintenanceMode::class,
             'api.client' => \App\Http\Middleware\AuthenticateApiClient::class,
+            'marketplace' => \App\Http\Middleware\MarketplaceOnly::class,
         ]);
 
         // Temporary passwords (staff-created accounts) must be changed first.

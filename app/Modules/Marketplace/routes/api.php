@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'throttle:90,1'])->prefix('v1')->group(function () {
     Route::prefix('customer')->group(function () {
-        Route::get('/providers', [NegotiationController::class, 'providers']);
+        Route::get('/providers', [NegotiationController::class, 'providers'])->middleware('marketplace');
         Route::get('/requests', [NegotiationController::class, 'myRequests']);
         Route::post('/requests', [NegotiationController::class, 'createRequest']);
         Route::get('/requests/{serviceRequest}/offers', [NegotiationController::class, 'offers']);

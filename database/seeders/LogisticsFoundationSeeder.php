@@ -165,7 +165,7 @@ class LogisticsFoundationSeeder extends Seeder
     private function settings(): void
     {
         $defaults = [
-            'platform.modes' => ['company' => true, 'marketplace' => true],
+            'platform.modes' => ['company' => true, 'marketplace' => \App\Support\Platform::marketplace()],
             'dispatch.offer_timeout_seconds' => 30,
             'dispatch.max_offer_attempts' => 5,
             'escrow.default_confirmation_window_hours' => 24,
