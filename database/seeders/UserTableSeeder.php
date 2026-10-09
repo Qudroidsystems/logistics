@@ -17,7 +17,7 @@ class UserTableSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = env('ADMIN_EMAIL');
+        $email = config('admin.email');
         if (!$email) {
             $this->command?->warn('ADMIN_EMAIL is not set — skipping Super Admin creation.');
             return;
@@ -25,15 +25,15 @@ class UserTableSeeder extends Seeder
 
         $user = User::where('email', $email)->first();
         if (!$user) {
-            $password = env('ADMIN_PASSWORD') ?: \Illuminate\Support\Str::password(14, symbols: false);
+            $password = config('admin.password') ?: \Illuminate\Support\Str::password(14, symbols: false);
             $user = User::create([
-                'name'     => env('ADMIN_NAME', 'Platform Admin'),
+                'name'     => config('admin.name'),
                 'email'    => $email,
                 'password' => Hash::make($password),
             ]);
-            $user->forceFill(['email_verified_at' => now(), 'must_change_password' => !env('ADMIN_PASSWORD')])->save();
+            $user->forceFill(['email_verified_at' => now(), 'must_change_password' => !config('admin.password')])->save();
 
-            if (!env('ADMIN_PASSWORD')) {
+            if (!config('admin.password')) {
                 $this->command?->warn("Generated Super Admin password (shown once): {$password}");
             }
         }

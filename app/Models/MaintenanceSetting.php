@@ -30,10 +30,15 @@ class MaintenanceSetting extends Model
 
     public static function current(): self
     {
-        if (!Schema::hasTable('maintenance_settings')) {
+        try {
+            if (!Schema::hasTable('maintenance_settings')) {
+                return new self(['is_active' => false]);
+            }
+            return Cache::remember(self::CACHE_KEY, 60, fn () => self::query()->firstOrCreate(['id' => 1]));
+        } catch (\Throwable $e) {
+            // DB not reachable yet (fresh server, missing driver): treat maintenance as off.
             return new self(['is_active' => false]);
         }
-        return Cache::remember(self::CACHE_KEY, 60, fn () => self::query()->firstOrCreate(['id' => 1]));
     }
 
     public static function forget(): void
