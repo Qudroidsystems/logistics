@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\PhoneVerificationController;
 use App\Http\Controllers\Api\PasswordResetController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('v1/app-config', [\App\Http\Controllers\Api\AppConfigController::class, 'show'])->middleware('throttle:60,1');
+
 Route::prefix('v1/auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');

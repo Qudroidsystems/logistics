@@ -87,6 +87,7 @@
                     <div class="collapse menu-dropdown" id="sidebarPlatform">
                         <ul class="nav nav-sm flex-column">
                             @can('Manage feature flags')<li class="nav-item"><a href="{{ route('feature-flags.index') }}" class="nav-link">Module Access</a></li>@endcan
+                            @role('Super Admin')<li class="nav-item"><a href="{{ route('branding.index') }}" class="nav-link">App Branding</a></li>@endrole
                             @can('Manage payment gateways')<li class="nav-item"><a href="{{ route('admin.payment-gateways.index') }}" class="nav-link">Payment Gateways</a></li>@endcan
                             @can('Manage maintenance mode')<li class="nav-item"><a href="{{ route('maintenance.settings') }}" class="nav-link">Maintenance Mode</a></li>@endcan
                             @can('Manage backups')<li class="nav-item"><a href="{{ route('admin.backups.index') }}" class="nav-link">Backups</a></li>@endcan

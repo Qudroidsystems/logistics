@@ -109,6 +109,9 @@ Route::middleware('auth')->group(function () {
         });
     });
 
+    Route::get('/admin/branding', [\App\Http\Controllers\Admin\BrandingController::class, 'index'])->name('branding.index');
+    Route::post('/admin/branding/{app}', [\App\Http\Controllers\Admin\BrandingController::class, 'save'])->name('branding.save');
+
     Route::get('/admin/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.settings');
     Route::post('/admin/maintenance', [MaintenanceController::class, 'save'])->name('maintenance.save');
 
