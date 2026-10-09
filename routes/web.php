@@ -31,7 +31,7 @@ Auth::routes(['register' => false]);
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 // Maintenance page is always reachable.
-Route::view('/maintenance', 'errors.maintenance', ['m' => \App\Models\MaintenanceSetting::current()])->name('maintenance.page');
+// Route::view('/maintenance', 'errors.maintenance', ['m' => \App\Models\MaintenanceSetting::current()])->name('maintenance.page');
 Route::get('/maintenance', fn () => view('errors.maintenance', ['m' => \App\Models\MaintenanceSetting::current()]))->name('maintenance.page');
 
 // CSRF refresh (used by the auto-refresh feature)
