@@ -22,7 +22,7 @@
     <x-cb.card title="Needs attention" icon="ri-alarm-warning-line">
         <div class="list-group list-group-flush">
             @can('View dispute')<a href="{{ route('ops.disputes') }}" class="list-group-item d-flex justify-content-between align-items-center">Open disputes <span class="badge bg-{{ $d['open_disputes'] ? 'danger' : 'secondary' }}">{{ $d['open_disputes'] }}</span></a>@endcan
-            @if(\App\Support\Platform::marketplace())@can('View kyc')<a href="{{ route('ops.applications') }}" class="list-group-item d-flex justify-content-between align-items-center">Provider applications waiting <span class="badge bg-{{ $d['kyc_waiting'] ? 'warning' : 'secondary' }}">{{ $d['kyc_waiting'] }}</span></a>@endcan@endif
+            @if(\App\Support\Platform::marketplace())@can('View kyc')<a href="{{ route('ops.applications') }}" class="list-group-item d-flex justify-content-between align-items-center">Provider applications waiting <span class="badge bg-{{ $d['kyc_waiting'] ? 'warning' : 'secondary' }}">{{ $d['kyc_waiting'] }}</span></a>@endcan @endif
             <div class="list-group-item d-flex justify-content-between align-items-center">Payout requests waiting approval <span class="badge bg-{{ $d['payouts_waiting_approval'] ? 'warning' : 'secondary' }}">{{ $d['payouts_waiting_approval'] }}</span></div>
             <div class="list-group-item d-flex justify-content-between align-items-center">Open risk events <span class="badge bg-{{ $d['open_risk_events'] ? 'warning' : 'secondary' }}">{{ $d['open_risk_events'] }}</span></div>
         </div>
