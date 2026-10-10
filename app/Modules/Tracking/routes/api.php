@@ -25,6 +25,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::post('/jobs/{shipment}/issue', [DriverWorkController::class, 'issue']);
         Route::post('/jobs/{shipment}/fail', [DriverWorkController::class, 'fail']);
         Route::get('/earnings', [DriverWorkController::class, 'earnings']);
+        Route::get('/packages/lookup', [DriverWorkController::class, 'package'])->middleware('throttle:60,1');
         Route::post('/location', [DriverJobController::class, 'location']);
         Route::post('/stops/{stop}/complete', [DriverJobController::class, 'completeStop']);
     });

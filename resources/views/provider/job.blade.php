@@ -17,6 +17,14 @@
                 <div class="small text-muted">Agreed with the customer when the job was booked.</div>
             </x-cb.card>
             @include('partials.proofs')
+            <x-cb.card title="Parcels" icon="ri-qr-code-line" class="mb-3">
+                @forelse($packages as $p)
+                    <div class="d-flex justify-content-between border-bottom py-1"><span>{{ $p['seq'] }}. {{ $p['description'] }}@if($p['quantity'] > 1) ×{{ $p['quantity'] }}@endif @if($p['fragile'])<span class="badge bg-warning-subtle text-warning">fragile</span>@endif</span><code>{{ $p['barcode'] }}</code></div>
+                @empty
+                    <span class="text-muted">No parcels recorded.</span>
+                @endforelse
+                @if(count($packages))<a class="btn btn-sm btn-outline-primary mt-2" target="_blank" href="{{ route('provider.job.labels', $s->public_id) }}"><i class="ri-printer-line"></i> Print labels</a>@endif
+            </x-cb.card>
             <x-cb.card title="Timeline" icon="ri-time-line" :flush="true">
                 <table class="table mb-0"><tbody>
                 @forelse($timeline as $e)

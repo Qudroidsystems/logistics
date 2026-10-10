@@ -56,6 +56,7 @@ class RequestsController extends WorkspaceController
         return $this->view('provider.request', $request, [
             'req' => $req, 'stops' => json_decode($req->stops, true) ?? [], 'packages' => json_decode($req->packages ?? '[]', true) ?? [],
             'thread' => $thread, 'canOffer' => $open && ! $thread, 'pagetitle' => 'Request',
+            'costProfiles' => app(\App\Modules\Pricing\ProviderCostingService::class)->profiles($op->id),
         ], 'requests');
     }
 

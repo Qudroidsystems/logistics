@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminProviderController;
+use App\Http\Controllers\Api\Provider\CostingController;
 use App\Http\Controllers\Api\Provider\ProviderOnboardingController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,16 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('v1')->group(functi
         Route::put('/service-areas', [ProviderOnboardingController::class, 'setServiceAreas']);
 
         Route::post('/submit', [ProviderOnboardingController::class, 'submit']);
+
+        // Pricing calculator: cost profiles and server-side estimates
+        Route::get('/cost-profiles', [CostingController::class, 'profiles']);
+        Route::post('/cost-profiles', [CostingController::class, 'saveProfile']);
+        Route::put('/cost-profiles/{profile}', [CostingController::class, 'saveProfile']);
+        Route::delete('/cost-profiles/{profile}', [CostingController::class, 'retireProfile']);
+        Route::get('/estimates', [CostingController::class, 'estimates']);
+        Route::post('/estimates', [CostingController::class, 'estimate'])->middleware('throttle:30,1');
+        Route::get('/estimates/{estimate}', [CostingController::class, 'show']);
+        Route::post('/requests/{serviceRequest}/estimate', [CostingController::class, 'estimateRequest'])->middleware('throttle:30,1');
     });
 
     Route::prefix('admin')->middleware('marketplace')->group(function () {

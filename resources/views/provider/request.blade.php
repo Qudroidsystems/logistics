@@ -30,9 +30,23 @@
                     <a class="btn btn-primary w-100" href="{{ route('provider.thread', $thread) }}">Open the conversation</a>
                 </x-cb.card>
             @elseif($canOffer)
+                <x-cb.card title="What should I charge?" icon="ri-calculator-line">
+                    @if($costProfiles->isEmpty())
+                        <p class="text-muted mb-2">Set up your running costs once and the calculator will suggest a price for every request.</p>
+                        <a class="btn btn-outline-primary w-100" href="{{ route('provider.pricing') }}">Open the pricing calculator</a>
+                    @else
+                        <div class="row g-2 mb-2">
+                            <div class="col-7"><select id="rProfile" class="form-select form-select-sm">@foreach($costProfiles as $p)<option value="{{ $p->public_id }}">{{ $p->name }}</option>@endforeach</select></div>
+                            <div class="col-5"><input id="rWait" type="number" min="0" class="form-control form-control-sm" placeholder="Wait (min)"></div>
+                        </div>
+                        <label class="form-check mb-2"><input class="form-check-input" type="checkbox" id="rRound"> <span class="form-check-label small">Return to the pickup afterwards</span></label>
+                        <button type="button" class="btn btn-outline-primary w-100 mb-2" id="rCalc">Calculate for this route</button>
+                        <div id="rResult"></div>
+                    @endif
+                </x-cb.card>
                 <x-cb.card title="Make an offer" icon="ri-price-tag-3-line">
                     <form method="POST" action="{{ route('provider.request.offer', $req->public_id) }}">@csrf
-                        <label class="form-label small">Your price (₦)</label><input type="number" step="0.01" min="1" name="price_naira" class="form-control mb-2" value="{{ old('price_naira') }}" required>
+                        <label class="form-label small">Your price (₦)</label><input type="number" step="0.01" min="1" name="price_naira" id="priceNaira" class="form-control mb-2" value="{{ old('price_naira') }}" required>
                         @if(in_array($req->type, ['shopping', 'errand'], true))
                         <label class="form-label small">Goods budget the customer should fund (₦)</label><input type="number" step="0.01" min="0" name="goods_budget_naira" class="form-control mb-2" value="{{ old('goods_budget_naira') }}">
                         @endif
@@ -48,4 +62,19 @@
         </div>
     </div>
 </div></div></div>
+@if($canOffer && ! $thread && $costProfiles->isNotEmpty())
+@include('provider._estimate-js')
+<script>
+document.getElementById('rCalc').onclick = function () {
+    qEstimate.run('{{ route('provider.pricing.estimate') }}', {
+        request: '{{ $req->public_id }}', profile: document.getElementById('rProfile').value,
+        round_trip: document.getElementById('rRound').checked, wait_minutes: parseInt(document.getElementById('rWait').value || '0', 10)
+    }, document.getElementById('rResult'), function (r) {
+        // Prefill the offer with the suggestion; the provider can still change it.
+        var price = document.getElementById('priceNaira');
+        if (price && !price.value) { price.value = (r.suggested_price / 100).toFixed(0); }
+    });
+};
+</script>
+@endif
 @endsection

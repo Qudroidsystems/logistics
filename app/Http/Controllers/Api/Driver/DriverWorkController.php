@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Dispatch\DispatchService;
 use App\Modules\Dispatch\DriverService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /** The driver's own work for the app: availability, offers, jobs and starting a trip. */
@@ -128,6 +129,28 @@ class DriverWorkController extends Controller
     }
 
     // ----------------------------------------------------------------
+
+    /**
+     * Looks up a scanned QR or typed parcel code. Only answers for parcels on a job this driver holds,
+     * so a label photographed elsewhere tells a stranger nothing.
+     */
+    public function package(Request $request)
+    {
+        $d = $this->driver($request);
+        $code = (string) $request->validate(['code' => 'required|string|max:60'])['code'];
+        $p = app(\App\Modules\Tracking\ParcelCodes::class)->find($code);
+        $s = $p ? DB::table('assignments as a')->join('shipments as s', 's.id', '=', 'a.shipment_id')->where('a.shipment_id', $p->shipment_id)
+            ->where('a.driver_profile_id', $d->id)->whereIn('a.status', ['accepted', 'en_route', 'active', 'completed'])->first(['s.public_id', 's.status']) : null;
+        if (! $s) {
+            return response()->json(['error' => 'not_found', 'message' => 'This code is not on any of your jobs.'], 404);
+        }
+
+        return response()->json(['shipment' => $s->public_id, 'shipment_status' => $s->status, 'package' => [
+            'public_id' => $p->public_id, 'seq' => (int) $p->seq, 'description' => $p->description, 'barcode' => $p->barcode,
+            'quantity' => (int) $p->quantity, 'fragile' => (bool) $p->fragile, 'status' => $p->status,
+            'of' => DB::table('packages')->where('shipment_id', $p->shipment_id)->count(),
+        ]]);
+    }
 
     private function driver(Request $request): object
     {

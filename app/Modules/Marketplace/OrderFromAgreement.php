@@ -2,6 +2,7 @@
 
 namespace App\Modules\Marketplace;
 
+use App\Modules\Tracking\ParcelCodes;
 use App\Modules\Tracking\TrackingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -44,7 +45,7 @@ class OrderFromAgreement
             $shipmentId = DB::table('shipments')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'order_id' => $orderId, 'operator_id' => $a->provider_operator_id,
                 'service_type_id' => $t['service_type_id'], 'vehicle_type_id' => $t['vehicle_type_id'] ?? null,
-                'status' => 'created', 'tracking_code' => strtoupper(Str::random(12)), 'distance_m' => $a->distance_m,
+                'status' => 'created', 'tracking_code' => ParcelCodes::make('QD', 9), 'distance_m' => $a->distance_m,
                 'cod_amount' => 0, 'insured_value' => 0, 'is_test' => $a->is_test, 'created_at' => now(), 'updated_at' => now(),
             ]);
 
@@ -55,6 +56,10 @@ class OrderFromAgreement
                     [$shipmentId, $seq, $type, $s['line1'], $s['landmark'] ?? null, $s['lng'], $s['lat'], $s['contact_name'] ?? null, $s['contact_phone'] ?? null, $s['instructions'] ?? null]
                 );
             }
+
+            // Every parcel gets its own label code and QR payload.
+            $stopIds = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->pluck('id', 'type');
+            app(ParcelCodes::class)->createPackages($shipmentId, (array) ($t['packages'] ?? []), $stopIds['pickup'] ?? null, $stopIds['dropoff'] ?? null);
 
             // Arm the drop-off code and share links in the same transaction as the shipment.
             $this->tracking->arm($shipmentId);

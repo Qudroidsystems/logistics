@@ -127,6 +127,7 @@ class WorkspaceController extends Controller
                 ->where('a.shipment_id', $s->id)->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->first(['u.id as user_id', 'u.name', 'a.status']),
             'proofs' => DB::table('proofs')->where('shipment_id', $s->id)->orderBy('id')->get(['public_id', 'type', 'file_path', 'otp_verified', 'recipient_name', 'created_at']),
             'terms' => $this->failedTerms((int) $s->order_id),
+            'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $s->id),
             'pagetitle' => 'Job',
         ], 'jobs');
     }

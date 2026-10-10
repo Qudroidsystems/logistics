@@ -52,6 +52,7 @@ class OrdersController extends Controller
             'order_number' => $s->order_number, 'total' => (int) $s->total, 'provider' => $s->provider, 'created_at' => $s->created_at, 'delivered_at' => $s->delivered_at,
             'stops' => array_map(fn ($x) => ['seq' => $x->seq, 'type' => $x->type, 'address' => $x->line1, 'landmark' => $x->landmark, 'status' => $x->status, 'lat' => (float) $x->lat, 'lng' => (float) $x->lng], $stops),
             'timeline' => DB::table('shipment_events')->where('shipment_id', $s->id)->orderBy('seq')->get(['type', 'created_at']),
+            'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $s->id),
             'can_cancel' => $stage !== 'not_cancellable', 'can_confirm' => $s->status === 'delivered',
             'can_rate' => in_array($s->status, ['confirmed', 'completed'], true) && ! $rated,
             'shows_code' => ! in_array($s->status, [...self::FINISHED, 'created', 'awaiting_dispatch'], true),

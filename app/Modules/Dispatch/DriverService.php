@@ -86,6 +86,7 @@ class DriverService
 
         return (array) $row + [
             'stops' => $stops, 'live' => in_array($row->assignment, self::LIVE, true),
+            'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $row->shipment_id),
             'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describeForDriver($policyJson ? json_decode($policyJson, true) : null),
         ];
     }

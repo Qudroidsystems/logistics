@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Provider\PricingController as P;
 use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
 use App\Http\Controllers\Provider\WorkspaceController as W;
@@ -14,6 +15,14 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/jobs/{shipment}', [W::class, 'job'])->name('job');
     Route::post('/jobs/{shipment}/assign', [W::class, 'assignJob'])->name('job.assign');
     Route::post('/jobs/{shipment}/cancel', [W::class, 'cancelJob'])->name('job.cancel');
+    Route::get('/jobs/{shipment}/labels', [P::class, 'labels'])->name('job.labels');
+
+    // Pricing calculator: cost profiles and estimates
+    Route::get('/pricing', [P::class, 'index'])->name('pricing');
+    Route::post('/pricing/profiles', [P::class, 'save'])->name('pricing.save');
+    Route::put('/pricing/profiles/{profile}', [P::class, 'save'])->name('pricing.update');
+    Route::delete('/pricing/profiles/{profile}', [P::class, 'retire'])->name('pricing.retire');
+    Route::post('/pricing/estimate', [P::class, 'estimate'])->middleware('throttle:30,1')->name('pricing.estimate');
 
     // Customer requests: inbox, offers and negotiation
     Route::get('/requests', [R::class, 'index'])->name('requests');
