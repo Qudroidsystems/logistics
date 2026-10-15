@@ -1,0 +1,10 @@
+@php $f = fn ($k, $d = '') => old($k, $v->$k ?? $d); @endphp
+<div class="col-12"><label class="form-label small mb-0">Business name</label><input name="name" class="form-control form-control-sm" maxlength="160" required value="{{ $f('name') }}"></div>
+<div class="col-6"><label class="form-label small mb-0">Billing email</label><input name="billing_email" type="email" class="form-control form-control-sm" maxlength="190" value="{{ $f('billing_email') }}"></div>
+<div class="col-6"><label class="form-label small mb-0">Billing phone</label><input name="billing_phone" class="form-control form-control-sm" maxlength="24" value="{{ $f('billing_phone') }}"></div>
+<div class="col-12"><label class="form-label small mb-0">Billing address</label><input name="billing_address" class="form-control form-control-sm" maxlength="255" value="{{ $f('billing_address') }}"></div>
+<div class="col-6"><label class="form-label small mb-0">Credit limit (₦)</label><input name="credit_limit_naira" type="number" step="0.01" min="0" class="form-control form-control-sm" placeholder="No limit" value="{{ old('credit_limit_naira', isset($v->credit_limit) && $v->credit_limit !== null ? $v->credit_limit / 100 : '') }}"></div>
+<div class="col-6"><label class="form-label small mb-0">Days to pay</label><input name="terms_days" type="number" min="0" max="120" class="form-control form-control-sm" value="{{ $f('terms_days', 30) }}"></div>
+<div class="col-12"><label class="form-label small mb-0">Partner business ID <span class="text-muted">(optional)</span></label><input name="merchant_code" class="form-control form-control-sm" maxlength="24" placeholder="GM-000123" value="{{ old('merchant_code', $merchantCode ?? '') }}">
+    <div class="form-text">For a business that books through the partner API on monthly invoicing: its deliveries with you go on this account.</div></div>
+<div class="col-12"><label class="form-label small mb-0">Note</label><input name="note" class="form-control form-control-sm" maxlength="500" value="{{ $f('note') }}"></div>

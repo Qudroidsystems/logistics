@@ -42,7 +42,7 @@ trait HandlesBackoffice
                 'customer.name' => 'nullable|string|max:120', 'customer.phone' => 'nullable|string|max:24', 'customer.email' => 'nullable|email:rfc|max:190',
                 'items' => 'nullable|string|max:2000', 'price_naira' => 'nullable|numeric|min:1|max:100000000',
                 'payment' => 'required|in:'.implode(',', array_keys(ManualBookingService::PAYMENTS)),
-                'driver_user_id' => 'nullable|integer', 'note' => 'nullable|string|max:500',
+                'driver_user_id' => 'nullable|integer', 'note' => 'nullable|string|max:500', 'business_account' => 'nullable|required_if:payment,account|string|max:40',
             ];
         }
         $d = $request->validate($rules, [
@@ -67,7 +67,7 @@ trait HandlesBackoffice
             'pickup' => $d['pickup'], 'dropoff' => $d['dropoff'], 'packages' => $packages,
             'price' => isset($d['price_naira']) && $d['price_naira'] !== null ? (int) round(((float) $d['price_naira']) * 100) : null,
             'payment' => $d['payment'] ?? 'link', 'driver_user_id' => isset($d['driver_user_id']) ? (int) $d['driver_user_id'] : null,
-            'note' => $d['note'] ?? null,
+            'note' => $d['note'] ?? null, 'business_account' => $d['business_account'] ?? null,
         ];
     }
 

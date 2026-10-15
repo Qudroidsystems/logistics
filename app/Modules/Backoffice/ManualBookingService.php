@@ -33,12 +33,14 @@ use Throwable;
  *   wallet         taken from the customer's wallet now
  *   cash           the provider has the money in hand (or will collect it at pickup)
  *   bank_transfer  the money was sent straight to the provider's account
+ *   account        billed to one of the provider's business accounts on the monthly invoice (BusinessAccountService checks
+ *                  the account is active, has nothing overdue and stays within its credit limit)
  * For cash and bank transfer the escrow is funded from the provider's cash-collected account, so the books show the
  * provider holding the customer's money; see EscrowService::hold and settleOffline.
  */
 class ManualBookingService
 {
-    public const PAYMENTS = ['link' => 'Send the customer a payment link', 'wallet' => 'Customer wallet', 'cash' => 'Cash', 'bank_transfer' => 'Bank transfer to us'];
+    public const PAYMENTS = ['link' => 'Send the customer a payment link', 'wallet' => 'Customer wallet', 'cash' => 'Cash', 'bank_transfer' => 'Bank transfer to us', 'account' => 'On account (monthly invoice)'];
 
     public function __construct(
         private AgreementService $agreements,
@@ -50,6 +52,22 @@ class ManualBookingService
         private RouteEstimator $routes,
         private ManualAssignmentService $assign,
     ) {
+    }
+
+    /** Cash, bank transfer or on account: the provider funds the escrow and the job goes to dispatch now. */
+    private function offline(int $agreementId, array $d, int $staffUserId, int $operatorId, int $total): array
+    {
+        return DB::transaction(function () use ($agreementId, $d, $staffUserId, $operatorId, $total) {
+            $account = $d['payment'] === 'account'
+                ? app(\App\Modules\Billing\BusinessAccountService::class)->chargeable($operatorId, (string) $d['business_account'], $total)
+                : null;
+            $this->escrow->hold($agreementId, 'offline', $staffUserId);
+            $made = $this->orders->create($agreementId);
+            DB::table('orders')->where('id', $made['order_id'])->update(['payment_method' => $d['payment'], 'business_account_id' => $account->id ?? null, 'updated_at' => now()]);
+            DB::table('shipments')->where('id', $made['shipment_id'])->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
+
+            return $made;
+        });
     }
 
     /**
@@ -129,6 +147,16 @@ class ManualBookingService
             throw new RuntimeException('Choose how the customer is paying.');
         }
         $d = $this->toPoint($operatorId, $d);
+        if ($d['payment'] === 'account') {
+            if (empty($d['business_account'])) {
+                throw new RuntimeException('Choose the business account to bill.');
+            }
+            // The business is the customer unless staff named someone else.
+            $acc = app(\App\Modules\Billing\BusinessAccountService::class)->find($operatorId, (string) $d['business_account']);
+            if (empty($d['customer']['phone']) && empty($d['customer']['email'])) {
+                $d['customer'] = ['name' => $acc->name, 'phone' => $acc->billing_phone, 'email' => $acc->billing_email];
+            }
+        }
 
         $customerId = $this->customer($d['customer']);
         if ($d['payment'] === 'link' && str_ends_with((string) DB::table('users')->where('id', $customerId)->value('email'), '@phone.invalid')) {
@@ -143,6 +171,10 @@ class ManualBookingService
         }
         if ($price['total'] < 100) {
             throw new RuntimeException('The price must be at least ₦1.');
+        }
+        if (isset($acc)) {
+            // Checked again, locked, when the order is made; this stops a booking the account cannot take before anything is saved.
+            app(\App\Modules\Billing\BusinessAccountService::class)->check($acc, (int) $price['total']);
         }
 
         $stop = fn (array $s) => array_filter([
@@ -193,14 +225,13 @@ class ManualBookingService
             }
             $started = true;
         } else {
-            $made = DB::transaction(function () use ($agreementId, $d, $staffUserId) {
-                $this->escrow->hold($agreementId, 'offline', $staffUserId);
-                $made = $this->orders->create($agreementId);
-                DB::table('orders')->where('id', $made['order_id'])->update(['payment_method' => $d['payment'], 'updated_at' => now()]);
-                DB::table('shipments')->where('id', $made['shipment_id'])->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
-
-                return $made;
-            });
+            try {
+                $made = $this->offline($agreementId, $d, $staffUserId, $operatorId, (int) $price['total']);
+            } catch (RuntimeException $e) {
+                // Another booking used the last of the account's credit in the meantime.
+                app(\App\Modules\Marketplace\CancellationService::class)->cancelUnpaid($agreementId, $customerId);
+                throw $e;
+            }
             $started = false;
         }
         DB::table('orders')->where('id', $made['order_id'])->update(['channel' => 'manual', 'updated_at' => now()]);

@@ -23,7 +23,11 @@
                         <div class="col-md-6"><label class="form-label small">Vehicle <span class="text-muted">(optional)</span></label>
                             <select name="vehicle_type_id" class="form-select"><option value="">Any</option>@foreach($vehicleTypes as $v)<option value="{{ $v->id }}" @selected(old('vehicle_type_id') == $v->id)>{{ $v->name }}</option>@endforeach</select></div>
                         <div class="col-md-6"><label class="form-label small">Payment</label>
-                            <select name="payment" class="form-select" required>@foreach($payments as $k => $v)<option value="{{ $k }}" @selected(old('payment', 'wallet') === $k)>{{ $v }}</option>@endforeach</select></div>
+                            <select name="payment" class="form-select" required>@foreach($payments as $k => $v)@if($k !== 'account' || ! empty($businessAccounts))<option value="{{ $k }}" @selected(old('payment', 'wallet') === $k)>{{ $v }}</option>@endif @endforeach</select></div>
+                        @if(! empty($businessAccounts))
+                            <div class="col-md-6"><label class="form-label small">Business account <span class="text-muted">(for On account)</span></label>
+                                <select name="business_account" class="form-select"><option value="">Choose</option>@foreach($businessAccounts as $ba)<option value="{{ $ba->public_id }}" @selected(old('business_account') === $ba->public_id)>{{ $ba->name }}</option>@endforeach</select></div>
+                        @endif
                     </div>
 
                     <div class="fw-semibold small mt-3 mb-1">The customer paying</div>

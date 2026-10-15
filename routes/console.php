@@ -35,6 +35,9 @@ Schedule::command('escrow:auto-release')->everyFiveMinutes()->withoutOverlapping
 Schedule::command('settlements:generate')->weeklyOn(1, '03:00')->withoutOverlapping(60);
 Schedule::command('agreements:expire-unpaid')->hourly()->withoutOverlapping(10);
 
+// Business accounts: bill last month's finished deliveries on the 1st.
+Schedule::command('invoices:monthly')->monthlyOn(1, '06:00')->withoutOverlapping(60);
+
 // Providers: refresh ratings, completion and dispute rates, score and tier every night.
 Schedule::command('providers:refresh-scores')->dailyAt('04:00')->withoutOverlapping(30);
 

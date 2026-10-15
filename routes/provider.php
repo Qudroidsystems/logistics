@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Provider\AlertsController as A;
 use App\Http\Controllers\Provider\BackofficeController as Bo;
+use App\Http\Controllers\Provider\BusinessAccountsController as Ba;
 use App\Http\Controllers\Provider\PickupPointsController as Pp;
 use App\Http\Controllers\Provider\PricingController as P;
 use App\Http\Controllers\Provider\RequestsController as R;
@@ -35,6 +36,17 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/jobs/{shipment}/labels', [P::class, 'labels'])->name('job.labels');
     Route::post('/jobs/{shipment}/exceptions/{exception}', [W::class, 'decideException'])->name('job.exception');
     Route::post('/jobs/{shipment}/return', [Pp::class, 'bookReturn'])->middleware('throttle:20,1')->name('job.return');
+
+    // Business accounts: customers who book on credit, billed by monthly invoice
+    Route::get('/business-accounts', [Ba::class, 'index'])->name('accounts');
+    Route::post('/business-accounts', [Ba::class, 'store'])->name('accounts.store');
+    Route::get('/business-accounts/{account}', [Ba::class, 'show'])->name('accounts.show');
+    Route::put('/business-accounts/{account}', [Ba::class, 'store'])->name('accounts.update');
+    Route::post('/business-accounts/{account}/status', [Ba::class, 'status'])->name('accounts.status');
+    Route::post('/business-accounts/{account}/invoice', [Ba::class, 'issue'])->name('accounts.issue');
+    Route::get('/invoices/{invoice}.pdf', [Ba::class, 'pdf'])->name('invoices.pdf');
+    Route::post('/invoices/{invoice}/send', [Ba::class, 'send'])->middleware('throttle:10,1')->name('invoices.send');
+    Route::post('/invoices/{invoice}/paid', [Ba::class, 'paid'])->name('invoices.paid');
 
     // Pickup points: where parcels wait for the receiver, and the counter where they collect
     Route::get('/pickup-points', [Pp::class, 'index'])->name('points');

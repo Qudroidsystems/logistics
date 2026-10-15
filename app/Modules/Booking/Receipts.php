@@ -22,6 +22,9 @@ class Receipts
         if (! $o) {
             throw new RuntimeException('Order not found.');
         }
+        if ($o->payment_method === 'account') {
+            throw new RuntimeException('This delivery is billed on the monthly invoice.');
+        }
         if ($o->payment_status !== 'paid') {
             throw new RuntimeException('A receipt is available once the order is paid.');
         }

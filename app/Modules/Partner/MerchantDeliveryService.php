@@ -27,6 +27,7 @@ class MerchantDeliveryService
         private OrderFromAgreement $orders,
         private DispatchService $dispatch,
         private PaymentService $payments,
+        private \App\Modules\Billing\BusinessAccountService $accounts,
     ) {
     }
 
@@ -78,6 +79,13 @@ class MerchantDeliveryService
         if (! $owner) {
             throw new RuntimeException('Merchant has no owner account.');
         }
+        // A merchant on monthly invoicing with a business account at this provider books on credit.
+        $account = $merchant->settlement_mode === 'monthly_invoice'
+            ? DB::table('business_accounts')->where('operator_id', $q['operator_id'])->where('merchant_id', $merchant->id)->first()
+            : null;
+        if ($account) {
+            $this->accounts->check($account, (int) $q['total']);
+        }
 
         $agreementId = DB::transaction(function () use ($d, $q, $merchant, $owner, $client) {
             $id = $this->agreements->propose($owner, $q['operator_id'], [
@@ -99,6 +107,20 @@ class MerchantDeliveryService
         });
 
         $agreement = DB::table('agreements')->find($agreementId);
+        if ($account) {
+            $made = DB::transaction(function () use ($agreementId, $account, $owner, $q) {
+                $this->accounts->chargeable((int) $q['operator_id'], (string) $account->public_id, (int) $q['total']);
+                $this->escrow->hold($agreementId, 'offline', $owner);
+                $made = $this->orders->create($agreementId);
+                DB::table('orders')->where('id', $made['order_id'])->update(['payment_method' => 'account', 'business_account_id' => $account->id, 'updated_at' => now()]);
+                DB::table('shipments')->where('id', $made['shipment_id'])->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
+
+                return $made;
+            });
+            $this->dispatch->start($made['shipment_id']);
+
+            return $this->present(DB::table('agreements')->find($agreementId), null);
+        }
         if ($merchant->settlement_mode === 'prepaid_wallet') {
             $this->escrow->hold($agreementId, 'wallet', $owner);
             $made = $this->orders->create($agreementId);

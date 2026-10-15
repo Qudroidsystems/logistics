@@ -76,6 +76,16 @@ class BulkBookingService
         $booked = DB::table('bulk_batch_rows')->where('operator_id', $operatorId)->where('status', 'booked')
             ->whereIn('reference', array_values(array_filter(array_map(fn ($r) => trim((string) ($r['cells']['reference'] ?? '')), $rows))))->pluck('reference')->all();
         $points = DB::table('pickup_points')->where('operator_id', $operatorId)->where('status', 'active')->pluck('code')->all();
+        if ($defaults['payment'] === 'account') {
+            // Billed to a business account: its billing contact is the customer unless the form or a row names one.
+            $acc = app(\App\Modules\Billing\BusinessAccountService::class)->find($operatorId, (string) ($defaults['business_account'] ?? ''));
+            if (! $acc || $acc->status !== 'active') {
+                throw new RuntimeException('That business account cannot take bookings right now.');
+            }
+            if (empty($defaults['customer']['phone']) && empty($defaults['customer']['email'])) {
+                $defaults['customer'] = array_filter(['name' => $acc->name, 'phone' => $acc->billing_phone, 'email' => $acc->billing_email]);
+            }
+        }
         $seen = [];
         $checked = [];
         foreach ($rows as $r) {
@@ -136,7 +146,7 @@ class BulkBookingService
         foreach (DB::table('bulk_batch_rows')->where('batch_id', $batch->id)->where('status', 'ready')->orderBy('line')->get() as $row) {
             $in = json_decode($row->input, true);
             try {
-                $r = $this->bookings->book($operatorId, $in + ['payment' => $defaults['payment'], 'service_type_id' => $defaults['service_type_id'],
+                $r = $this->bookings->book($operatorId, $in + ['payment' => $defaults['payment'], 'business_account' => $defaults['business_account'] ?? null, 'service_type_id' => $defaults['service_type_id'],
                     'city_id' => $defaults['city_id'], 'vehicle_type_id' => $defaults['vehicle_type_id'] ?? null, 'driver_user_id' => null], $userId);
                 DB::table('bulk_batch_rows')->where('id', $row->id)->update(['status' => 'booked', 'message' => mb_substr($r['message'], 0, 255),
                     'agreement_id' => $r['agreement_id'], 'shipment_id' => $r['shipment_id'], 'updated_at' => now()]);

@@ -62,16 +62,23 @@
                     <div class="form-text mb-2" id="priceHint">Uses the price list for this service and city, from the pins on the map.</div>
                     <label class="form-label small">How the customer pays</label>
                     @foreach($payments as $k => $label)
+                        @continue($k === 'account' && empty($businessAccounts))
                         <div class="form-check"><input class="form-check-input" type="radio" name="payment" id="pay_{{ $k }}" value="{{ $k }}" @checked(old('payment', 'link') === $k)><label class="form-check-label" for="pay_{{ $k }}">{{ $label }}</label></div>
                     @endforeach
-                    <div class="form-text">Cash and bank transfer mean you already have the money (or will collect it at pickup). The job goes to dispatch straight away.</div>
+                    @if(! empty($businessAccounts))
+                        <select name="business_account" class="form-select form-select-sm mt-1" id="bizAccount">
+                            <option value="">Business account to bill</option>
+                            @foreach($businessAccounts as $ba)<option value="{{ $ba->public_id }}" @selected(old('business_account') === $ba->public_id)>{{ $ba->name }}</option>@endforeach
+                        </select>
+                    @endif
+                    <div class="form-text">Cash and bank transfer mean you already have the money (or will collect it at pickup). On account goes on the business's monthly invoice. Either way the job goes to dispatch straight away.</div>
                     @if(count($drivers))
                         <label class="form-label small mt-3">Give it to <span class="text-muted">(optional)</span></label>
                         <select name="driver_user_id" class="form-select">
                             <option value="">Offer it to drivers automatically</option>
                             @foreach($drivers as $d)<option value="{{ $d['user_id'] }}" @selected(old('driver_user_id') == $d['user_id'])>{{ $d['name'] }} · {{ $d['active_jobs'] }}/{{ $d['max_active_jobs'] }} · {{ str_replace('_', ' ', $d['availability']) }}</option>@endforeach
                         </select>
-                        <div class="form-text">Only for cash, bank transfer or wallet. A link booking goes to dispatch once it is paid.</div>
+                        <div class="form-text">Not for a payment link: a link booking goes to dispatch once it is paid.</div>
                     @endif
                 </x-cb.card>
             </div>
