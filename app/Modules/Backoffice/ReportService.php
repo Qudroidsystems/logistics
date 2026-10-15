@@ -2,6 +2,7 @@
 
 namespace App\Modules\Backoffice;
 
+use App\Modules\Insights\InsightsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +30,8 @@ class ReportService
         'routes' => 'Most popular routes',
         'failed' => 'Failed deliveries',
         'times' => 'Average delivery time',
+        'profit' => 'Profit per job',
+        'fleet' => 'Fleet use',
     ];
 
     /** Which staff permission (besides "View reports") opens each report in the staff console. */
@@ -36,6 +39,7 @@ class ReportService
         'daily' => 'View financial report', 'monthly' => 'View financial report', 'drivers' => 'View operations report',
         'customers' => 'View reports', 'retention' => 'View reports', 'routes' => 'View geographic report',
         'failed' => 'View operations report', 'times' => 'View operations report',
+        'profit' => 'View financial report', 'fleet' => 'View operations report',
     ];
 
     private const DONE = ['delivered', 'completed'];
@@ -51,6 +55,8 @@ class ReportService
             'routes' => $this->routes($operatorId, $from, $to),
             'failed' => $this->failed($operatorId, $from, $to),
             'times' => $this->times($operatorId, $from, $to),
+            'profit' => $this->profit($operatorId, $from, $to),
+            'fleet' => $this->fleet($operatorId, $from, $to),
         };
     }
 
@@ -171,7 +177,7 @@ class ReportService
                        COUNT(*) FILTER (WHERE response IN ('accepted','declined','timeout')) AS answered
                 FROM dispatch_offers WHERE offered_at BETWEEN ? AND ? GROUP BY driver_profile_id),
             pay AS (SELECT driver_profile_id, SUM(payout_amount) AS amount FROM assignments WHERE pay_posted_at BETWEEN ? AND ? GROUP BY driver_profile_id)
-            SELECT u.name, op.display_name AS company, d.status, d.availability,
+            SELECT d.id, u.name, op.display_name AS company, d.status, d.availability,
                    COALESCE(done.n, 0) AS done, COALESCE(failed.n, 0) AS failed, COALESCE(released.n, 0) AS released,
                    offers.accepted, offers.answered, done.mins, done.rating, COALESCE(done.ratings, 0) AS ratings, COALESCE(pay.amount, 0) AS pay
             FROM driver_profiles d JOIN users u ON u.id = d.user_id LEFT JOIN operators op ON op.id = d.operator_id
@@ -183,8 +189,13 @@ class ReportService
             ORDER BY COALESCE(done.n, 0) DESC, u.name
             LIMIT 500", array_merge($b, $b, $b, $b, $b, $op ? [$op] : []));
 
-        $out = array_map(function ($r) use ($op) {
+        // On time against the deadline, window or first promised arrival, and a 0-100 reliability score (InsightsService).
+        $timing = app(InsightsService::class)->onTime($op, $from, $to);
+        $out = array_map(function ($r) use ($op, $timing) {
             $attempts = (int) $r->done + (int) $r->failed;
+            $t = $timing[(int) $r->id] ?? ['timed' => 0, 'on_time' => 0];
+            $rel = InsightsService::reliabilityScore(['offers' => (int) $r->answered, 'offers_taken' => (int) $r->accepted, 'delivered' => (int) $r->done,
+                'failed' => (int) $r->failed, 'dropped' => (int) $r->released] + $t);
             $row = [$r->name];
             if (! $op) {
                 $row[] = $r->company;
@@ -193,11 +204,11 @@ class ReportService
             return array_merge($row, [(int) $r->done, (int) $r->failed, $attempts ? round((int) $r->done * 100 / $attempts, 1) : null,
                 $r->answered ? round((int) $r->accepted * 100 / (int) $r->answered, 1) : null, (int) $r->released,
                 $r->mins !== null ? (int) round((float) $r->mins) : null, $r->rating !== null ? round((float) $r->rating, 2) : null, (int) $r->ratings,
-                $this->naira($r->pay), str_replace('_', ' ', (string) $r->availability)]);
+                $this->naira($r->pay), $rel['on_time_rate'], $rel['enough'] ? $rel['score'] : null, str_replace('_', ' ', (string) $r->availability)]);
         }, $rows);
 
-        $headings = array_merge(['Driver'], $op ? [] : ['Company'], ['Delivered', 'Failed', 'Success rate', 'Offers accepted', 'Handed back', 'Pickup to drop-off', 'Rating', 'Ratings', 'Pay', 'Now']);
-        $formats = array_merge(['text'], $op ? [] : ['text'], ['int', 'int', 'pct', 'pct', 'int', 'minutes', 'rating', 'int', 'money', 'text']);
+        $headings = array_merge(['Driver'], $op ? [] : ['Company'], ['Delivered', 'Failed', 'Success rate', 'Offers accepted', 'Handed back', 'Pickup to drop-off', 'Rating', 'Ratings', 'Pay', 'On time', 'Reliability', 'Now']);
+        $formats = array_merge(['text'], $op ? [] : ['text'], ['int', 'int', 'pct', 'pct', 'int', 'minutes', 'rating', 'int', 'money', 'pct', 'int', 'text']);
         $done = array_sum(array_map(fn ($r) => (int) $r->done, $rows));
         $rated = array_filter($rows, fn ($r) => $r->rating !== null);
         $mins = array_filter($rows, fn ($r) => $r->mins !== null);
@@ -422,6 +433,65 @@ class ReportService
                 ['On time', $judged ? round(array_sum(array_map(fn ($r) => (int) $r->on_time, $rows)) * 100 / $judged, 1) : null, 'pct']],
             'chart' => ['type' => 'line', 'format' => 'minutes', 'labels' => array_map(fn ($r) => CarbonImmutable::parse($r->day)->format('j M'), $rows),
                 'series' => [['name' => 'Booking to delivery', 'data' => array_map(fn ($r) => $mins($r->total_m), $rows)], ['name' => 'Pickup to drop-off', 'data' => array_map(fn ($r) => $mins($r->ride_m), $rows)]]],
+        ];
+    }
+
+    // ------------------------------------------------------------------ profit and fleet
+
+    /**
+     * What each delivered job earned the provider (after any platform fee) less the rider's pay and the running cost from
+     * the provider's cost profile on the job's distance. Without a cost profile only the rider's pay counts as a cost.
+     */
+    public function profit(?int $op, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $p = app(InsightsService::class)->profit($op, $from, $to);
+        $t = $p['totals'];
+        $flag = ['loss' => 'Loss', 'thin_margin' => 'Thin margin'];
+        $rows = array_map(fn ($j) => array_merge([CarbonImmutable::parse($j['delivered_at'])->toDateString(), $j['order_number']], $op ? [] : [$j['company']], [
+            $j['rider'] ?? '', round($j['distance_m'] / 1000, 1), $this->naira($j['earned']), $this->naira($j['rider_pay']), $this->naira($j['running_cost']),
+            $this->naira($j['profit']), $j['margin_bp'] === null ? null : round($j['margin_bp'] / 100, 1), $flag[$j['flag']] ?? '', $j['profile'] ?? 'No cost profile',
+        ]), $p['jobs']);
+
+        $byDay = [];
+        foreach ($p['jobs'] as $j) {
+            $d = CarbonImmutable::parse($j['delivered_at'])->toDateString();
+            $byDay[$d] = ($byDay[$d] ?? 0) + $j['profit'];
+        }
+        ksort($byDay);
+
+        return [
+            'headings' => array_merge(['Date', 'Order'], $op ? [] : ['Company'], ['Rider', 'Distance', 'Earned', 'Rider pay', 'Running cost', 'Profit', 'Margin', 'Flag', 'Cost profile']),
+            'formats' => array_merge(['date', 'text'], $op ? [] : ['text'], ['text', 'km', 'money', 'money', 'money', 'money', 'pct', 'text', 'text']),
+            'rows' => $rows,
+            'summary' => [
+                ['Delivered jobs', $t['jobs'], 'int'], ['Earned', $this->naira($t['earned']), 'money'], ['Costs', $this->naira($t['cost']), 'money'],
+                ['Profit', $this->naira($t['profit']), 'money'], ['Margin', $t['margin_bp'] === null ? null : round($t['margin_bp'] / 100, 1), 'pct'],
+                ['Profit per km', $t['profit_per_km'] === null ? null : $this->naira($t['profit_per_km']), 'money'],
+                ['Jobs that lost money', $t['loss_jobs'], 'int'], ['On a thin margin', $t['thin_jobs'], 'int'],
+            ],
+            'chart' => $byDay ? ['type' => 'bar', 'format' => 'money', 'labels' => array_map(fn ($d) => CarbonImmutable::parse($d)->format('j M'), array_keys($byDay)),
+                'series' => [['name' => 'Profit', 'data' => array_map(fn ($k) => $this->naira($k), array_values($byDay))]]] : null,
+            'note' => $p['has_profile'] ? null : 'No cost profile yet, so only rider pay is counted as a cost. Add fuel and running costs in the Pricing calculator to see real profit.',
+        ];
+    }
+
+    /** Every vehicle: jobs, kilometres, days on the road, earnings, and insurance or roadworthiness papers due. */
+    public function fleet(?int $op, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $f = app(InsightsService::class)->fleet($op, $from, $to);
+        $s = $f['summary'];
+        $rows = array_map(fn ($v) => array_merge([$v['plate']], $op ? [] : [$v['company']], [$v['name'], $v['rider'] ?? 'Not assigned', $v['jobs'], $v['km'], $v['days_used'],
+            $v['use_rate'], $this->naira($v['earned']), implode('; ', array_column($v['papers'], 'label')), $v['status']]), $f['vehicles']);
+        $used = array_values(array_filter($f['vehicles'], fn ($v) => $v['jobs'] > 0));
+        usort($used, fn ($a, $b) => $b['jobs'] <=> $a['jobs']);
+        $used = array_slice($used, 0, 12);
+
+        return [
+            'headings' => array_merge(['Vehicle'], $op ? [] : ['Company'], ['Make', 'Rider', 'Jobs', 'Distance', 'Days used', 'Share of days', 'Earned', 'Papers', 'Status']),
+            'formats' => array_merge(['text'], $op ? [] : ['text'], ['text', 'text', 'int', 'km', 'int', 'pct', 'money', 'text', 'text']),
+            'rows' => $rows,
+            'summary' => [['Vehicles', $s['vehicles'], 'int'], ['Did no jobs', $s['idle'], 'int'], ['Papers to check', $s['papers_due'], 'int'], ['Distance', $s['km'], 'km']],
+            'chart' => $used ? ['type' => 'bar', 'format' => 'int', 'labels' => array_column($used, 'plate'), 'series' => [['name' => 'Jobs', 'data' => array_column($used, 'jobs')]]] : null,
         ];
     }
 

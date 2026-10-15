@@ -81,8 +81,8 @@ class BackofficeController extends WorkspaceController
     /** Owners and admins see everything; finance sees the money reports, dispatchers the operational ones. */
     private function allowedReports(string $role): array
     {
-        $money = ['daily', 'monthly', 'customers', 'retention'];
-        $ops = ['drivers', 'routes', 'failed', 'times'];
+        $money = ['daily', 'monthly', 'customers', 'retention', 'profit'];
+        $ops = ['drivers', 'routes', 'failed', 'times', 'fleet'];
 
         return array_values(array_intersect(array_keys(ReportService::REPORTS), match ($role) {
             'owner', 'admin' => array_merge($money, $ops), 'finance' => $money, 'dispatcher', 'driver_manager' => array_merge($ops, ['daily']), default => [],

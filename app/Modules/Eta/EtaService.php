@@ -70,14 +70,19 @@ class EtaService
         $moved = $row ? $this->metres((float) $row->from_lat, (float) $row->from_lng, $lat, $lng) : INF;
         $age = $row ? $now->getTimestamp() - CarbonImmutable::parse($row->computed_at)->getTimestamp() : INF;
 
-        if (! $row || $moved >= self::RECALC_MOVE_M || $age >= self::RECALC_AGE_S) {
+        // The rider has just set off: work out a fresh time to promise rather than keep the one from before they left.
+        $setOff = $travelling && $row && ! $row->promised_at;
+        if (! $row || $setOff || $moved >= self::RECALC_MOVE_M || $age >= self::RECALC_AGE_S) {
             $r = $this->routing->route($lat, $lng, (float) $stop->lat, (float) $stop->lng, $profile);
-            $due = $row && $travelling ? $row->due_at : $now->addSeconds($r['duration_s'])->toIso8601String();
+            $due = $row && $travelling && ! $setOff ? $row->due_at : $now->addSeconds($r['duration_s'])->toIso8601String();
+            // The first time shown once the rider is on the way; it never moves, so on-time rates are measured against it.
+            $promised = $row->promised_at ?? ($travelling ? $due : null);
             DB::table('stop_etas')->upsert([[
                 'stop_id' => $stop->id, 'shipment_id' => $shipmentId, 'duration_s' => $r['duration_s'], 'distance_m' => $r['distance_m'],
                 'provider' => $r['provider'], 'from_lat' => $lat, 'from_lng' => $lng,
                 'gps_at' => $gpsAt ? CarbonImmutable::parse($gpsAt)->toIso8601String() : null, 'computed_at' => $now->toIso8601String(), 'due_at' => $due,
-            ]], ['stop_id'], ['duration_s', 'distance_m', 'provider', 'from_lat', 'from_lng', 'gps_at', 'computed_at', 'due_at']);
+                'promised_at' => $promised ? CarbonImmutable::parse($promised)->toIso8601String() : null,
+            ]], ['stop_id'], ['duration_s', 'distance_m', 'provider', 'from_lat', 'from_lng', 'gps_at', 'computed_at', 'due_at', 'promised_at']);
             $row = DB::table('stop_etas')->where('stop_id', $stop->id)->first();
         }
 

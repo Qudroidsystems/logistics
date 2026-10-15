@@ -46,6 +46,8 @@
         </form>
     </x-cb.card>
 
+    @if(! empty($table['note']))<div class="alert alert-warning small">{{ $table['note'] }}</div>@endif
+
     <div class="row g-3 mb-3">
         @foreach($table['summary'] as $i => [$label, $value, $format])
             <div class="col-6 col-lg-3"><x-cb.stat :label="$label" :value="R::show($value, $format)" icon="ri-bar-chart-2-line" :accent="$accent[$i % 8]" /></div>
