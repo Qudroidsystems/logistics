@@ -59,6 +59,7 @@ class ManualBookingService
      */
     public function price(int $operatorId, array $d): array
     {
+        $d = $this->toPoint($operatorId, $d);
         $route = $this->routes->estimate((float) $d['pickup']['lat'], (float) $d['pickup']['lng'], (float) $d['dropoff']['lat'], (float) $d['dropoff']['lng']);
         try {
             $q = $this->quotes->quote([
@@ -127,6 +128,7 @@ class ManualBookingService
         if (! isset(self::PAYMENTS[$d['payment']])) {
             throw new RuntimeException('Choose how the customer is paying.');
         }
+        $d = $this->toPoint($operatorId, $d);
 
         $customerId = $this->customer($d['customer']);
         if ($d['payment'] === 'link' && str_ends_with((string) DB::table('users')->where('id', $customerId)->value('email'), '@phone.invalid')) {
@@ -146,7 +148,7 @@ class ManualBookingService
         $stop = fn (array $s) => array_filter([
             'line1' => trim((string) $s['line1']), 'lat' => (float) $s['lat'], 'lng' => (float) $s['lng'],
             'contact_name' => $s['contact_name'] ?? null, 'contact_phone' => $s['contact_phone'] ?? null,
-            'landmark' => $s['landmark'] ?? null, 'instructions' => $s['instructions'] ?? null,
+            'landmark' => $s['landmark'] ?? null, 'instructions' => $s['instructions'] ?? null, 'pickup_point_id' => $s['pickup_point_id'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
 
         $agreementId = DB::transaction(function () use ($operatorId, $customerId, $d, $price, $stop, $staffUserId) {
@@ -155,6 +157,7 @@ class ManualBookingService
                     'pickup' => $stop($d['pickup']), 'dropoff' => $stop($d['dropoff']),
                     'packages' => array_values($d['packages'] ?? []), 'vehicle_type_id' => $d['vehicle_type_id'] ?? null,
                     'quote_id' => $price['quote_id'], 'channel' => 'manual', 'booked_by' => $staffUserId, 'note' => $d['note'] ?? null,
+                    'return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null,
                 ], fn ($v) => $v !== null),
                 'price' => $price['total'], 'distance_m' => $price['distance_m'],
                 'service_type_id' => (int) $d['service_type_id'], 'city_id' => (int) $d['city_id'],
@@ -221,5 +224,15 @@ class ManualBookingService
         }
 
         return $out + ['message' => 'Booking saved and sent to dispatch.'.($note ?? '')];
+    }
+
+    /** A drop-off given as one of the provider's pickup points (dropoff.pickup_point = its code) becomes that point's address. */
+    private function toPoint(int $operatorId, array $d): array
+    {
+        if (! empty($d['dropoff']['pickup_point'])) {
+            $d['dropoff'] = app(\App\Modules\Returns\PickupPointService::class)->asDropoff($operatorId, (string) $d['dropoff']['pickup_point'], $d['dropoff']);
+        }
+
+        return $d;
     }
 }

@@ -35,7 +35,7 @@ class OrdersController extends Controller
     {
         $s = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->join('operators as p', 'p.id', '=', 's.operator_id')
             ->where('s.public_id', $shipment)->where('o.customer_id', $request->user()->id)
-            ->first(['s.id', 's.public_id', 's.status', 's.tracking_code', 's.delivered_at', 'o.order_number', 'o.total', 'o.agreement_id', 'p.display_name as provider', 's.created_at']);
+            ->first(['s.id', 's.public_id', 's.status', 's.tracking_code', 's.delivered_at', 's.pickup_window_start', 'o.order_number', 'o.total', 'o.discount', 'o.payment_status', 'o.agreement_id', 'p.display_name as provider', 's.created_at']);
         abort_unless($s, 404);
 
         $stops = DB::select('SELECT seq, type, line1, landmark, status, ST_Y(point::geometry) AS lat, ST_X(point::geometry) AS lng FROM shipment_stops WHERE shipment_id = ? ORDER BY seq', [$s->id]);
@@ -61,6 +61,11 @@ class OrdersController extends Controller
             'terms' => $this->terms($policy),
             // Proof of delivery both sides agreed; the driver cannot finish the drop-off without them.
             'verification' => $this->proofs((int) $s->id),
+            // Booking extras: when it should be collected, any discount, the request's photos/documents and whether a receipt can be downloaded.
+            'pickup_at' => \App\Modules\Booking\LocalTime::iso($s->pickup_window_start), 'rush' => (bool) ($agreement && $agreement->request_id
+                ? DB::table('service_requests')->where('id', $agreement->request_id)->value('rush') : false),
+            'discount' => (int) $s->discount, 'receipt_available' => $s->payment_status === 'paid',
+            'files' => app(\App\Modules\Booking\RequestAttachments::class)->forShipment((int) $s->id),
         ]);
     }
 

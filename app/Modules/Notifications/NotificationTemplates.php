@@ -34,6 +34,7 @@ class NotificationTemplates
         'delivery.failed_customer' => ['title' => 'We could not deliver', 'body' => 'Delivery of order {order} did not go through because the receiver could not be reached. Your payment has been settled under the agreement you accepted; open the order to see the details.', 'email' => true],
         'delivery.failed_provider' => ['title' => 'Delivery failed', 'body' => 'Order {order} could not be delivered: the receiver was not reachable. The agreement terms have been applied.', 'email' => false],
         'delivery.returned_customer' => ['title' => 'Parcel returned', 'body' => 'The parcel for order {order} has been taken back to the pickup address.', 'email' => false],
+        'delivery.at_pickup_point_customer' => ['title' => 'Waiting at the pickup point', 'body' => 'The parcel for order {order} has reached the pickup point. The receiver has been texted a code to collect it.', 'email' => false],
         'delivery.returned_provider' => ['title' => 'Parcel returned', 'body' => 'The driver has returned the parcel for order {order} to the pickup address.', 'email' => false],
         'delivery.assigned' => ['title' => 'Rider assigned', 'body' => 'Your order {order} has a rider and is on its way to pickup.', 'email' => false],
         'delivery.approaching' => ['title' => 'Your rider is close', 'body' => 'The rider for {order} is {when} from {place}.', 'email' => false],

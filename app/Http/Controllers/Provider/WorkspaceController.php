@@ -138,6 +138,9 @@ class WorkspaceController extends Controller
             'eta' => app(\App\Modules\Eta\EtaService::class)->forShipment((int) $s->id),
             'receiverReply' => \App\Modules\Eta\ReceiverReplies::current(DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'dropoff')->orderByDesc('seq')->first()),
             'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $s->id),
+            'handover' => app(\App\Modules\Returns\PickupPointService::class)->forJob($s),
+            'returnInfo' => app(\App\Modules\Returns\ReturnService::class)->forJob($s),
+            'returnPoints' => array_filter(app(\App\Modules\Returns\PickupPointService::class)->all((int) $op->id), fn ($p) => $p->status === 'active'),
             'pagetitle' => 'Job',
         ], 'jobs');
     }

@@ -132,6 +132,11 @@ class VerificationPolicy
     {
         $p = $this->forShipment((int) $stop->shipment_id);
 
+        if ($stop->type === 'dropoff' && ! empty($stop->pickup_point_id)) {
+            // Left at a pickup point: the receiver is not there, so the rider proves the hand-over to the point with a
+            // photo (and the parcel scans, when agreed). The receiver's code is checked when they collect.
+            return array_values(array_unique(['photo', ...array_intersect($p['dropoff'], ['scan'])]));
+        }
         if ($stop->type === 'dropoff' && $this->isMidRoute($stop)) {
             // A drop-off before the last one: the delivery code and the cash belong to the final hand-over,
             // so a photo stands in for the code here.

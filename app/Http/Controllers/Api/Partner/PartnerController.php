@@ -45,6 +45,46 @@ class PartnerController extends Controller
         }
     }
 
+    /** Up to BATCH_MAX deliveries at once; each one is checked and created on its own. */
+    public function batch(Request $request, MerchantDeliveryService $svc)
+    {
+        $request->validate(['deliveries' => 'required|array|min:1|max:'.MerchantDeliveryService::BATCH_MAX]);
+        $rules = $this->rules() + ['external_order_id' => 'required|string|max:80'];
+        $items = [];
+        $seen = [];
+        foreach (array_values((array) $request->input('deliveries')) as $i => $raw) {
+            $v = \Illuminate\Support\Facades\Validator::make(is_array($raw) ? $raw : [], $rules);
+            $errors = $v->fails() ? $v->errors()->all() : [];
+            $ref = is_array($raw) ? ($raw['external_order_id'] ?? null) : null;
+            if (! $errors && isset($seen[$ref])) {
+                $errors[] = "external_order_id {$ref} appears twice in this batch.";
+            }
+            $seen[$ref] = true;
+            $items[$i] = ['data' => $errors ? (is_array($raw) ? $raw : []) : $v->validated(), 'errors' => $errors];
+        }
+        $results = $svc->createMany($request->attributes->get('api_client'), $items);
+        $count = fn ($r) => count(array_filter($results, fn ($x) => $x['result'] === $r));
+
+        return response()->json(['results' => $results, 'created' => $count('created'), 'existing' => $count('existing'),
+            'failed' => $count('failed') + $count('invalid')], 200);
+    }
+
+    public function show(Request $request, string $externalOrderId, MerchantDeliveryService $svc)
+    {
+        $d = $svc->find($request->attributes->get('api_client'), $externalOrderId);
+        abort_unless($d, 404);
+
+        return response()->json($d);
+    }
+
+    public function index(Request $request, MerchantDeliveryService $svc)
+    {
+        $d = $request->validate(['status' => 'nullable|string|max:24', 'since' => 'nullable|date', 'page' => 'nullable|integer|min:1|max:10000']);
+
+        return response()->json($svc->list($request->attributes->get('api_client'), $d['status'] ?? null,
+            isset($d['since']) ? \Carbon\CarbonImmutable::parse($d['since'])->toIso8601String() : null, (int) ($d['page'] ?? 1)));
+    }
+
     /** Merchant cancels a delivery by its own order id. Refund rules are the customer's. */
     public function cancel(Request $request, string $externalOrderId, \App\Modules\Marketplace\CancellationService $svc)
     {
@@ -69,7 +109,25 @@ class PartnerController extends Controller
 
     private function validated(Request $request): array
     {
-        return $request->validate([
+        return $request->validate($this->rules());
+    }
+
+    /** POST /deliveries/{externalOrderId}/return: bring a delivered parcel back to the pickup address. */
+    public function returnDelivery(Request $request, string $externalOrderId, MerchantDeliveryService $svc)
+    {
+        $d = $request->validate(['reason' => 'required|in:'.implode(',', array_keys(\App\Modules\Returns\ReturnService::REASONS))]);
+        try {
+            $r = $svc->createReturn($request->attributes->get('api_client'), $externalOrderId, $d['reason']);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return $r ? response()->json($r, 201) : response()->json(['message' => 'No delivery with that external_order_id.'], 404);
+    }
+
+    private function rules(): array
+    {
+        return [
             'service_type_id' => 'required|integer', 'city_id' => 'required|integer', 'vehicle_type_id' => 'nullable|integer',
             'pickup.line1' => 'required|string|max:255', 'pickup.lat' => 'required|numeric|between:-90,90', 'pickup.lng' => 'required|numeric|between:-180,180',
             'pickup.contact_name' => 'nullable|string|max:120', 'pickup.contact_phone' => 'nullable|string|max:24',
@@ -77,6 +135,6 @@ class PartnerController extends Controller
             'dropoff.contact_name' => 'nullable|string|max:120', 'dropoff.contact_phone' => 'nullable|string|max:24',
             'weight_g' => 'nullable|integer|min:0', 'fragile' => 'nullable|boolean', 'declared_value' => 'nullable|integer|min:0',
             'packages' => 'nullable|array|max:20', 'external_order_id' => 'nullable|string|max:80', 'rush' => 'nullable|boolean',
-        ]);
+        ];
     }
 }

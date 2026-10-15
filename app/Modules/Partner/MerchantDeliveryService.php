@@ -85,7 +85,7 @@ class MerchantDeliveryService
                     'external_order_id' => $d['external_order_id'], 'pickup' => $d['pickup'], 'dropoff' => $d['dropoff'],
                     'packages' => $d['packages'] ?? [], 'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'quote_id' => $q['quote_id'],
                     'verification' => VerificationPolicy::agree($d['verification'] ?? null, app(VerificationPolicy::class)->forProvider((int) $q['operator_id'], (int) $d['service_type_id'])),
-                ],
+                ] + array_filter(['return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null]),
                 'price' => $q['total'], 'distance_m' => $q['route']['distance_m'],
                 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],
             ], $owner);
@@ -109,6 +109,99 @@ class MerchantDeliveryService
         }
 
         return $this->present($agreement, $this->payments->initiateForAgreement($agreementId, $owner)['authorization_url']);
+    }
+
+    /**
+     * A return of one of the merchant's delivered parcels: picked up from the receiver and brought back to the
+     * original pickup address. It is a delivery of its own with external_order_id "<original>-return", so sending
+     * the call again returns the same return.
+     */
+    public function createReturn(object $client, string $externalOrderId, string $reason): ?array
+    {
+        $a = DB::table('agreements')->where('merchant_id', $client->merchant_id)->whereRaw("terms->>'external_order_id' = ?", [$externalOrderId])->first();
+        $s = $a ? DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('o.agreement_id', $a->id)->first(['s.*']) : null;
+        if (! $s) {
+            return null;
+        }
+        $ref = mb_substr($externalOrderId, 0, 73).'-return';
+        if ($existing = $this->find($client, $ref)) {
+            return $existing;
+        }
+        $returns = app(\App\Modules\Returns\ReturnService::class);
+        if ($why = $returns->blocked($s)) {
+            throw new RuntimeException($why);
+        }
+        $d = $returns->reversed($s);
+        $this->create($client, $d + ['external_order_id' => $ref, 'return_of' => (int) $s->id, 'return_reason' => $reason]);
+
+        return $this->find($client, $ref);
+    }
+
+    /** Most deliveries in one call. */
+    public const BATCH_MAX = 50;
+
+    /**
+     * Several deliveries in one call. Each is created on its own, so one bad delivery does not stop the rest, and each
+     * is idempotent on its external_order_id, so the whole batch can be sent again after a timeout.
+     *
+     * @param  array<int, array{data:array, errors:array}>  $items  validated items, or their validation errors
+     */
+    public function createMany(object $client, array $items): array
+    {
+        $out = [];
+        foreach ($items as $i => $item) {
+            $ref = $item['data']['external_order_id'] ?? null;
+            if ($item['errors']) {
+                $out[] = ['index' => $i, 'external_order_id' => $ref, 'result' => 'invalid', 'errors' => $item['errors']];
+
+                continue;
+            }
+            $existed = DB::table('agreements')->where('merchant_id', $client->merchant_id)->whereRaw("terms->>'external_order_id' = ?", [$ref])->exists();
+            try {
+                $out[] = ['index' => $i, 'external_order_id' => $ref, 'result' => $existed ? 'existing' : 'created'] + $this->create($client, $item['data']);
+            } catch (RuntimeException $e) {
+                $out[] = ['index' => $i, 'external_order_id' => $ref, 'result' => 'failed', 'message' => $e->getMessage()];
+            }
+        }
+
+        return $out;
+    }
+
+    /** Where a delivery is, by the merchant's own order id; null when it is not theirs. */
+    public function find(object $client, string $externalOrderId): ?array
+    {
+        $a = DB::table('agreements')->where('merchant_id', $client->merchant_id)->whereRaw("terms->>'external_order_id' = ?", [$externalOrderId])->first();
+
+        return $a ? $this->detail($a) : null;
+    }
+
+    /** The merchant's deliveries, newest first, optionally only those in a state or changed since a time. */
+    public function list(object $client, ?string $status, ?string $since, int $page, int $perPage = 50): array
+    {
+        $q = DB::table('agreements as a')->leftJoin('orders as o', 'o.agreement_id', '=', 'a.id')->leftJoin('shipments as s', 's.order_id', '=', 'o.id')
+            ->where('a.merchant_id', $client->merchant_id)
+            ->when($status, fn ($q) => $q->where('s.status', $status))
+            ->when($since, fn ($q) => $q->where(fn ($q) => $q->where('s.updated_at', '>=', $since)->orWhere('a.updated_at', '>=', $since)));
+        $total = (clone $q)->count();
+        $rows = $q->orderByDesc('a.id')->offset(($page - 1) * $perPage)->limit($perPage)->get(['a.*']);
+
+        return ['data' => $rows->map(fn ($a) => $this->detail($a))->all(), 'page' => $page, 'per_page' => $perPage, 'total' => $total,
+            'has_more' => $page * $perPage < $total];
+    }
+
+    private function detail(object $a): array
+    {
+        $terms = json_decode($a->terms, true) ?: [];
+        $s = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('o.agreement_id', $a->id)
+            ->first(['s.id', 's.status', 's.tracking_code', 's.delivered_at', 's.updated_at']);
+        $eta = $s ? app(\App\Modules\Eta\EtaService::class)->forShipment((int) $s->id) : null;
+
+        return ['external_order_id' => $terms['external_order_id'] ?? null] + $this->present($a, null) + [
+            'delivery_status' => $s->status ?? 'awaiting_payment', 'tracking_code' => $s->tracking_code ?? null,
+            'delivered_at' => $s && $s->delivered_at ? \Carbon\CarbonImmutable::parse($s->delivered_at)->toIso8601String() : null,
+            'eta' => $eta ? ['to' => $eta['stop_type'], 'label' => $eta['label'], 'low_minutes' => $eta['low'], 'high_minutes' => $eta['high'], 'stale' => $eta['stale']] : null,
+            'updated_at' => \Carbon\CarbonImmutable::parse($s->updated_at ?? $a->updated_at)->toIso8601String(),
+        ];
     }
 
     private function present(object $a, ?string $payUrl): array

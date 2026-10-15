@@ -79,7 +79,7 @@ class DriverService
             return null;
         }
         $stops = DB::table('shipment_stops')->selectRaw(
-            'id, shipment_id, seq, type, line1, landmark, contact_name, contact_phone, instructions, status, requires_photo, readiness, readiness_note, readiness_at,
+            'id, shipment_id, seq, type, line1, landmark, contact_name, contact_phone, instructions, status, requires_photo, readiness, readiness_note, readiness_at, pickup_point_id,
              ST_Y(point::geometry) as lat, ST_X(point::geometry) as lng'
         )->where('shipment_id', $row->shipment_id)->orderBy('seq')->get();
 
@@ -91,9 +91,11 @@ class DriverService
             $mine = $exceptions->where('stop_id', (int) $s->id)->values();
             $waived = $mine->where('status', 'approved')->pluck('method')->intersect($requires)->values()->all();
             $a = (array) $s;
-            unset($a['shipment_id'], $a['readiness'], $a['readiness_note'], $a['readiness_at']);
+            unset($a['shipment_id'], $a['readiness'], $a['readiness_note'], $a['readiness_at'], $a['pickup_point_id']);
 
             return $a + [
+                // Left at a pickup point: the receiver is not there, so no code is asked for.
+                'at_pickup_point' => ! empty($s->pickup_point_id),
                 'requires' => $requires, 'requires_labels' => VerificationPolicy::describe($requires), 'waived' => $waived,
                 'needs_code' => in_array('code', $requires, true) && ! in_array('code', $waived, true),
                 'exceptions' => $mine->all(),

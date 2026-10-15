@@ -82,6 +82,12 @@
                         @foreach(['pickup' => ['Pickup', 'success', 'p'], 'dropoff' => ['Drop-off', 'danger', 'd']] as $k => [$label, $colour, $short])
                             <div class="col-md-6">
                                 <div class="fw-semibold small mb-1"><i class="ri-map-pin-2-fill text-{{ $colour }}"></i> {{ $label }}</div>
+                                @if($k === 'dropoff' && count($pickupPoints ?? []))
+                                    <select name="dropoff[pickup_point]" id="dPoint" class="form-select mb-1">
+                                        <option value="">To the receiver's address</option>
+                                        @foreach($pickupPoints as $pp)<option value="{{ $pp->code }}" data-line="{{ $pp->name }}, {{ $pp->line1 }}" data-lat="{{ $pp->lat }}" data-lng="{{ $pp->lng }}" @selected(old('dropoff.pickup_point') === $pp->code)>To pickup point {{ $pp->name }} ({{ $pp->code }})</option>@endforeach
+                                    </select>
+                                @endif
                                 <input name="{{ $k }}[line1]" class="form-control mb-1" placeholder="Address" value="{{ old($k.'.line1') }}" required maxlength="255">
                                 <input name="{{ $k }}[landmark]" class="form-control mb-1" placeholder="Landmark (optional)" value="{{ old($k.'.landmark') }}" maxlength="255">
                                 <input name="{{ $k }}[contact_name]" class="form-control mb-1" placeholder="Contact name" value="{{ old($k.'.contact_name') }}" maxlength="120">
@@ -118,6 +124,11 @@
         $(k + 'Lat').value = lat.toFixed(6); $(k + 'Lng').value = lng.toFixed(6);
     }
     ['p', 'd'].forEach(function (k) { var a = parseFloat($(k + 'Lat').value), b = parseFloat($(k + 'Lng').value); if (a && b) { pin(k, a, b); } });
+    // A pickup point fills in the drop-off; the receiver's name and phone stay, so they get the collection code.
+    if ($('dPoint')) { $('dPoint').addEventListener('change', function () {
+        var o = this.selectedOptions[0];
+        if (o && o.value) { document.querySelector('[name="dropoff[line1]"]').value = o.dataset.line; pin('d', parseFloat(o.dataset.lat), parseFloat(o.dataset.lng)); map.setView([parseFloat(o.dataset.lat), parseFloat(o.dataset.lng)], 14); }
+    }); }
     $('setP').onclick = function () { mode = 'p'; $('mapHint').textContent = 'Tap the map to place the pickup pin.'; };
     $('setD').onclick = function () { mode = 'd'; $('mapHint').textContent = 'Tap the map to place the drop-off pin.'; };
     map.on('click', function (e) { if (mode) { pin(mode, e.latlng.lat, e.latlng.lng); $('mapHint').textContent = 'Pin placed. Tap again to move it.'; } });

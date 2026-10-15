@@ -331,6 +331,7 @@ class BookingExtrasTest extends TestCase
         $a = $this->lockedAgreement($this->customer->id, $this->op, $this->owner->id, 300_000);
         app(PaymentService::class)->payWithWallet($a, $this->customer->id);
         $s = $this->shipmentFor($a);
+        $this->api()->get("/api/v1/customer/orders/{$s->public_id}")->assertOk()->assertJsonPath('receipt_available', true)->assertJsonPath('files', [])->assertJsonPath('rush', false);
 
         $res = $this->api()->get("/api/v1/customer/orders/{$s->public_id}/receipt");
         $res->assertOk()->assertHeader('Content-Type', 'application/pdf');

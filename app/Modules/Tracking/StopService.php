@@ -73,6 +73,9 @@ class StopService
                 ->where('id', '!=', $stopId)->whereNotIn('status', ['completed', 'skipped'])->exists()) {
                 // A drop-off with more stops still to do: the job carries on.
                 app(\App\Modules\Partner\ShipmentEvents::class)->record((int) $stop->shipment_id, 'stop_completed', 'in_transit', 'in_transit', 'driver', $driverProfileId);
+            } elseif (! empty($stop->pickup_point_id)) {
+                // Left at a pickup point: delivered only once the receiver collects it there.
+                app(\App\Modules\Returns\PickupPointService::class)->receive((int) $stop->shipment_id, $driverProfileId, $stop);
             } else {
                 DB::table('assignments')->where('shipment_id', $stop->shipment_id)->where('driver_profile_id', $driverProfileId)->update(['status' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
                 DB::table('driver_profiles')->where('id', $driverProfileId)->update(['availability' => 'online', 'last_trip_at' => now(), 'updated_at' => now()]);

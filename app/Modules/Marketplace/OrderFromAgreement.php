@@ -48,6 +48,8 @@ class OrderFromAgreement
 
             $shipmentId = DB::table('shipments')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'order_id' => $orderId, 'operator_id' => $a->provider_operator_id,
+                // A return (ReturnService) carries the delivery it reverses.
+                'kind' => empty($t['return_of']) ? 'forward' : 'return', 'parent_shipment_id' => $t['return_of'] ?? null, 'return_reason' => $t['return_reason'] ?? null,
                 'service_type_id' => $t['service_type_id'], 'vehicle_type_id' => $t['vehicle_type_id'] ?? null,
                 'status' => 'created', 'tracking_code' => ParcelCodes::make('QD', 9), 'distance_m' => $a->distance_m,
                 'cod_amount' => 0, 'insured_value' => 0, 'is_test' => $a->is_test, 'created_at' => now(), 'updated_at' => now(),
@@ -62,9 +64,10 @@ class OrderFromAgreement
             foreach ($ordered as $i => $s) {
                 [$type, $seq] = [$s['type'], $i + 1];
                 DB::insert(
-                    'INSERT INTO shipment_stops (shipment_id, seq, type, line1, landmark, point, contact_name, contact_phone, instructions, status, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, ?, ?, \'pending\', now(), now())',
-                    [$shipmentId, $seq, $type, $s['line1'], $s['landmark'] ?? null, $s['lng'], $s['lat'], $s['contact_name'] ?? null, $s['contact_phone'] ?? null, $s['instructions'] ?? null]
+                    'INSERT INTO shipment_stops (shipment_id, seq, type, line1, landmark, point, contact_name, contact_phone, instructions, pickup_point_id, status, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, ?, ?, ?, \'pending\', now(), now())',
+                    [$shipmentId, $seq, $type, $s['line1'], $s['landmark'] ?? null, $s['lng'], $s['lat'], $s['contact_name'] ?? null, $s['contact_phone'] ?? null, $s['instructions'] ?? null,
+                        $type === 'dropoff' ? ($s['pickup_point_id'] ?? null) : null]
                 );
             }
 

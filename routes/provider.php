@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Provider\AlertsController as A;
 use App\Http\Controllers\Provider\BackofficeController as Bo;
+use App\Http\Controllers\Provider\PickupPointsController as Pp;
 use App\Http\Controllers\Provider\PricingController as P;
 use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
@@ -21,12 +22,27 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/jobs/{shipment}/edit', [Bo::class, 'editJob'])->name('job.edit');
     Route::put('/jobs/{shipment}', [Bo::class, 'updateJob'])->name('job.update');
     Route::get('/bookings/new', [Bo::class, 'newBooking'])->name('booking.new');
+    Route::get('/bookings/bulk', [Bo::class, 'bulk'])->name('bulk');
+    Route::get('/bookings/bulk/template.csv', [Bo::class, 'bulkTemplate'])->name('bulk.template');
+    Route::post('/bookings/bulk', [Bo::class, 'bulkCheck'])->middleware('throttle:10,1')->name('bulk.check');
+    Route::get('/bookings/bulk/{batch}', [Bo::class, 'bulkShow'])->name('bulk.show');
+    Route::post('/bookings/bulk/{batch}/book', [Bo::class, 'bulkBook'])->middleware('throttle:10,1')->name('bulk.book');
+    Route::post('/bookings/bulk/{batch}/discard', [Bo::class, 'bulkDiscard'])->name('bulk.discard');
     Route::post('/bookings/price', [Bo::class, 'price'])->middleware('throttle:30,1')->name('booking.price');
     Route::post('/bookings', [Bo::class, 'storeBooking'])->middleware('throttle:20,1')->name('booking.store');
     Route::get('/reports/{report}/export.{format}', [Bo::class, 'export'])->whereIn('format', ['xlsx', 'pdf'])->name('reports.export');
     Route::get('/reports/{report?}', [Bo::class, 'reports'])->name('reports');
     Route::get('/jobs/{shipment}/labels', [P::class, 'labels'])->name('job.labels');
     Route::post('/jobs/{shipment}/exceptions/{exception}', [W::class, 'decideException'])->name('job.exception');
+    Route::post('/jobs/{shipment}/return', [Pp::class, 'bookReturn'])->middleware('throttle:20,1')->name('job.return');
+
+    // Pickup points: where parcels wait for the receiver, and the counter where they collect
+    Route::get('/pickup-points', [Pp::class, 'index'])->name('points');
+    Route::post('/pickup-points', [Pp::class, 'store'])->name('points.store');
+    Route::put('/pickup-points/{point}', [Pp::class, 'store'])->name('points.update');
+    Route::post('/pickup-points/{point}/status', [Pp::class, 'status'])->name('points.status');
+    Route::post('/pickup-points/parcels/{shipment}/collect', [Pp::class, 'collect'])->middleware('throttle:30,1')->name('points.collect');
+    Route::post('/pickup-points/parcels/{shipment}/not-collected', [Pp::class, 'notCollected'])->name('points.not_collected');
 
     // Proof of delivery: the provider's standard checks per service type
     Route::get('/verification', [V::class, 'index'])->name('verification');

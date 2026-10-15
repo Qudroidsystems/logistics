@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1/partner')->group(function () {
     Route::get('/me', [PartnerController::class, 'me'])->middleware('api.client');
     Route::post('/quotes', [PartnerController::class, 'quote'])->middleware('api.client:quotes');
+    Route::get('/deliveries', [PartnerController::class, 'index'])->middleware('api.client:deliveries');
+    Route::post('/deliveries/batch', [PartnerController::class, 'batch'])->middleware(['api.client:deliveries', 'throttle:20,1']);
     Route::post('/deliveries', [PartnerController::class, 'store'])->middleware('api.client:deliveries');
+    Route::get('/deliveries/{externalOrderId}', [PartnerController::class, 'show'])->middleware('api.client:deliveries');
+    Route::post('/deliveries/{externalOrderId}/return', [PartnerController::class, 'returnDelivery'])->middleware(['api.client:deliveries', 'throttle:20,1']);
     Route::post('/deliveries/{externalOrderId}/cancel', [PartnerController::class, 'cancel'])->middleware('api.client:deliveries');
 });

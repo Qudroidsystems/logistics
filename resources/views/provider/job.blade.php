@@ -83,6 +83,7 @@
             </x-cb.card>
         </div>
         <div class="col-lg-4">
+            @include('provider._job-returns')
             @if($assignable)
             <x-cb.card :title="$driver ? 'Change the driver' : 'Who will do this job?'" icon="ri-user-received-line" class="mb-3">
                 @if($driver)<p class="mb-2">Now with <strong>{{ $driver->name }}</strong> ({{ $driver->status }}).</p>@endif

@@ -26,6 +26,7 @@ class ShipmentEvents
         'cancelled' => 'delivery.cancelled',
         'delivery_failed' => 'delivery.failed',
         'returned' => 'delivery.returned',
+        'at_pickup_point' => 'delivery.at_pickup_point',
     ];
 
     public function __construct(private WebhookService $webhooks)

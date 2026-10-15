@@ -120,8 +120,16 @@ class NotificationService
     public function textRecipient(int $shipmentId, string $publicId, string $order): void
     {
         try {
-            $phone = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'dropoff')->orderByDesc('seq')->value('contact_phone');
+            $drop = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'dropoff')->orderByDesc('seq')->first(['contact_phone', 'pickup_point_id']);
+            $phone = $drop?->contact_phone;
             if (! $phone) {
+                return;
+            }
+            if ($drop->pickup_point_id) {
+                // Going to a pickup point: the code is sent when the parcel is there, for the receiver to bring.
+                $point = DB::table('pickup_points')->where('id', $drop->pickup_point_id)->value('name');
+                app(\App\Modules\Notifications\Sms\SmsService::class)->toNumber($phone, "Your parcel for order {$order} is on its way to {$point}. We will text you a code when it is ready to collect.", null, 'delivery.recipient_point');
+
                 return;
             }
             $needsCode = in_array('code', app(\App\Modules\Verification\VerificationPolicy::class)->forShipment($shipmentId)['dropoff'], true);
@@ -153,6 +161,7 @@ class NotificationService
         'cancelled' => ['customer' => 'delivery.cancelled_customer', 'provider' => 'delivery.cancelled_provider'],
         'delivery_failed' => ['customer' => 'delivery.failed_customer', 'provider' => 'delivery.failed_provider'],
         'returned' => ['customer' => 'delivery.returned_customer', 'provider' => 'delivery.returned_provider'],
+        'at_pickup_point' => ['customer' => 'delivery.at_pickup_point_customer'],
     ];
 
     // ---------------------------------------------------------------- helpers

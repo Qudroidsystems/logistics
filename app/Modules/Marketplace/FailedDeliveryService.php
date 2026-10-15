@@ -70,25 +70,7 @@ class FailedDeliveryService
             DB::table('shipments')->where('id', $s->id)->update(['status' => $to, 'updated_at' => now()]);
 
             // Money last, so the driver-pay step already sees the final shipment and assignment state.
-            $charged = $refunded = 0;
-            $money = false;
-            $hasShopping = $agreement && DB::table('shopping_requests')->where('agreement_id', $agreement->id)->exists();
-            if ($agreement && ! $hasShopping && in_array($agreement->status, ['paid', 'in_progress', 'delivered'], true)) {
-                $charged = FailedDeliveryPolicy::charge((int) $agreement->price, $policy);
-                $res = $charged > 0 ? $this->escrow->releasePartial((int) $agreement->id, $charged, 0, null) : $this->escrow->refund((int) $agreement->id, null, null);
-                $refunded = $charged > 0 ? (int) $res['to_customer'] : (int) $res['refunded'];
-                $money = true;
-                DB::table('orders')->where('id', $order->id)->update([
-                    'status' => 'failed', 'payment_status' => $charged > 0 ? 'partially_refunded' : 'refunded', 'cancelled_at' => now(),
-                    'cancelled_by' => 'system', 'cancel_reason_code' => 'delivery_failed', 'cancel_fee' => $charged, 'updated_at' => now(),
-                ]);
-                if ($refunded > 0) {
-                    DB::table('refunds')->insert([
-                        'public_id' => (string) Str::ulid(), 'order_id' => $order->id, 'amount' => $refunded, 'reason_code' => 'delivery_failed',
-                        'initiated_by' => null, 'status' => 'completed', 'ledger_tx_id' => $res['transaction_id'], 'created_at' => now(), 'updated_at' => now(),
-                    ]);
-                }
-            }
+            ['charged' => $charged, 'refunded' => $refunded, 'money' => $money] = $this->settle($order, $agreement, $policy);
 
             $this->events->record((int) $s->id, 'delivery_failed', 'at_dropoff', $to, 'driver', $driverId, [
                 'reason' => $reason, 'note' => $note ? mb_substr($note, 0, 500) : null, 'charged' => $charged, 'refunded' => $refunded, 'returning' => $returning,
@@ -96,6 +78,63 @@ class FailedDeliveryService
 
             return ['returning' => $returning, 'charged' => $charged, 'refunded' => $refunded, 'money' => $money];
         });
+    }
+
+    /**
+     * The receiver never came to the pickup point for the parcel. Staff close the delivery: the agreement's
+     * failed-delivery terms apply as for a receiver who could not be reached, without the return-trip share, because
+     * taking the parcel back is booked and paid as a return of its own. The parcel stays at the point until then.
+     *
+     * @return array{charged:int, refunded:int, money:bool}
+     */
+    public function notCollected(int $operatorId, string $shipmentPublicId, int $staffUserId): array
+    {
+        return DB::transaction(function () use ($operatorId, $shipmentPublicId, $staffUserId) {
+            $s = DB::table('shipments')->where('public_id', $shipmentPublicId)->where('operator_id', $operatorId)->lockForUpdate()->first();
+            if (! $s || $s->status !== 'at_pickup_point') {
+                throw new RuntimeException('That parcel is not waiting at a pickup point.');
+            }
+            if ($s->hold_until && strtotime($s->hold_until) > time()) {
+                throw new RuntimeException('The parcel is still within its collection time.');
+            }
+            $order = DB::table('orders')->where('id', $s->order_id)->lockForUpdate()->first();
+            $agreement = $order && $order->agreement_id ? DB::table('agreements')->where('id', $order->agreement_id)->lockForUpdate()->first() : null;
+            $policy = ['return_to_sender' => false] + FailedDeliveryPolicy::normalize($agreement && $agreement->failed_delivery_policy ? json_decode($agreement->failed_delivery_policy, true) : null);
+            DB::table('shipments')->where('id', $s->id)->update(['status' => 'failed_attempt', 'updated_at' => now()]);
+            DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'dropoff')->where('status', 'completed')->update(['status' => 'failed', 'updated_at' => now()]);
+            $res = $this->settle($order, $agreement, $policy);
+            $this->events->record((int) $s->id, 'delivery_failed', 'at_pickup_point', 'failed_attempt', 'staff', $staffUserId, [
+                'reason' => 'not_collected', 'charged' => $res['charged'], 'refunded' => $res['refunded'], 'returning' => false,
+            ]);
+
+            return $res;
+        });
+    }
+
+    /** The money side of a failed delivery, under the agreement's frozen terms. @return array{charged:int, refunded:int, money:bool} */
+    private function settle(?object $order, ?object $agreement, array $policy): array
+    {
+        $charged = $refunded = 0;
+        $money = false;
+        $hasShopping = $agreement && DB::table('shopping_requests')->where('agreement_id', $agreement->id)->exists();
+        if ($agreement && ! $hasShopping && in_array($agreement->status, ['paid', 'in_progress', 'delivered'], true)) {
+            $charged = FailedDeliveryPolicy::charge((int) $agreement->price, $policy);
+            $res = $charged > 0 ? $this->escrow->releasePartial((int) $agreement->id, $charged, 0, null) : $this->escrow->refund((int) $agreement->id, null, null);
+            $refunded = $charged > 0 ? (int) $res['to_customer'] : (int) $res['refunded'];
+            $money = true;
+            DB::table('orders')->where('id', $order->id)->update([
+                'status' => 'failed', 'payment_status' => $charged > 0 ? 'partially_refunded' : 'refunded', 'cancelled_at' => now(),
+                'cancelled_by' => 'system', 'cancel_reason_code' => 'delivery_failed', 'cancel_fee' => $charged, 'updated_at' => now(),
+            ]);
+            if ($refunded > 0) {
+                DB::table('refunds')->insert([
+                    'public_id' => (string) Str::ulid(), 'order_id' => $order->id, 'amount' => $refunded, 'reason_code' => 'delivery_failed',
+                    'initiated_by' => null, 'status' => 'completed', 'ledger_tx_id' => $res['transaction_id'], 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return ['charged' => $charged, 'refunded' => $refunded, 'money' => $money];
     }
 
     /** The driver has handed the parcel back at the pickup address (called by StopService for the return stop). */

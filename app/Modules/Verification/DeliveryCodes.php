@@ -28,8 +28,11 @@ class DeliveryCodes
     public const LOCK_MINUTES = 15;
     public const MAX_REISSUES_PER_HOUR = 3;
 
-    /** Creates a new code for the shipment's drop-off and retires any earlier one. Returns the plain code. */
-    public function issue(int $shipmentId): ?string
+    /**
+     * Creates a new code for the shipment's drop-off and retires any earlier one. Returns the plain code.
+     * $expires overrides the usual CODE_TTL_HOURS (a parcel held at a pickup point keeps its code for the whole hold).
+     */
+    public function issue(int $shipmentId, ?\DateTimeInterface $expires = null): ?string
     {
         $stopId = $this->dropoff($shipmentId);
         if (! $stopId) {
@@ -39,7 +42,7 @@ class DeliveryCodes
         DB::table('delivery_codes')->where('stop_id', $stopId)->whereNull('revoked_at')->whereNull('used_at')->update(['revoked_at' => self::at(now())]);
         DB::table('delivery_codes')->insert([
             'shipment_id' => $shipmentId, 'stop_id' => $stopId, 'code_hash' => $this->hash($stopId, $code),
-            'code_secret' => Crypt::encryptString($code), 'expires_at' => self::at(now()->addHours(self::CODE_TTL_HOURS)), 'created_at' => self::at(now()),
+            'code_secret' => Crypt::encryptString($code), 'expires_at' => self::at($expires ?? now()->addHours(self::CODE_TTL_HOURS)), 'created_at' => self::at(now()),
         ]);
 
         return $code;

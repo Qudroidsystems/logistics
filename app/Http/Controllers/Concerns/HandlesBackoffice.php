@@ -33,7 +33,7 @@ trait HandlesBackoffice
             "{$k}.landmark" => 'nullable|string|max:255', "{$k}.contact_name" => 'nullable|string|max:120', "{$k}.contact_phone" => 'nullable|string|max:24',
             "{$k}.instructions" => 'nullable|string|max:500',
         ];
-        $rules = $stop('pickup') + $stop('dropoff') + [
+        $rules = $stop('pickup') + $stop('dropoff') + ['dropoff.pickup_point' => 'nullable|string|max:40'] + [
             'service_type_id' => 'required|integer|exists:service_types,id', 'city_id' => 'required|integer|exists:cities,id',
             'vehicle_type_id' => 'nullable|integer|exists:vehicle_types,id', 'weight_kg' => 'nullable|numeric|min:0|max:50000',
         ];
