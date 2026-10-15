@@ -47,6 +47,7 @@ class NotificationTemplates
         'delivery.confirmed_provider' => ['title' => 'Customer confirmed', 'body' => 'Order {order} was confirmed. Your earnings are in your wallet.', 'email' => true],
         'delivery.disputed_provider' => ['title' => 'Delivery disputed', 'body' => 'The customer reported a problem with order {order}. The payment is held until staff decide.', 'email' => true],
         'delivery.dispute_resolved_provider' => ['title' => 'Dispute decided', 'body' => 'Our team has decided the dispute on order {order}.', 'email' => true],
+        'delivery.exception_provider' => ['title' => 'Driver needs an exception', 'body' => 'On order {order} the driver cannot provide: {proof}. Approve or decline it on the job page.', 'email' => false],
         'delivery.cancelled_provider' => ['title' => 'Order cancelled', 'body' => 'Order {order} was cancelled.', 'email' => true],
 
         // ---- money

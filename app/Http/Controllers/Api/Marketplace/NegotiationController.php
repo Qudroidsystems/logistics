@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Marketplace;
 use App\Http\Controllers\Api\Concerns\ResolvesOperator;
 use App\Http\Controllers\Controller;
 use App\Modules\Marketplace\NegotiationService;
+use App\Modules\Verification\VerificationPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -41,6 +42,10 @@ class NegotiationController extends Controller
             'visibility' => 'nullable|in:direct,invited,open', 'operator_ids' => 'nullable|array|max:20', 'operator_ids.*' => 'integer',
             'errand.list' => 'required_if:type,shopping|array', 'errand.budget_cap' => 'required_if:type,shopping|integer|min:1', 'errand.market_id' => 'nullable|integer',
             'errand.substitution_policy' => 'nullable|in:ask,allow,none',
+            // Extra proofs the job giver wants on top of the provider's standard.
+            'verification.pickup' => 'nullable|array', 'verification.pickup.*' => 'string|in:'.implode(',', VerificationPolicy::PICKUP),
+            'verification.dropoff' => 'nullable|array', 'verification.dropoff.*' => 'string|in:'.implode(',', VerificationPolicy::DROPOFF),
+            'verification.authorised_receivers' => 'nullable|array|max:'.VerificationPolicy::MAX_RECEIVERS, 'verification.authorised_receivers.*' => 'string|max:80',
         ]);
 
         return $this->run(fn () => ['request_id' => DB::table('service_requests')->where('id', $svc->createRequest($request->user()->id, $d))->value('public_id')], 201);
@@ -61,8 +66,17 @@ class NegotiationController extends Controller
         return response()->json(DB::table('negotiation_threads as t')->join('operators as o', 'o.id', '=', 't.operator_id')
             ->leftJoin('provider_profiles as p', 'p.operator_id', '=', 't.operator_id')->leftJoin('agreements as a', 'a.thread_id', '=', 't.id')->where('t.request_id', $req->id)
             ->selectRaw("t.public_id as thread, t.status, o.display_name as provider, p.rating_avg, p.tier, p.jobs_completed, p.public_slug as slug, a.public_id as agreement, a.status as agreement_status,
-                (SELECT (m.terms::jsonb ->> 'price')::bigint FROM negotiation_messages m WHERE m.thread_id = t.id AND m.kind = 'counter_offer' ORDER BY m.id DESC LIMIT 1) AS latest_price")
-            ->get());
+                (SELECT (m.terms::jsonb ->> 'price')::bigint FROM negotiation_messages m WHERE m.thread_id = t.id AND m.kind = 'counter_offer' ORDER BY m.id DESC LIMIT 1) AS latest_price, t.operator_id")
+            ->get()
+            // What accepting this offer agrees to for proof of delivery: the job giver's asks plus this provider's standard.
+            ->map(function ($o) use ($req) {
+                $p = VerificationPolicy::agree($req->verification ? json_decode($req->verification, true) : null,
+                    app(VerificationPolicy::class)->forProvider((int) $o->operator_id, $req->service_type_id ? (int) $req->service_type_id : null));
+                $o = (array) $o;
+                unset($o['operator_id']);
+
+                return $o + ['proofs' => ['pickup' => VerificationPolicy::describe($p['pickup']), 'dropoff' => VerificationPolicy::describe($p['dropoff'])]];
+            }));
     }
 
     /**

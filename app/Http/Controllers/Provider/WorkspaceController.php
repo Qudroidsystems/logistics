@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Provider;
 
+use App\Modules\Verification\CustodyLog;
+use App\Modules\Verification\ExceptionService;
+use App\Modules\Verification\VerificationPolicy;
 use App\Http\Controllers\Api\Provider\ProviderPayoutController;
 use App\Http\Controllers\Api\Provider\TeamController;
 use App\Http\Controllers\Controller;
@@ -125,11 +128,29 @@ class WorkspaceController extends Controller
             'drivers' => ManualAssignmentService::canAssign($s->status) ? app(ManualAssignmentService::class)->drivers($op->id) : [],
             'driver' => DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
                 ->where('a.shipment_id', $s->id)->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->first(['u.id as user_id', 'u.name', 'a.status']),
-            'proofs' => DB::table('proofs')->where('shipment_id', $s->id)->orderBy('id')->get(['public_id', 'type', 'file_path', 'otp_verified', 'recipient_name', 'created_at']),
+            'proofs' => DB::table('proofs')->where('shipment_id', $s->id)->orderBy('id')->get(['public_id', 'type', 'file_path', 'signature_path', 'otp_verified', 'recipient_name', 'id_type', 'id_last4', 'checks', 'created_at']),
             'terms' => $this->failedTerms((int) $s->order_id),
+            'agreedProofs' => app(VerificationPolicy::class)->forShipment((int) $s->id),
+            'exceptions' => app(ExceptionService::class)->forShipment((int) $s->id),
+            'custody' => app(CustodyLog::class)->verify((int) $s->id),
+            'custodyEvents' => app(CustodyLog::class)->events((int) $s->id),
             'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $s->id),
             'pagetitle' => 'Job',
         ], 'jobs');
+    }
+
+    /** A dispatcher approves or declines a driver's request to skip one of the agreed proofs. */
+    public function decideException(Request $request, string $shipment, string $exception, ExceptionService $exceptions)
+    {
+        [$op] = $this->ctx($request, 'jobs');
+        $d = $request->validate(['decision' => 'required|in:approve,decline', 'note' => 'nullable|string|max:255']);
+        try {
+            $exceptions->decide($op->id, $exception, $d['decision'] === 'approve', $request->user()->id, $d['note'] ?? null);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $d['decision'] === 'approve' ? 'Approved. The driver can finish without that proof.' : 'Declined. The driver has been told.');
     }
 
     /** The agreement's failed-delivery terms in plain sentences, for the job page. @return string[] */

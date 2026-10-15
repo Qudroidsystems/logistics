@@ -62,7 +62,14 @@
             @if($code)
             <x-cb.card title="Delivery code" icon="ri-key-2-line" class="mb-3">
                 <div class="display-6 fw-bold text-center letter-spacing" style="letter-spacing:.3em">{{ $code }}</div>
-                <div class="small text-muted text-center">Give this to the person receiving the goods. The rider needs it to finish the delivery.</div>
+                <div class="small text-muted text-center">Give this to the person receiving the goods, only when they have the parcel. The rider needs it to finish the delivery. It works once.</div>
+                <form method="post" action="{{ route('account.order.code', $s->public_id) }}" class="text-center mt-2">@csrf<button class="btn btn-sm btn-link">Shared it with the wrong person? Get a new code</button></form>
+            </x-cb.card>
+            @endif
+            @if(!empty($agreedProofs))
+            <x-cb.card title="How the hand-over is confirmed" icon="ri-shield-check-line" class="mb-3">
+                <ul class="small mb-0">@foreach($agreedProofs as $p)<li>{{ $p }}</li>@endforeach</ul>
+                <div class="small text-muted mt-1">Agreed with the provider. The rider cannot finish without these.</div>
             </x-cb.card>
             @endif
             @if(in_array($s->status, ['failed_attempt', 'returning', 'returned'], true))

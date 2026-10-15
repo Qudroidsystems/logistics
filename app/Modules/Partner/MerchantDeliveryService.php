@@ -2,6 +2,7 @@
 
 namespace App\Modules\Partner;
 
+use App\Modules\Verification\VerificationPolicy;
 use App\Modules\Dispatch\DispatchService;
 use App\Modules\Marketplace\AgreementService;
 use App\Modules\Marketplace\OrderFromAgreement;
@@ -82,6 +83,7 @@ class MerchantDeliveryService
                 'terms' => [
                     'external_order_id' => $d['external_order_id'], 'pickup' => $d['pickup'], 'dropoff' => $d['dropoff'],
                     'packages' => $d['packages'] ?? [], 'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'quote_id' => $q['quote_id'],
+                    'verification' => VerificationPolicy::agree($d['verification'] ?? null, app(VerificationPolicy::class)->forProvider((int) $q['operator_id'], (int) $d['service_type_id'])),
                 ],
                 'price' => $q['total'], 'distance_m' => $q['route']['distance_m'],
                 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],

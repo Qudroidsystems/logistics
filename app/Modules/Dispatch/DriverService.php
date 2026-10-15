@@ -2,6 +2,8 @@
 
 namespace App\Modules\Dispatch;
 
+use App\Modules\Verification\ExceptionService;
+use App\Modules\Verification\VerificationPolicy;
 use App\Modules\Notifications\NotificationService;
 use App\Modules\Partner\ShipmentEvents;
 use Illuminate\Support\Facades\DB;
@@ -77,16 +79,40 @@ class DriverService
             return null;
         }
         $stops = DB::table('shipment_stops')->selectRaw(
-            'id, seq, type, line1, landmark, contact_name, contact_phone, instructions, status, requires_photo, (otp_hash is not null) as needs_code,
+            'id, shipment_id, seq, type, line1, landmark, contact_name, contact_phone, instructions, status, requires_photo,
              ST_Y(point::geometry) as lat, ST_X(point::geometry) as lng'
-        )->where('shipment_id', $row->shipment_id)->orderBy('seq')->get()->map(fn ($s) => (array) $s)->all();
+        )->where('shipment_id', $row->shipment_id)->orderBy('seq')->get();
+
+        // What each stop needs before it can be completed, as agreed between the job giver and the provider.
+        $policy = app(VerificationPolicy::class);
+        $exceptions = collect(app(ExceptionService::class)->forShipment((int) $row->shipment_id));
+        $stops = $stops->map(function ($s) use ($policy, $exceptions) {
+            $requires = $policy->forStop($s);
+            $mine = $exceptions->where('stop_id', (int) $s->id)->values();
+            $waived = $mine->where('status', 'approved')->pluck('method')->intersect($requires)->values()->all();
+            $a = (array) $s;
+            unset($a['shipment_id']);
+
+            return $a + [
+                'requires' => $requires, 'requires_labels' => VerificationPolicy::describe($requires), 'waived' => $waived,
+                'needs_code' => in_array('code', $requires, true) && ! in_array('code', $waived, true),
+                'exceptions' => $mine->all(),
+            ];
+        })->all();
+        $scanned = DB::table('package_scans')->where('shipment_id', $row->shipment_id)->get(['package_id', 'scan_type'])
+            ->groupBy('scan_type')->map(fn ($g) => $g->pluck('package_id')->unique()->all());
+        $packages = DB::table('packages')->where('shipment_id', $row->shipment_id)->orderBy('seq')->get(['id', 'public_id', 'seq', 'description', 'quantity', 'fragile', 'barcode', 'status'])
+            ->map(fn ($p) => ['public_id' => $p->public_id, 'seq' => (int) $p->seq, 'description' => $p->description, 'quantity' => $p->quantity,
+                'fragile' => (bool) $p->fragile, 'barcode' => $p->barcode, 'status' => $p->status,
+                'scanned_pickup' => in_array($p->id, $scanned['pickup'] ?? [], false), 'scanned_dropoff' => in_array($p->id, $scanned['delivery'] ?? [], false)])->all();
 
         $policyJson = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->join('agreements as g', 'g.id', '=', 'o.agreement_id')
             ->where('s.id', $row->shipment_id)->value('g.failed_delivery_policy');
 
         return (array) $row + [
             'stops' => $stops, 'live' => in_array($row->assignment, self::LIVE, true),
-            'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $row->shipment_id),
+            'packages' => $packages,
+            'authorised_receivers' => $policy->forShipment((int) $row->shipment_id)['authorised_receivers'],
             'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describeForDriver($policyJson ? json_decode($policyJson, true) : null),
         ];
     }

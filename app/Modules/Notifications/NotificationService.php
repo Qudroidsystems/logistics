@@ -72,6 +72,13 @@ class NotificationService
         }
     }
 
+    /** A driver asked to skip one of the agreed proofs: the provider's dispatchers decide. */
+    public function exceptionRequested(int $operatorId, string $shipmentPublicId, string $proof): void
+    {
+        $order = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('s.public_id', $shipmentPublicId)->value('o.order_number');
+        $this->notifyOperator($operatorId, 'delivery.exception_provider', ['order' => $order, 'proof' => $proof], "/provider/jobs/{$shipmentPublicId}");
+    }
+
     /**
      * Called from ShipmentEvents::record, the single place the delivery lifecycle is recorded.
      * Orders placed through a merchant's API are skipped for the customer: the merchant tells its own customers (via webhooks).
@@ -106,22 +113,28 @@ class NotificationService
     }
 
     /**
-     * When a rider is assigned, text the drop-off contact the 4-digit delivery code and their tracking link.
+     * When a rider is assigned, text the drop-off contact the one-time delivery code and their tracking link.
      * The rider must be given this code at hand-over, so it goes only to the person receiving the parcel.
+     * Jobs whose agreed proofs do not include a code get only the tracking link.
      */
-    private function textRecipient(int $shipmentId, string $publicId, string $order): void
+    public function textRecipient(int $shipmentId, string $publicId, string $order): void
     {
         try {
             $phone = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'dropoff')->orderByDesc('seq')->value('contact_phone');
             if (! $phone) {
                 return;
             }
-            $code = app(\App\Modules\Tracking\TrackingService::class)->deliveryCode($publicId);
+            $needsCode = in_array('code', app(\App\Modules\Verification\VerificationPolicy::class)->forShipment($shipmentId)['dropoff'], true);
+            $code = $needsCode ? app(\App\Modules\Verification\DeliveryCodes::class)->current($shipmentId)['code'] ?? null : null;
             $token = DB::table('tracking_links')->where('shipment_id', $shipmentId)->where('audience', 'recipient')->whereNull('revoked_at')->orderByDesc('id')->value('token');
             $link = $token ? ' Track: '.url('/track/'.$token) : '';
-            app(\App\Modules\Notifications\Sms\SmsService::class)->toNumber(
-                $phone, "A rider is bringing delivery {$order}. Give the rider this code when you receive it: {$code}.{$link}", null, 'delivery.recipient_code'
-            );
+            $text = $code
+                ? "A rider is bringing delivery {$order}. Give the rider this code only when you have the parcel: {$code}.{$link}"
+                : "A rider is bringing delivery {$order}.{$link}";
+            app(\App\Modules\Notifications\Sms\SmsService::class)->toNumber($phone, $text, null, 'delivery.recipient_code');
+            if ($code) {
+                app(\App\Modules\Verification\DeliveryCodes::class)->markSent($shipmentId);
+            }
         } catch (Throwable $e) {
             Log::warning("Recipient text for shipment {$shipmentId} failed: {$e->getMessage()}");
         }

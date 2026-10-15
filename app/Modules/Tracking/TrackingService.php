@@ -8,29 +8,26 @@ use Illuminate\Support\Str;
 /**
  * Live tracking for customers and recipients, and the delivery code the driver must collect at drop-off.
  *
- * The delivery code is derived (HMAC of the shipment id with the app key), so the customer app can show it
- * again at any time without storing the plain code anywhere; only its hash sits on the drop-off stop.
+ * The delivery code itself lives in DeliveryCodes: random, one-time, expiring and attempt-limited.
  */
 class TrackingService
 {
     public const CITY_SPEED_KMH = 25;
 
-    public function deliveryCode(string $shipmentPublicId, ?string $key = null): string
+    /** The live delivery code for a shipment (a fresh one if the last expired), or '' when the job needs none. */
+    public function deliveryCode(string $shipmentPublicId): string
     {
-        $key ??= (string) config('app.key');
-        $n = hexdec(substr(hash_hmac('sha256', $shipmentPublicId, $key), 0, 8)) % 10000;
+        $id = (int) DB::table('shipments')->where('public_id', $shipmentPublicId)->value('id');
 
-        return str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        return $id ? (string) (app(\App\Modules\Verification\DeliveryCodes::class)->current($id)['code'] ?? '') : '';
     }
 
-    /** Called when the shipment is created: arms the drop-off with its code and creates the share links. */
-    public function arm(int $shipmentId, ?string $key = null): array
+    /** Called when the shipment is created: issues the drop-off code when the agreed proofs include one, and creates the share links. */
+    public function arm(int $shipmentId): array
     {
-        $s = DB::table('shipments')->find($shipmentId);
-        $code = $this->deliveryCode($s->public_id, $key);
-
-        DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'dropoff')
-            ->update(['otp_hash' => hash('sha256', $code), 'updated_at' => now()]);
+        if (in_array('code', app(\App\Modules\Verification\VerificationPolicy::class)->forShipment($shipmentId)['dropoff'], true)) {
+            app(\App\Modules\Verification\DeliveryCodes::class)->issue($shipmentId);
+        }
 
         $tokens = [];
         foreach (['customer', 'recipient'] as $audience) {

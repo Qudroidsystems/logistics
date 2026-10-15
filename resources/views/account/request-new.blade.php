@@ -42,6 +42,14 @@
                     <label class="form-label small mt-2">Needed by <span class="text-muted">(optional)</span></label>
                     <input type="datetime-local" name="needed_by" class="form-control" value="{{ old('needed_by') }}">
                 </x-cb.card>
+                <x-cb.card title="How should the hand-over be confirmed?" icon="ri-shield-check-line" class="mt-3">
+                    <p class="small text-muted mb-2">The provider's own checks always apply. Tick anything extra you want; it becomes part of the agreement and cannot be dropped later.</p>
+                    @foreach($proofOptions as $k => $label)
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="proofs[]" value="{{ $k }}" id="pf_{{ $k }}" @checked(in_array($k, old('proofs', []), true))><label class="form-check-label small" for="pf_{{ $k }}">{{ $label }}</label></div>
+                    @endforeach
+                    <label class="form-label small mt-2">Only these people may receive it <span class="text-muted">(optional, comma separated)</span></label>
+                    <input name="authorised_receivers" class="form-control" placeholder="e.g. Ada Obi, Musa Bello" value="{{ old('authorised_receivers') }}">
+                </x-cb.card>
             </div>
 
             <div class="col-lg-7">

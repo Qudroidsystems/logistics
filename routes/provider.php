@@ -3,6 +3,7 @@
 use App\Http\Controllers\Provider\PricingController as P;
 use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
+use App\Http\Controllers\Provider\VerificationController as V;
 use App\Http\Controllers\Provider\WorkspaceController as W;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,12 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::post('/jobs/{shipment}/assign', [W::class, 'assignJob'])->name('job.assign');
     Route::post('/jobs/{shipment}/cancel', [W::class, 'cancelJob'])->name('job.cancel');
     Route::get('/jobs/{shipment}/labels', [P::class, 'labels'])->name('job.labels');
+    Route::post('/jobs/{shipment}/exceptions/{exception}', [W::class, 'decideException'])->name('job.exception');
+
+    // Proof of delivery: the provider's standard checks per service type
+    Route::get('/verification', [V::class, 'index'])->name('verification');
+    Route::post('/verification', [V::class, 'save'])->name('verification.save');
+    Route::delete('/verification/{serviceType}', [V::class, 'remove'])->whereNumber('serviceType')->name('verification.remove');
 
     // Pricing calculator: cost profiles and estimates
     Route::get('/pricing', [P::class, 'index'])->name('pricing');

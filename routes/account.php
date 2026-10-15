@@ -32,6 +32,7 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::get('/orders', [A::class, 'orders'])->name('orders');
     Route::get('/orders/{shipment}', [A::class, 'order'])->name('order');
     Route::post('/orders/{shipment}/cancel', [A::class, 'cancel'])->name('order.cancel');
+    Route::post('/orders/{shipment}/new-code', [A::class, 'newCode'])->middleware('throttle:6,60')->name('order.code');
     Route::post('/orders/{shipment}/confirm', [A::class, 'confirm'])->name('order.confirm');
     Route::post('/orders/{shipment}/object', [A::class, 'object'])->name('order.object');
     Route::post('/orders/{shipment}/rate', [A::class, 'rate'])->name('order.rate');

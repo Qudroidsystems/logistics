@@ -25,16 +25,55 @@
 
             @if($job['live'] && $isNext && in_array($job['status'], ['heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff', 'returning'], true))
             <hr>
+            @php $req = array_values(array_diff($s['requires'], $s['waived'])); $stage = $s['type'] === 'pickup' ? 'pickup' : 'dropoff'; @endphp
+            @if($s['requires'])
+                <div class="small mb-2"><strong>Needed here:</strong> {{ implode(', ', $s['requires_labels']) }}</div>
+            @endif
+            @if(in_array('scan', $req, true) && count($job['packages']))
+                @php $done = collect($job['packages'])->where($stage === 'pickup' ? 'scanned_pickup' : 'scanned_dropoff', true)->count(); @endphp
+                <form method="POST" action="{{ route('driver.job.scan', $job['shipment']) }}" class="input-group mb-2">@csrf
+                    <input type="hidden" name="stage" value="{{ $stage }}">
+                    <input name="code" class="form-control" placeholder="Parcel code (PK…)" autocapitalize="characters" required>
+                    <button class="btn btn-outline-primary">Scan</button>
+                </form>
+                <div class="small text-muted mb-2">{{ $done }} of {{ count($job['packages']) }} parcels scanned.</div>
+            @endif
             <form method="POST" action="{{ route('driver.stop.complete', [$job['shipment'], $s['id']]) }}" enctype="multipart/form-data" class="stop-form">@csrf
                 <input type="hidden" name="lat" class="geo-lat"><input type="hidden" name="lng" class="geo-lng">
-                @if($s['type'] === 'dropoff')
-                    @if($s['needs_code'])<label class="form-label small">Delivery code from the receiver</label><input name="otp" inputmode="numeric" maxlength="12" class="form-control form-control-lg mb-2" required>@endif
-                    <label class="form-label small">Receiver's name (optional)</label><input name="recipient_name" class="form-control mb-2" maxlength="120">
-                    @unless($s['needs_code'])<label class="form-label small">Photo of the delivery</label><input type="file" name="photo" accept="image/*" capture="environment" class="form-control mb-2" required>@endunless
+                @if(in_array('code', $req, true))<label class="form-label small">Delivery code from the receiver</label><input name="otp" inputmode="numeric" maxlength="12" class="form-control form-control-lg mb-2" required>@endif
+                @if($s['type'] === 'dropoff' || in_array('receiver_name', $req, true))
+                    <label class="form-label small">Receiver's name @unless(in_array('receiver_name', $req, true))(optional)@endunless</label>
+                    <input name="recipient_name" class="form-control mb-2" maxlength="120" @if(in_array('receiver_name', $req, true)) required @endif>
+                    @if(!empty($job['authorised_receivers']) && in_array('receiver_name', $req, true))<div class="small text-muted mb-2">Only: {{ implode(', ', $job['authorised_receivers']) }}</div>@endif
+                @endif
+                @if(in_array('receiver_id', $req, true))
+                    <div class="row g-2 mb-2">
+                        <div class="col-7"><select name="id_type" class="form-select" required><option value="">Receiver's ID</option>@foreach(['nin' => 'NIN', 'drivers_licence' => "Driver's licence", 'voters_card' => "Voter's card", 'passport' => 'Passport', 'staff_id' => 'Staff ID', 'other' => 'Other'] as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select></div>
+                        <div class="col-5"><input name="id_last4" class="form-control" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="Last 4" required></div>
+                    </div>
+                @endif
+                @if(in_array('photo', $req, true))<label class="form-label small">Photo of the hand-over</label><input type="file" name="photo" accept="image/*" capture="environment" class="form-control mb-2" required>@endif
+                @if(in_array('signature', $req, true))
+                    <label class="form-label small">Receiver signs here</label>
+                    <canvas class="sig-pad border rounded w-100 mb-1" height="160" style="touch-action:none;background:#fff"></canvas>
+                    <input type="file" name="signature" class="d-none sig-file">
+                    <button type="button" class="btn btn-sm btn-link p-0 mb-2 sig-clear">Clear signature</button>
                 @endif
                 <button class="btn btn-success btn-lg w-100">{{ $s['type'] === 'pickup' ? 'Picked up' : ($s['type'] === 'return' ? 'Parcel handed back' : 'Delivered') }}</button>
                 <div class="small text-muted mt-1">You must be at the stop. Your location is checked.</div>
             </form>
+            @foreach($s['exceptions'] as $e)
+                <div class="small mt-2"><span class="badge {{ $e['status'] === 'approved' ? 'bg-success' : ($e['status'] === 'declined' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ ucfirst($e['status']) }}</span> Exception for {{ strtolower($e['label']) }}@if($e['decision_note']): {{ $e['decision_note'] }}@endif</div>
+            @endforeach
+            @if($req)
+            <details class="mt-2"><summary class="small">Cannot provide one of these?</summary>
+                <form method="POST" action="{{ route('driver.stop.exception', [$job['shipment'], $s['id']]) }}" class="mt-2">@csrf
+                    <select name="method" class="form-select mb-2" required>@foreach($req as $m)<option value="{{ $m }}">{{ \App\Modules\Verification\VerificationPolicy::LABELS[$m] ?? $m }}</option>@endforeach</select>
+                    <input name="reason" class="form-control mb-2" minlength="10" maxlength="1000" placeholder="What happened?" required>
+                    <button class="btn btn-outline-secondary w-100">Ask my dispatcher to approve</button>
+                </form>
+            </details>
+            @endif
             @endif
         </x-cb.card>
     @endforeach
@@ -90,10 +129,33 @@
         navigator.geolocation.watchPosition(function (p) { last = p.coords; fill(); }, function () {}, {enableHighAccuracy: true, maximumAge: 5000});
         setInterval(ping, 10000);
     }
+    // Signature pad: drawn on a canvas, sent as a PNG file with the form.
     document.querySelectorAll('.stop-form').forEach(function (f) {
+        var c = f.querySelector('.sig-pad'), drew = false;
+        if (c) {
+            c.width = c.offsetWidth;
+            var g = c.getContext('2d'), down = false;
+            g.lineWidth = 2.5; g.lineCap = 'round';
+            function pt(e) { var r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+            c.addEventListener('pointerdown', function (e) { down = true; var p = pt(e); g.beginPath(); g.moveTo(p[0], p[1]); });
+            c.addEventListener('pointermove', function (e) { if (!down) return; var p = pt(e); g.lineTo(p[0], p[1]); g.stroke(); drew = true; });
+            window.addEventListener('pointerup', function () { down = false; });
+            f.querySelector('.sig-clear').addEventListener('click', function () { g.clearRect(0, 0, c.width, c.height); drew = false; });
+        }
         f.addEventListener('submit', function (ev) {
-            if (!last) { ev.preventDefault(); alert('Waiting for your location. Allow location access, then try again.'); }
-            else { fill(); }
+            if (!last) { ev.preventDefault(); alert('Waiting for your location. Allow location access, then try again.'); return; }
+            fill();
+            if (c && !f.dataset.signed) {
+                ev.preventDefault();
+                if (!drew) { alert('Ask the receiver to sign first.'); return; }
+                c.toBlob(function (b) {
+                    var dt = new DataTransfer();
+                    dt.items.add(new File([b], 'signature.png', {type: 'image/png'}));
+                    f.querySelector('.sig-file').files = dt.files;
+                    f.dataset.signed = '1';
+                    f.submit();
+                }, 'image/png');
+            }
         });
     });
 })();

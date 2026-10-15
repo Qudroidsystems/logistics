@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Customer;
 
+use App\Modules\Verification\VerificationPolicy;
 use App\Http\Controllers\Api\Customer\CancellationController;
 use App\Http\Controllers\Api\Customer\CustomerWalletController;
 use App\Http\Controllers\Api\Customer\DeliveryController;
@@ -98,6 +99,7 @@ class AccountController extends Controller
             'cities' => DB::table('cities')->orderBy('name')->selectRaw('id, name, ST_Y(centre::geometry) AS lat, ST_X(centre::geometry) AS lng')->get(),
             'vehicleTypes' => DB::table('vehicle_types')->where('active', true)->orderBy('id')->get(['id', 'name']),
             'provider' => $provider ? DB::table('operators')->where('id', $provider)->first(['id', 'display_name']) : null,
+            'proofOptions' => array_intersect_key(\App\Modules\Verification\VerificationPolicy::LABELS, array_flip(\App\Modules\Verification\VerificationPolicy::DROPOFF)),
             'pagetitle' => 'Ask for a delivery',
         ]);
     }
@@ -114,6 +116,10 @@ class AccountController extends Controller
             'needed_by' => $request->input('needed_by') ?: null,
             'visibility' => $request->filled('provider') ? 'direct' : 'open', 'operator_ids' => $request->filled('provider') ? [(int) $request->input('provider')] : null,
         ];
+        $names = array_values(array_filter(array_map('trim', preg_split('/[,\n]/', (string) $request->input('authorised_receivers')))));
+        if ($request->filled('proofs') || $names) {
+            $in['verification'] = ['dropoff' => array_values((array) $request->input('proofs', [])), 'authorised_receivers' => $names];
+        }
         if ($request->input('type') === 'shopping') {
             $in['errand'] = ['list' => $items, 'budget_cap' => self::kobo($request->input('budget_cap_naira')), 'substitution_policy' => $request->input('substitution_policy', 'ask')];
         }
@@ -252,6 +258,7 @@ class AccountController extends Controller
             's' => $s, 'timeline' => DB::table('shipment_events')->where('shipment_id', $s->id)->orderBy('seq')->get(['type', 'created_at']),
             'proofs' => DB::table('proofs')->where('shipment_id', $s->id)->orderBy('id')->get(['public_id', 'type', 'file_path', 'otp_verified', 'recipient_name', 'created_at']),
             'preview' => $preview, 'code' => $code, 'rated' => $rated,
+            'agreedProofs' => VerificationPolicy::describe(app(VerificationPolicy::class)->forShipment((int) $s->id)['dropoff']),
             'links' => DB::table('tracking_links')->where('shipment_id', $s->id)->whereNull('revoked_at')->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->pluck('token', 'audience')->all(),
             'canConfirm' => $s->status === 'delivered', 'canRate' => in_array($s->status, ['confirmed', 'completed'], true) && ! $rated,
             'terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describe(
@@ -270,6 +277,11 @@ class AccountController extends Controller
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    public function newCode(Request $request, string $shipment)
+    {
+        return $this->done(app(\App\Http\Controllers\Api\Customer\TrackingController::class)->newDeliveryCode($request, $shipment), 'New code ready. The receiver has been texted it.');
     }
 
     public function cancel(Request $request, string $shipment, CancellationService $svc)

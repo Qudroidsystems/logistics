@@ -9,7 +9,8 @@
     <x-cb.card title="Offers" icon="ri-price-tag-3-line" :count="count($offers)" :flush="true">
         <table class="table align-middle mb-0"><thead><tr><th>Provider</th><th>Standing</th><th>Status</th><th></th></tr></thead><tbody>
         @forelse($offers as $o)
-            <tr><td class="fw-semibold">{{ $o['provider'] }}</td>
+            <tr><td class="fw-semibold">{{ $o['provider'] }}
+                    @if(!empty($o['proofs']['dropoff']))<div class="small text-muted fw-normal"><i class="ri-shield-check-line"></i> Hand-over: {{ implode(', ', $o['proofs']['dropoff']) }}</div>@endif</td>
                 <td class="small">{{ ucfirst($o['tier'] ?? 'verified') }} · {{ $o['rating_avg'] ? number_format($o['rating_avg'], 1).' ★' : 'New' }} · {{ $o['jobs_completed'] ?? 0 }} jobs</td>
                 <td><span class="badge bg-light text-dark">{{ $o['status'] }}</span></td>
                 <td class="text-end"><a href="{{ route('account.thread', $o['thread']) }}" class="btn btn-sm btn-primary">View offer</a></td></tr>

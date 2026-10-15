@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Streams a proof-of-delivery photo from the private disk. Allowed for: staff who can view deliveries,
+ * Streams a proof-of-delivery photo or signature from the private disk. Allowed for: staff who can view deliveries,
  * the customer who placed the order, and active team members of the company that carried it.
  */
 class ProofController extends Controller
@@ -18,9 +18,11 @@ class ProofController extends Controller
             ->join('shipments as s', 's.id', '=', 'p.shipment_id')
             ->join('orders as o', 'o.id', '=', 's.order_id')
             ->where('p.public_id', $proof)
-            ->first(['p.file_path', 'o.customer_id', 'o.operator_id as order_operator', 's.operator_id as ship_operator']);
+            ->first(['p.file_path', 'p.signature_path', 'o.customer_id', 'o.operator_id as order_operator', 's.operator_id as ship_operator']);
+        // ?f=signature streams the receiver's signature instead of the photo.
+        $path = $row ? ($request->query('f') === 'signature' ? $row->signature_path : $row->file_path) : null;
 
-        abort_unless($row && $row->file_path, 404);
+        abort_unless($path, 404);
 
         $u = $request->user();
         $allowed = $u->can('View delivery') || $u->can('View dispute')
@@ -30,8 +32,8 @@ class ProofController extends Controller
         abort_unless($allowed, 403);
 
         $disk = Storage::disk();
-        abort_unless($disk->exists($row->file_path), 404);
+        abort_unless($disk->exists($path), 404);
 
-        return $disk->response($row->file_path, null, ['Cache-Control' => 'private, max-age=300']);
+        return $disk->response($path, null, ['Cache-Control' => 'private, max-age=300']);
     }
 }

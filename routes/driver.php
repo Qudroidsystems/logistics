@@ -12,6 +12,8 @@ Route::middleware('auth')->prefix('driver')->name('driver.')->group(function () 
     Route::get('/jobs/{shipment}', [D::class, 'job'])->name('job');
     Route::post('/jobs/{shipment}/start', [D::class, 'start'])->name('job.start');
     Route::post('/jobs/{shipment}/stops/{stop}/complete', [D::class, 'completeStop'])->whereNumber('stop')->name('stop.complete');
+    Route::post('/jobs/{shipment}/stops/{stop}/exception', [D::class, 'stopException'])->whereNumber('stop')->name('stop.exception');
+    Route::post('/jobs/{shipment}/scan', [D::class, 'scan'])->middleware('throttle:60,1')->name('job.scan');
     Route::post('/jobs/{shipment}/release', [D::class, 'release'])->name('job.release');
     Route::post('/jobs/{shipment}/issue', [D::class, 'issue'])->name('job.issue');
     Route::post('/jobs/{shipment}/fail', [D::class, 'fail'])->name('job.fail');

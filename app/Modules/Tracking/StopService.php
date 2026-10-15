@@ -4,19 +4,27 @@ namespace App\Modules\Tracking;
 
 use App\Modules\Marketplace\DeliveryService;
 use Illuminate\Support\Facades\DB;
+use App\Modules\Verification\CustodyLog;
+use App\Modules\Verification\StopVerifier;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
-/** Driver completes a stop. Pickup moves the job to in-transit; the dropoff needs proof and starts the customer's confirmation clock. */
+/** Driver completes a stop with the proofs the job giver and provider agreed. Pickup moves the job to in-transit; the drop-off starts the customer's confirmation clock. */
 class StopService
 {
     public function __construct(private DeliveryService $delivery)
     {
     }
 
-    /** $capturedAt is when the phone says the proof was taken (offline sync); the server's own time is kept in created_at. */
-    public function complete(int $driverProfileId, int $stopId, string $proofType, ?string $filePath, ?string $otp, float $lat, float $lng, ?string $recipientName = null, ?string $capturedAt = null): void
+    /**
+     * $evidence: code, photo_path, signature_path, recipient_name, id_type, id_last4, cod_collected (see StopVerifier).
+     * The stop's agreed proofs decide which are needed. $capturedAt is when the phone says the proof was taken
+     * (offline sync); the server's own time is kept in created_at.
+     */
+    public function complete(int $driverProfileId, int $stopId, array $evidence, float $lat, float $lng, ?string $capturedAt = null): void
     {
-        DB::transaction(function () use ($driverProfileId, $stopId, $proofType, $filePath, $otp, $lat, $lng, $recipientName, $capturedAt) {
+        DB::transaction(function () use ($driverProfileId, $stopId, $evidence, $lat, $lng, $capturedAt) {
             $stop = DB::table('shipment_stops')->where('id', $stopId)->lockForUpdate()->first();
             $owns = $stop && DB::table('assignments')->where('shipment_id', $stop->shipment_id)
                 ->where('driver_profile_id', $driverProfileId)->whereIn('status', ['accepted', 'en_route', 'active'])->exists();
@@ -29,22 +37,27 @@ class StopService
                 throw new RuntimeException('You are too far from this stop to complete it.');
             }
 
-            $otpOk = null;
-            if ($stop->type === 'dropoff') {
-                if ($stop->otp_hash && ! hash_equals($stop->otp_hash, hash('sha256', (string) $otp))) {
-                    throw new RuntimeException('Delivery code does not match.');
-                }
-                $otpOk = $stop->otp_hash ? true : null;
-                if (! $stop->otp_hash && ! $filePath) {
-                    throw new RuntimeException('A photo or delivery code is required to complete the drop-off.');
-                }
-            }
-
-            DB::insert(
-                "INSERT INTO proofs (public_id, shipment_id, stop_id, type, file_path, otp_verified, recipient_name, point, distance_from_stop_m, verified_by, captured_at, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, 'system', ?, now())",
-                [(string) \Illuminate\Support\Str::ulid(), $stop->shipment_id, $stopId, $proofType, $filePath, $otpOk, $recipientName, $lng, $lat, $dist, $capturedAt ?? now()]
-            );
+            $checks = app(StopVerifier::class)->check($stop, $evidence);
+            $fileHash = $this->fileHash($evidence['photo_path'] ?? null);
+            $sigHash = $this->fileHash($evidence['signature_path'] ?? null);
+            $proofId = DB::table('proofs')->insertGetId([
+                'public_id' => (string) Str::ulid(), 'shipment_id' => $stop->shipment_id, 'stop_id' => $stopId,
+                'type' => $checks['satisfied'][0] ?? ($checks['waived'] ? 'exception' : 'arrival'),
+                'file_path' => $evidence['photo_path'] ?? null, 'file_sha256' => $fileHash,
+                'signature_path' => $evidence['signature_path'] ?? null, 'signature_sha256' => $sigHash,
+                'otp_verified' => in_array('code', $checks['satisfied'], true) ? true : null,
+                'recipient_name' => isset($evidence['recipient_name']) ? mb_substr(trim((string) $evidence['recipient_name']), 0, 120) : null,
+                'id_type' => $evidence['id_type'] ?? null, 'id_last4' => $evidence['id_last4'] ?? null,
+                'cod_collected' => isset($evidence['cod_collected']) && is_numeric($evidence['cod_collected']) ? (int) $evidence['cod_collected'] : null,
+                'checks' => json_encode($checks),
+                'point' => DB::raw(sprintf('ST_SetSRID(ST_MakePoint(%F, %F), 4326)::geography', $lng, $lat)),
+                'distance_from_stop_m' => $dist, 'verified_by' => 'system', 'captured_at' => $capturedAt ?? now(), 'created_at' => now(),
+            ]);
+            app(CustodyLog::class)->append((int) $stop->shipment_id, 'proof', 'proof', $proofId, [
+                'stop_id' => $stopId, 'stop_type' => $stop->type, 'driver_profile_id' => $driverProfileId, 'satisfied' => $checks['satisfied'],
+                'waived' => $checks['waived'], 'file_sha256' => $fileHash, 'signature_sha256' => $sigHash, 'distance_m' => $dist,
+                'captured_at' => $capturedAt,
+            ]);
             DB::table('shipment_stops')->where('id', $stopId)->update(['status' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
 
             if ($stop->type === 'return') {
@@ -59,5 +72,15 @@ class StopService
                 $this->delivery->markDelivered((int) $stop->shipment_id);
             }
         });
+    }
+
+    /** Fingerprint of a stored proof file, so a swapped photo or signature is detectable later. */
+    private function fileHash(?string $path): ?string
+    {
+        if (! $path || ! Storage::exists($path)) {
+            return null;
+        }
+
+        return hash('sha256', (string) Storage::get($path));
     }
 }

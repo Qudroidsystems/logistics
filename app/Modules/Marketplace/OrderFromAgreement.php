@@ -4,6 +4,7 @@ namespace App\Modules\Marketplace;
 
 use App\Modules\Tracking\ParcelCodes;
 use App\Modules\Tracking\TrackingService;
+use App\Modules\Verification\VerificationPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -47,6 +48,9 @@ class OrderFromAgreement
                 'service_type_id' => $t['service_type_id'], 'vehicle_type_id' => $t['vehicle_type_id'] ?? null,
                 'status' => 'created', 'tracking_code' => ParcelCodes::make('QD', 9), 'distance_m' => $a->distance_m,
                 'cod_amount' => 0, 'insured_value' => 0, 'is_test' => $a->is_test, 'created_at' => now(), 'updated_at' => now(),
+                // The proofs both sides signed up to; agreements made before policies existed get the provider's standard.
+                'verification_policy' => json_encode(VerificationPolicy::normalize($t['verification']
+                    ?? app(VerificationPolicy::class)->forProvider((int) $a->provider_operator_id, (int) $t['service_type_id']))),
             ]);
 
             foreach ([['pickup', 1, $t['pickup']], ['dropoff', 2, $t['dropoff']]] as [$type, $seq, $s]) {

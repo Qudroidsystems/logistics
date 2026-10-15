@@ -4,6 +4,11 @@ namespace App\Modules\Tracking;
 
 use App\Modules\Dispatch\DriverService;
 use App\Modules\Marketplace\FailedDeliveryService;
+use App\Http\Controllers\Api\Driver\DriverJobController;
+use App\Modules\Verification\CustodyLog;
+use App\Modules\Verification\DeliveryCodes;
+use App\Modules\Verification\ExceptionService;
+use App\Modules\Verification\WrongDeliveryCode;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -31,9 +36,9 @@ class DriverSyncService
     public const MAX_AGE_HOURS = 72;
     public const FUTURE_TOLERANCE_S = 300;
 
-    public const TYPES = ['job.start', 'stop.complete', 'package.scan', 'job.issue', 'job.fail'];
+    public const TYPES = ['job.start', 'stop.complete', 'package.scan', 'job.issue', 'job.fail', 'stop.exception'];
 
-    public function __construct(private DriverService $drivers, private StopService $stops, private ParcelCodes $codes)
+    public function __construct(private DriverService $drivers, private StopService $stops, private ParcelCodes $parcels, private DeliveryCodes $codes, private CustodyLog $custody)
     {
     }
 
@@ -98,6 +103,10 @@ class DriverSyncService
             } catch (QueryException $e) {
                 // A database fault is not the driver's mistake: answer with an error so the phone keeps the action and retries.
                 throw $e;
+            } catch (WrongDeliveryCode $e) {
+                // Rolled back with the rest of the action, but the wrong try still counts towards the lock.
+                $this->codes->recordFailure($e->stopId);
+                [$status, $message] = ['rejected', $e->getMessage()];
             } catch (RuntimeException|InvalidArgumentException $e) {
                 [$status, $message] = ['rejected', mb_substr($e->getMessage(), 0, 255)];
             }
@@ -134,6 +143,7 @@ class DriverSyncService
             'job.fail' => $this->withShipment($d, fn ($s) => app(FailedDeliveryService::class)->markFailed($driverId, $s, (string) ($d['reason'] ?? ''), $d['note'] ?? null)),
             'stop.complete' => $this->completeStop($driverId, $d, $at),
             'package.scan' => $this->scan($driverId, $d, $at),
+            'stop.exception' => $this->exception($driverId, $d),
             default => throw new InvalidArgumentException('Unknown action.'),
         };
     }
@@ -152,17 +162,14 @@ class DriverSyncService
 
     private function completeStop(int $driverId, array $d, ?string $at): array
     {
-        if (($d['proof_type'] ?? null) === 'photo') {
-            throw new InvalidArgumentException('Photo proofs are uploaded with the photo, not in a batch.');
-        }
         foreach (['stop_id', 'lat', 'lng'] as $k) {
             if (! isset($d[$k]) || ! is_numeric($d[$k])) {
                 throw new InvalidArgumentException("Missing {$k}.");
             }
         }
         $stopId = (int) $d['stop_id'];
-        $this->stops->complete($driverId, $stopId, (string) ($d['proof_type'] ?? 'otp'), null, isset($d['otp']) ? (string) $d['otp'] : null,
-            (float) $d['lat'], (float) $d['lng'], $d['recipient_name'] ?? null, $at);
+        // Photos and signatures travel as uploads (stop.photo), never in a JSON batch.
+        $this->stops->complete($driverId, $stopId, DriverJobController::evidence($d), (float) $d['lat'], (float) $d['lng'], $at);
         $shipmentId = (int) DB::table('shipment_stops')->where('id', $stopId)->value('shipment_id');
 
         return ['shipment_id' => $shipmentId, 'stop_id' => $stopId, 'shipment_status' => DB::table('shipments')->where('id', $shipmentId)->value('status')];
@@ -172,7 +179,7 @@ class DriverSyncService
     private function scan(int $driverId, array $d, ?string $at): array
     {
         $stage = in_array($d['stage'] ?? null, ['pickup', 'dropoff', 'check'], true) ? $d['stage'] : 'check';
-        $p = $this->codes->find((string) ($d['code'] ?? ''));
+        $p = $this->parcels->find((string) ($d['code'] ?? ''));
         $live = $p && DB::table('assignments')->where('shipment_id', $p->shipment_id)->where('driver_profile_id', $driverId)
             ->whereIn('status', ['accepted', 'en_route', 'active'])->exists();
         if (! $live) {
@@ -182,11 +189,14 @@ class DriverSyncService
         $hasPoint = isset($d['lat'], $d['lng']) && is_numeric($d['lat']) && is_numeric($d['lng']);
 
         $scanType = ['pickup' => 'pickup', 'dropoff' => 'delivery', 'check' => 'check'][$stage];
-        DB::insert(
+        $scanId = (int) DB::selectOne(
             'INSERT INTO package_scans (package_id, shipment_id, stop_id, driver_profile_id, scan_type, scanned_by, point, device_time, created_at)
-             VALUES (?, ?, ?, ?, ?, (SELECT user_id FROM driver_profiles WHERE id = ?), '.($hasPoint ? 'ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography' : 'NULL').', ?, now())',
+             VALUES (?, ?, ?, ?, ?, (SELECT user_id FROM driver_profiles WHERE id = ?), '.($hasPoint ? 'ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography' : 'NULL').', ?, now()) RETURNING id',
             array_merge([$p->id, $p->shipment_id, $stop, $driverId, $scanType, $driverId], $hasPoint ? [(float) $d['lng'], (float) $d['lat']] : [], [$at])
-        );
+        )->id;
+        $this->custody->append((int) $p->shipment_id, 'scan', 'package_scan', $scanId, [
+            'package' => $p->public_id, 'stage' => $stage, 'driver_profile_id' => $driverId, 'stop_id' => $stop ? (int) $stop : null, 'device_time' => $at,
+        ]);
         $next = ['pickup' => 'picked_up', 'dropoff' => 'delivered'][$stage] ?? null;
         if ($next && $p->status !== $next) {
             DB::table('packages')->where('id', $p->id)->update(['status' => $next, 'updated_at' => now()]);
@@ -196,6 +206,13 @@ class DriverSyncService
         $scanned = DB::table('package_scans')->where('shipment_id', $p->shipment_id)->where('scan_type', $scanType)->distinct()->count('package_id');
 
         return ['shipment_id' => (int) $p->shipment_id, 'package' => $p->public_id, 'seq' => (int) $p->seq, 'stage' => $stage, 'scanned' => $scanned, 'of' => $all];
+    }
+
+    private function exception(int $driverId, array $d): array
+    {
+        $e = app(ExceptionService::class)->request($driverId, (int) ($d['stop_id'] ?? 0), (string) ($d['method'] ?? ''), (string) ($d['reason'] ?? ''));
+
+        return ['shipment_id' => (int) DB::table('shipment_stops')->where('id', $e['stop_id'])->value('shipment_id'), 'exception' => $e];
     }
 
     /** Delivery codes are never stored in the sync log. */

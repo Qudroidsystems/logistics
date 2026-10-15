@@ -2,6 +2,7 @@
 
 namespace App\Modules\Marketplace;
 
+use App\Modules\Verification\VerificationPolicy;
 use App\Modules\Partner\RouteEstimator;
 use App\Support\Platform;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,7 @@ class NegotiationService
                 'packages' => json_encode(['items' => $d['packages'] ?? [], 'errand' => $d['errand'] ?? null, 'vehicle_type_id' => $d['vehicle_type_id'] ?? null]),
                 'distance_m' => $route['distance_m'], 'budget_min' => $d['budget_min'] ?? null, 'budget_max' => $d['budget_max'] ?? null,
                 'needed_by' => $d['needed_by'] ?? null, 'visibility' => $visibility, 'status' => 'open', 'is_test' => $isTest,
+                'verification' => isset($d['verification']) ? json_encode(VerificationPolicy::normalize($d['verification'])) : null,
                 'expires_at' => now()->addHours(self::REQUEST_TTL_HOURS), 'created_at' => now(), 'updated_at' => now(),
             ]);
 
@@ -142,6 +144,9 @@ class NegotiationService
             $terms = [
                 'pickup' => $stops['pickup'], 'dropoff' => $stops['dropoff'], 'packages' => $pk['items'] ?? [], 'vehicle_type_id' => $o['vehicle_type_id'] ?? $pk['vehicle_type_id'] ?? null,
                 'note' => $o['note'] ?? null,
+                // Proof of delivery: what the job giver asked for plus the provider's standard, signed with the rest of the terms.
+                'verification' => VerificationPolicy::agree($req->verification ? json_decode($req->verification, true) : null,
+                    app(VerificationPolicy::class)->forProvider((int) $t->operator_id, $req->service_type_id ? (int) $req->service_type_id : null)),
             ] + ($errand ? ['errand' => 'shopping', 'list' => $errand['list'] ?? [], 'market_id' => $errand['market_id'] ?? null, 'substitution_policy' => $errand['substitution_policy'] ?? 'ask'] : []);
 
             $agreementId = $this->agreements->propose((int) $t->customer_id, (int) $t->operator_id, [

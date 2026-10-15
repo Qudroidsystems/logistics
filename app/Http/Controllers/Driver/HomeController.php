@@ -78,7 +78,8 @@ class HomeController extends Controller
         $request->validate([
             'lat' => 'required|numeric|between:-90,90', 'lng' => 'required|numeric|between:-180,180',
             'otp' => 'nullable|string|max:12', 'recipient_name' => 'nullable|string|max:120',
-            'photo' => 'nullable|image|max:6144',
+            'id_type' => 'nullable|string|max:20', 'id_last4' => 'nullable|string|max:4',
+            'photo' => 'nullable|image|max:6144', 'signature' => 'nullable|image|max:2048',
         ], ['lat.required' => 'We could not read your location. Allow location access and try again.']);
 
         // The stop must belong to this job and this driver.
@@ -86,10 +87,35 @@ class HomeController extends Controller
         abort_unless($job && collect($job['stops'])->contains('id', $stop), 404);
 
         $path = $request->file('photo') ? $request->file('photo')->store('proofs/'.date('Y/m')) : null;
-        $request->merge(['proof_type' => $request->filled('otp') ? 'otp' : 'photo']);
         $request->attributes->set('proof_path', $path);
+        $request->attributes->set('signature_path', $request->file('signature') ? $request->file('signature')->store('proofs/'.date('Y/m')) : null);
 
         return $this->back($this->jobs->completeStop($request, $stop, app(StopService::class)), 'Done.');
+    }
+
+    /** A parcel code typed (or scanned with the phone's camera app) at pickup or drop-off. */
+    public function scan(Request $request, string $shipment)
+    {
+        $d = $this->driver($request);
+        $in = $request->validate(['code' => 'required|string|max:80', 'stage' => 'required|in:pickup,dropoff']);
+        abort_unless($this->drivers->job($d->id, $shipment), 404);
+        $r = app(\App\Modules\Tracking\DriverSyncService::class)->apply($request->user()->id, $d->id, [
+            ['id' => (string) \Illuminate\Support\Str::uuid(), 'type' => 'package.scan', 'at' => now()->toIso8601String(), 'data' => ['code' => $in['code'], 'stage' => $in['stage']]],
+        ])[0];
+        if ($r['status'] !== 'accepted') {
+            return back()->with('error', $r['message']);
+        }
+
+        return back()->with('success', "Parcel {$r['result']['seq']} scanned ({$r['result']['scanned']} of {$r['result']['of']}).");
+    }
+
+    public function stopException(Request $request, string $shipment, int $stop)
+    {
+        $d = $this->driver($request);
+        $job = $this->drivers->job($d->id, $shipment);
+        abort_unless($job && collect($job['stops'])->contains('id', $stop), 404);
+
+        return $this->back($this->jobs->requestException($request, $stop, app(\App\Modules\Verification\ExceptionService::class)), 'Sent to your dispatcher. You can finish once they approve it.');
     }
 
     public function release(Request $request, string $shipment)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Modules\Marketplace\CancellationService;
 use App\Modules\Marketplace\FailedDeliveryPolicy;
+use App\Modules\Verification\VerificationPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -58,7 +59,17 @@ class OrdersController extends Controller
             'shows_code' => ! in_array($s->status, [...self::FINISHED, 'created', 'awaiting_dispatch'], true),
             'agreement' => $agreement->public_id ?? null, 'is_shopping' => $isShopping,
             'terms' => $this->terms($policy),
+            // Proof of delivery both sides agreed; the driver cannot finish the drop-off without them.
+            'verification' => $this->proofs((int) $s->id),
         ]);
+    }
+
+    private function proofs(int $shipmentId): array
+    {
+        $p = app(VerificationPolicy::class)->forShipment($shipmentId);
+
+        return ['pickup' => VerificationPolicy::describe($p['pickup']), 'dropoff' => VerificationPolicy::describe($p['dropoff']),
+            'uses_code' => in_array('code', $p['dropoff'], true), 'authorised_receivers' => $p['authorised_receivers']];
     }
 
     private function terms(?array $policy): mixed

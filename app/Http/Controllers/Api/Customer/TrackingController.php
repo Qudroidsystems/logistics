@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Tracking\TrackingService;
+use App\Modules\Verification\DeliveryCodes;
+use App\Modules\Verification\VerificationPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -21,11 +23,40 @@ class TrackingController extends Controller
     /** The paying customer re-reads the code to hand to the driver. Nobody else can see it. */
     public function deliveryCode(Request $request, string $shipment, TrackingService $tracking)
     {
+        $row = $this->own($request, $shipment);
+        if (! in_array('code', app(VerificationPolicy::class)->forShipment((int) $row->id)['dropoff'], true)) {
+            return response()->json(['code' => null, 'expires_at' => null, 'message' => 'This delivery is confirmed without a code.']);
+        }
+        $c = app(DeliveryCodes::class)->current((int) $row->id);
+
+        return response()->json(['code' => $c['code'] ?? null, 'expires_at' => $c['expires_at'] ?? null, 'locked_until' => $c['locked_until'] ?? null])->header('Cache-Control', 'no-store');
+    }
+
+    /** A new code, for when the old one went to the wrong person. Texts the receiver again. Rate limited. */
+    public function newDeliveryCode(Request $request, string $shipment)
+    {
+        $row = $this->own($request, $shipment);
+        abort_unless(in_array('code', app(VerificationPolicy::class)->forShipment((int) $row->id)['dropoff'], true), 422, 'This delivery is confirmed without a code.');
+        abort_if(in_array($row->status, ['delivered', 'confirmed', 'completed', 'cancelled', 'failed', 'returned'], true), 422, 'This delivery is already finished.');
+        try {
+            $c = app(DeliveryCodes::class)->reissue((int) $row->id);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 429);
+        }
+        if (DB::table('assignments')->where('shipment_id', $row->id)->whereIn('status', ['accepted', 'en_route', 'active'])->exists()) {
+            app(\App\Modules\Notifications\NotificationService::class)->textRecipient((int) $row->id, (string) $row->public_id, (string) $row->order_number);
+        }
+
+        return response()->json(['code' => $c['code'], 'expires_at' => $c['expires_at'], 'locked_until' => $c['locked_until']])->header('Cache-Control', 'no-store');
+    }
+
+    private function own(Request $request, string $shipment): object
+    {
         $row = DB::table('shipments')->join('orders', 'orders.id', '=', 'shipments.order_id')
             ->where('shipments.public_id', $shipment)->where('orders.customer_id', $request->user()->id)
-            ->select('shipments.public_id', 'shipments.status')->first();
+            ->select('shipments.id', 'shipments.public_id', 'shipments.status', 'orders.order_number')->first();
         abort_unless($row, 404);
 
-        return response()->json(['code' => $tracking->deliveryCode($row->public_id)]);
+        return $row;
     }
 }

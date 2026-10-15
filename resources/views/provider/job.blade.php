@@ -16,7 +16,40 @@
                 @foreach($terms as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
                 <div class="small text-muted">Agreed with the customer when the job was booked.</div>
             </x-cb.card>
+            <x-cb.card title="How the hand-over is confirmed" icon="ri-shield-check-line" class="mb-3">
+                @php $L = \App\Modules\Verification\VerificationPolicy::LABELS; @endphp
+                <div class="small"><strong>Pickup:</strong> {{ $agreedProofs['pickup'] ? implode(', ', array_map(fn ($m) => $L[$m] ?? $m, $agreedProofs['pickup'])) : 'being at the pickup' }}</div>
+                <div class="small"><strong>Drop-off:</strong> {{ $agreedProofs['dropoff'] ? implode(', ', array_map(fn ($m) => $L[$m] ?? $m, $agreedProofs['dropoff'])) : 'being at the drop-off' }}</div>
+                @if($agreedProofs['authorised_receivers'])<div class="small"><strong>Only to:</strong> {{ implode(', ', $agreedProofs['authorised_receivers']) }}</div>@endif
+                <div class="small text-muted mt-1">Agreed with the customer when the job was booked.</div>
+                @foreach($exceptions as $e)
+                    <div class="border rounded p-2 mt-2 small">
+                        <div class="d-flex justify-content-between"><strong>Driver cannot provide: {{ strtolower($e['label']) }}</strong>
+                            <span class="badge {{ $e['status'] === 'approved' ? 'bg-success' : ($e['status'] === 'declined' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ ucfirst($e['status']) }}</span></div>
+                        <div class="text-muted">“{{ $e['reason'] }}”</div>
+                        @if($e['status'] === 'pending')
+                            <form method="POST" action="{{ route('provider.job.exception', [$s->public_id, $e['id']]) }}" class="d-flex gap-2 mt-2">@csrf
+                                <input name="note" class="form-control form-control-sm" maxlength="255" placeholder="Note for the driver (optional)">
+                                <button name="decision" value="approve" class="btn btn-sm btn-success">Approve</button>
+                                <button name="decision" value="decline" class="btn btn-sm btn-outline-danger">Decline</button>
+                            </form>
+                        @elseif($e['decision_note'])<div>Note: {{ $e['decision_note'] }}</div>@endif
+                    </div>
+                @endforeach
+            </x-cb.card>
             @include('partials.proofs')
+            <x-cb.card title="Custody trail" icon="ri-links-line" class="mb-3">
+                @if($custody['events'] === 0)
+                    <span class="small text-muted">No scans or proofs yet.</span>
+                @elseif($custody['ok'])
+                    <div class="small text-success mb-2"><i class="ri-shield-check-line"></i> {{ $custody['events'] }} events, none changed since they were recorded.</div>
+                @else
+                    <div class="small text-danger mb-2"><i class="ri-alarm-warning-line"></i> The trail does not add up from event {{ $custody['broken_at'] }}. A record was changed after it was written. Contact support.</div>
+                @endif
+                @foreach($custodyEvents as $ev)
+                    <div class="small d-flex justify-content-between border-bottom py-1"><span>{{ $ev['seq'] }}. {{ $ev['kind'] === 'scan' ? 'Parcel scanned ('.($ev['payload']['stage'] ?? '').')' : ($ev['kind'] === 'proof' ? 'Proof at '.($ev['payload']['stop_type'] ?? 'stop') : 'Exception '.($ev['payload']['status'] ?? '')) }}</span><span class="text-muted">{{ \Illuminate\Support\Carbon::parse($ev['at'])->format('j M H:i') }} · <code title="{{ $ev['hash'] }}">{{ substr($ev['hash'], 0, 8) }}</code></span></div>
+                @endforeach
+            </x-cb.card>
             <x-cb.card title="Parcels" icon="ri-qr-code-line" class="mb-3">
                 @forelse($packages as $p)
                     <div class="d-flex justify-content-between border-bottom py-1"><span>{{ $p['seq'] }}. {{ $p['description'] }}@if($p['quantity'] > 1) ×{{ $p['quantity'] }}@endif @if($p['fragile'])<span class="badge bg-warning-subtle text-warning">fragile</span>@endif</span><code>{{ $p['barcode'] }}</code></div>

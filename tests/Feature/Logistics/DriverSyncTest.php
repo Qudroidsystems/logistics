@@ -94,10 +94,13 @@ class DriverSyncTest extends TestCase
 
         // A wrong delivery code entered offline is rejected, and the stop stays open.
         $this->sync([['id' => 'p', 'type' => 'stop.complete', 'data' => ['stop_id' => $this->stops['pickup'], 'proof_type' => 'qr_scan', 'lat' => 7.8, 'lng' => 5.9]]]);
-        $bad = $this->sync([['id' => 'x', 'type' => 'stop.complete', 'data' => ['stop_id' => $this->stops['dropoff'], 'proof_type' => 'otp', 'otp' => '0000', 'lat' => 7.82, 'lng' => 5.92]]])->json('results.0');
-        if (app(TrackingService::class)->deliveryCode($this->shipment->public_id) !== '0000') {
+        $wrong = app(TrackingService::class)->deliveryCode($this->shipment->public_id) === '000000' ? '111111' : '000000';
+        $bad = $this->sync([['id' => 'x', 'type' => 'stop.complete', 'data' => ['stop_id' => $this->stops['dropoff'], 'proof_type' => 'otp', 'otp' => $wrong, 'lat' => 7.82, 'lng' => 5.92]]])->json('results.0');
+        {
             $this->assertSame('rejected', $bad['status']);
-            $this->assertSame('Delivery code does not match.', $bad['message']);
+            $this->assertStringStartsWith('Delivery code does not match.', $bad['message']);
+            // The failed try is counted even though the completion rolled back.
+            $this->assertSame(1, (int) DB::table('delivery_codes')->where('stop_id', $this->stops['dropoff'])->whereNull('revoked_at')->value('attempts'));
             $this->assertNotSame('completed', DB::table('shipment_stops')->where('id', $this->stops['dropoff'])->value('status'));
         }
     }
