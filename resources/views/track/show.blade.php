@@ -26,6 +26,11 @@
     .dot.done { background:var(--ok); }
     .dot.next { background:var(--brand); }
     .stale { color:#b26a00; }
+    .replies { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .replies button { font:inherit; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:999px; padding:8px 12px; cursor:pointer; }
+    .replies button.on { border-color:var(--brand); color:var(--brand); font-weight:600; }
+    .note { width:100%; font:inherit; margin-top:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+    .flash { color:var(--ok); font-weight:600; }
 </style>
 </head>
 <body>
@@ -34,6 +39,19 @@
         <p class="status" id="status">Loading</p>
         <div class="muted">Tracking code <strong>{{ $snap['tracking_code'] }}</strong></div>
         <div id="driver" class="muted" style="margin-top:6px"></div>
+    </div>
+    <div class="card" id="replyCard" style="display:none">
+        <strong>Tell the rider</strong>
+        @if(session('reply_ok'))<div class="flash">{{ session('reply_ok') }}</div>@endif
+        @if(session('reply_error'))<div class="stale">{{ session('reply_error') }}</div>@endif
+        <form method="POST" action="{{ route('track.reply', $token) }}">@csrf
+            <div class="replies" id="replies">
+                @foreach($snap['reply_options'] as $k => $label)
+                    <button name="reply" value="{{ $k }}" class="{{ ($snap['reply']['reply'] ?? null) === $k ? 'on' : '' }}">{{ $label }}</button>
+                @endforeach
+            </div>
+            <input class="note" name="note" maxlength="140" placeholder="Add a note for the rider (optional)" value="{{ $snap['reply']['note'] ?? '' }}">
+        </form>
     </div>
     <div id="map"></div>
     <div class="card" style="margin-top:12px"><ol id="stops"></ol></div>
@@ -62,10 +80,12 @@
         var d = s.driver, el = document.getElementById('driver');
         if (d) {
             var line = esc(d.first_name) + (d.vehicle ? ' · ' + esc(d.vehicle) : '');
-            if (d.eta_minutes) line += ' · <span class="eta">about ' + d.eta_minutes + ' min away</span>';
-            if (d.seconds_since_update != null && d.seconds_since_update > 120) line += ' · <span class="stale">location a few minutes old</span>';
+            if (d.eta) line += ' · <span class="eta">' + esc(d.eta.label) + ' to the ' + (d.eta.to === 'pickup' ? 'pickup' : 'drop-off') + '</span>';
+            else if (d.eta_minutes) line += ' · <span class="eta">about ' + d.eta_minutes + ' min away</span>';
+            if ((d.eta && d.eta.stale) || (d.seconds_since_update != null && d.seconds_since_update > 120)) line += ' · <span class="stale">location a few minutes old, so this is a rough guess</span>';
             el.innerHTML = line;
         } else { el.textContent = ''; }
+        document.getElementById('replyCard').style.display = s.can_reply ? '' : 'none';
 
         var next = s.stops.find(function (x) { return x.status !== 'completed'; });
         document.getElementById('stops').innerHTML = s.stops.map(function (x) {

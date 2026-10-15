@@ -11,6 +11,7 @@ Route::get('v1/app-config', [\App\Http\Controllers\Api\AppConfigController::clas
 Route::prefix('v1/auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
+    Route::post('/two-factor', [AuthController::class, 'twoFactor'])->middleware('throttle:20,1');
     Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:10,1');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
 

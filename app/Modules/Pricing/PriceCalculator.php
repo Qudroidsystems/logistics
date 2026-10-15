@@ -20,13 +20,19 @@ namespace App\Modules\Pricing;
  *   cod_fee       rate_bp of the COD amount (flat `amount` also allowed)
  *   remote_area   flat amount when the dropoff is in a listed zone (condition: zone_ids)
  *   night, peak_hour   rate_bp surcharge on the running subtotal (condition: hours = [0..23])
+ *   weekend       rate_bp surcharge (plus any flat amount) on Saturdays and Sundays (condition: days = ISO 1..7, default [6, 7])
+ *   rush          rate_bp surcharge (plus any flat amount) when the customer asks for a rush job
+ *   fuel_surcharge rate_bp of the running subtotal and/or a flat amount, shown as its own line
  */
 class PriceCalculator
 {
+    /** Surcharges worked out on what has accumulated so far, after the absolute-amount rules. */
+    private const PERCENT_KINDS = ['night', 'peak_hour', 'weekend', 'rush', 'fuel_surcharge'];
+
     /**
      * @param  array{min_fee:int, max_fee:?int, rounding_kobo:int}  $plan
      * @param  array<int, array{kind:string, condition?:?array, amount?:?int, rate_bp?:?int, unit?:?string, priority?:int, stackable?:bool}>  $rules
-     * @param  array{distance_m:int, duration_s:int, weight_g:int, extra_stops:int, wait_minutes:int, hour:int, fragile:bool, declared_value:int, cod_amount:int, dropoff_zone_ids:int[], vehicle_multiplier_bp:int, surge_multiplier_bp:int, tax_rate_bp:int, discount:int}  $input
+     * @param  array{distance_m:int, duration_s:int, weight_g:int, extra_stops:int, wait_minutes:int, hour:int, fragile:bool, declared_value:int, cod_amount:int, dropoff_zone_ids:int[], vehicle_multiplier_bp:int, surge_multiplier_bp:int, tax_rate_bp:int, discount:int, weekday?:int, rush?:bool}  $input
      * @return array{subtotal:int, discount:int, tax:int, total:int, lines:array<int, array{label:string, amount:int}>}
      */
     public function calculate(array $plan, array $rules, array $input): array
@@ -38,7 +44,7 @@ class PriceCalculator
 
         // First pass: absolute-amount rules.
         foreach ($rules as $rule) {
-            if (in_array($rule['kind'], ['night', 'peak_hour'], true)) {
+            if (in_array($rule['kind'], self::PERCENT_KINDS, true)) {
                 continue;
             }
             $amount = $this->ruleAmount($rule, $input);
@@ -50,13 +56,10 @@ class PriceCalculator
 
         // Second pass: percentage surcharges on what has accumulated so far.
         foreach ($rules as $rule) {
-            if (! in_array($rule['kind'], ['night', 'peak_hour'], true)) {
+            if (! in_array($rule['kind'], self::PERCENT_KINDS, true) || ! $this->surchargeApplies($rule, $input)) {
                 continue;
             }
-            if (! $this->hourMatches($rule['condition'] ?? null, $input['hour'])) {
-                continue;
-            }
-            $amount = intdiv($running * (int) ($rule['rate_bp'] ?? 0), 10_000);
+            $amount = intdiv($running * (int) ($rule['rate_bp'] ?? 0), 10_000) + (in_array($rule['kind'], ['night', 'peak_hour'], true) ? 0 : (int) ($rule['amount'] ?? 0));
             if ($amount !== 0) {
                 $lines[] = ['label' => $rule['kind'], 'amount' => $amount];
                 $running += $amount;
@@ -132,6 +135,18 @@ class PriceCalculator
         $inBand = max(0, min($distanceM, $to) - $from);
 
         return (int) ceil($inBand / 1000 * $perKm);
+    }
+
+    private function surchargeApplies(array $rule, array $in): bool
+    {
+        $cond = $rule['condition'] ?? null;
+
+        return match ($rule['kind']) {
+            'weekend' => in_array((int) ($in['weekday'] ?? 0), $cond['days'] ?? [6, 7], true),
+            'rush' => ! empty($in['rush']),
+            'fuel_surcharge' => true,
+            default => $this->hourMatches($cond, $in['hour']),
+        };
     }
 
     private function hourMatches(?array $cond, int $hour): bool

@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\Identity\Security\TwoFactorService;
+use App\Services\Activity\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -67,9 +70,56 @@ class AuthController extends Controller
             return response()->json(['error' => 'account_disabled', 'message' => 'This account is not active. Contact support.'], 403);
         }
         RateLimiter::clear($key);
+
+        // Two-step sign-in: no token yet; the app sends the code with this challenge to /auth/two-factor.
+        if (app(TwoFactorService::class)->enabled($user)) {
+            return response()->json([
+                'error' => 'two_factor_required', 'message' => 'Enter the 6-digit code from your authenticator app.',
+                'challenge' => Crypt::encryptString(json_encode(['uid' => $user->id, 'exp' => time() + self::CHALLENGE_SECONDS, 'device' => $d['device_name'] ?? 'app'])),
+                'expires_in' => self::CHALLENGE_SECONDS,
+            ], 403);
+        }
+
+        return response()->json($this->signedIn($user, $d['device_name'] ?? 'app'));
+    }
+
+    public const CHALLENGE_SECONDS = 300;
+
+    /** Second step of an API sign-in: the challenge from /auth/login plus an app code or a recovery code. */
+    public function twoFactor(Request $request, TwoFactorService $tf)
+    {
+        $d = $request->validate(['challenge' => 'required|string|max:2000', 'code' => 'required|string|max:32']);
+        try {
+            $c = json_decode(Crypt::decryptString($d['challenge']), true);
+        } catch (\Throwable) {
+            $c = null;
+        }
+        if (! is_array($c) || ($c['exp'] ?? 0) < time() || ! ($user = User::find($c['uid'] ?? 0))) {
+            return response()->json(['error' => 'challenge_expired', 'message' => 'That took too long. Sign in again.'], 401);
+        }
+        $key = 'api-2fa:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            return response()->json(['error' => 'too_many_attempts', 'message' => 'Too many wrong codes. Try again in '.RateLimiter::availableIn($key).' seconds.'], 429);
+        }
+        if ($user->is_disabled || ! in_array($user->status ?? 'active', ['active'], true)) {
+            return response()->json(['error' => 'account_disabled', 'message' => 'This account is not active. Contact support.'], 403);
+        }
+        if (! $tf->verify($user, $d['code'])) {
+            RateLimiter::hit($key, 600);
+            ActivityLogger::log($user->id, 'login_failed', 'Wrong two-step sign-in code (app)');
+
+            return response()->json(['error' => 'invalid_code', 'message' => 'That code is not right.'], 422);
+        }
+        RateLimiter::clear($key);
+
+        return response()->json($this->signedIn($user, (string) ($c['device'] ?? 'app')));
+    }
+
+    private function signedIn(User $user, string $device): array
+    {
         DB::table('users')->where('id', $user->id)->update(['last_login_at' => now(), 'last_active_at' => now()]);
 
-        return response()->json($this->session($user, $d['device_name'] ?? 'app'));
+        return $this->session($user, $device);
     }
 
     public function me(Request $request)
@@ -120,7 +170,7 @@ class AuthController extends Controller
         $current = (int) $user->current_operator_id;
 
         return [
-            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone_number, 'email_verified' => $user->email_verified_at !== null, 'must_change_password' => (bool) $user->must_change_password],
+            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone_number, 'email_verified' => $user->email_verified_at !== null, 'must_change_password' => (bool) $user->must_change_password, 'two_factor' => $user->two_factor_confirmed_at !== null],
             'customer' => DB::table('customer_profiles')->where('user_id', $user->id)->exists(),
             'operators' => $memberships->map(fn ($m) => [
                 'operator_id' => $m->operator_id, 'type' => $m->type, 'name' => $m->display_name, 'status' => $m->status, 'role' => $m->role, 'current' => (int) $m->_id === $current,

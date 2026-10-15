@@ -33,10 +33,17 @@ class ActivityLogger
                 'url' => Str::limit((string) $request?->fullUrl(), 495, ''), 'status' => $status,
                 'ip' => $request?->ip(), 'device' => self::device($ua), 'user_agent' => Str::limit($ua, 250, ''),
                 'properties' => $props ? json_encode($props) : null, 'created_at' => now(),
-            ]);
+            ] + (self::hasRequestId() ? ['request_id' => \App\Modules\Identity\Security\Audit::requestId()] : []));
         } catch (\Throwable $e) {
             Log::warning('Activity log failed', ['error' => $e->getMessage()]);
         }
+    }
+
+    /** Links an entry to the data changes made in the same request (added with the audit trail). */
+    public static function hasRequestId(): bool
+    {
+        static $ok = null;
+        return $ok ??= Schema::hasColumn('activity_logs', 'request_id');
     }
 
     /** "Chrome on Windows", "Safari on iPhone"… */

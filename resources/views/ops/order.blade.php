@@ -9,6 +9,9 @@
             <span class="cb-meta-pill">Payment: {{ $o['order']['payment_status'] }}</span>
             @if($o['shipment'])<span class="cb-meta-pill">Delivery: {{ str_replace('_', ' ', $o['shipment']['status']) }}</span>@endif
         </x-slot:pills>
+        @if($o['shipment'] && auth()->user()->can('Update delivery'))
+            <x-slot:actions><a class="cb-hero-btn" href="{{ route('ops.order.edit', $o['order']['public_id']) }}"><i class="ri-edit-2-line"></i> Edit details</a></x-slot:actions>
+        @endif
     </x-cb.hero>
     @include('ops._flash')
 

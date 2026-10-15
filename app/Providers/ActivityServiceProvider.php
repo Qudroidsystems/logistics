@@ -3,23 +3,33 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Modules\Identity\Security\Audit;
 use App\Services\Activity\ActivityLogger;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Database\Events\ConnectionEstablished;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
-/** Logs logins / logouts / failed logins for the audit trail. */
+/** Logs logins / logouts / failed logins, and tells the database who is acting for the data-change audit trail. */
 class ActivityServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        // Data-change audit: who is acting is kept on the database connection (see Audit).
+        Event::listen(ConnectionEstablished::class, fn (ConnectionEstablished $e) => $e->connectionName === config('database.default') && $e->connection->getDriverName() === 'pgsql' ? Audit::apply() : null);
+        Event::listen(JobProcessing::class, fn () => Audit::forSystem());
+        Event::listen(CommandStarting::class, fn () => Audit::forSystem());
+
         Event::listen(Login::class, function (Login $e) {
             $u = $e->user;
+            Audit::actingAs($u->id, $u->current_operator_id ? (int) $u->current_operator_id : null);
             ActivityLogger::log($u->id, 'login', 'Signed in');
             try {
                 $upd = ['last_seen_at' => now()];

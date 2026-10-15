@@ -3,7 +3,11 @@
 @section('content')
 @php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
-    <x-cb.hero title="Orders" icon="ri-shopping-bag-3-line" subtitle="Search by order number or tracking code." :back="route('ops.dashboard')" back-label="Operations" />
+    <x-cb.hero title="Orders" icon="ri-shopping-bag-3-line" subtitle="Search by order number or tracking code." :back="route('ops.dashboard')" back-label="Operations">
+        @can('Create delivery')
+            <x-slot:actions><a class="cb-hero-btn" href="{{ route('ops.booking.new') }}"><i class="ri-add-line"></i> New booking</a></x-slot:actions>
+        @endcan
+    </x-cb.hero>
     @include('ops._flash')
 
     <x-cb.card title="Orders" icon="ri-list-check" :count="count($rows)" :flush="true">

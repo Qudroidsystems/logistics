@@ -21,6 +21,15 @@ class DispatchService
     public const OFFER_SECONDS = 30;
     public const MAX_ATTEMPTS = 5;
     public const RADIUS_STEPS_M = [2_000, 4_000, 8_000];
+    public const SCHEDULED_LEAD_MINUTES = 45;
+
+    /** A booking for later is offered to drivers only when its pickup time is close. */
+    public function isEarly(object $shipment): bool
+    {
+        // Compared in SQL, like every other stored time, so the database's own timezone cannot shift it.
+        return $shipment->pickup_window_start !== null
+            && DB::table('shipments')->where('id', $shipment->id)->where('pickup_window_start', '>', now()->addMinutes(self::SCHEDULED_LEAD_MINUTES))->exists();
+    }
 
     /** How long a driver has to answer an offer. Staff can change it in platform settings; the constant is the fallback. */
     public function offerSeconds(): int
@@ -41,11 +50,20 @@ class DispatchService
         return max($min, min($max, $v ?: $default));
     }
 
-    public function start(int $shipmentId, string $strategy = 'scored'): int
+    /**
+     * Returns the run id, or 0 when the booking is for later: then the shipment waits in awaiting_dispatch and
+     * `dispatch:scheduled` starts it SCHEDULED_LEAD_MINUTES before the pickup time.
+     */
+    public function start(int $shipmentId, string $strategy = 'scored', bool $evenIfEarly = false): int
     {
         $shipment = DB::table('shipments')->find($shipmentId);
         if (! $shipment || ! in_array($shipment->status, ['created', 'awaiting_dispatch', 'offered'], true)) {
             throw new RuntimeException('Shipment is not waiting for a driver.');
+        }
+        if (! $evenIfEarly && $this->isEarly($shipment)) {
+            DB::table('shipments')->where('id', $shipmentId)->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
+
+            return 0;
         }
 
         $pickup = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'pickup')->orderBy('seq')->first();

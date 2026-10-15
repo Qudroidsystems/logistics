@@ -9,6 +9,7 @@
     @include('provider._flash')
     <div class="row g-3">
         <div class="col-lg-7">
+            @include('partials.booking-details', ['bookingRequest' => $req])
             <x-cb.card title="The job" icon="ri-route-line">
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Pickup</dt><dd class="col-sm-8">{{ $stops['pickup']['line1'] ?? '—' }}</dd>

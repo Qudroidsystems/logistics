@@ -35,6 +35,9 @@
         <div class="col-6 col-lg-3"><x-cb.stat label="Rating" :value="($profile && $profile->rating_count) ? number_format($profile->rating_avg, 1).' / 5' : '—'" icon="ri-star-line" accent="amber" :hint="($profile->rating_count ?? 0).' reviews'" /></div>
     </div>
 
+    @if($nav['money'] && $op->status === 'active')@include('backoffice._revenue-card', ['operatorId' => (int) $op->id, 'reportsUrl' => route('provider.reports', 'daily')])@endif
+    @if($nav['jobs'] && $op->status === 'active')@include('backoffice._drivers-card', ['operatorId' => (int) $op->id, 'reportsUrl' => route('provider.reports', 'drivers')])@endif
+
     @if($score)
     <x-cb.card title="How customers see you" icon="ri-medal-line">
         <div class="row text-center">

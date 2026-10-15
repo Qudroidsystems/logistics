@@ -27,7 +27,10 @@ class NegotiationService
     /** @param array $d type, service_type_id, city_id, pickup{line1,lat,lng,..}, dropoff{..}, packages[], budget_min/max, needed_by, visibility, operator_ids[], errand{list,market_id,budget_cap,substitution_policy} */
     public function createRequest(int $customerId, array $d, bool $isTest = false): int
     {
-        $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
+        $extra = \App\Modules\Booking\StopList::cleanExtra($d['stops'] ?? []);
+        $route = $extra
+            ? app(\App\Modules\Booking\StopList::class)->route(\App\Modules\Booking\StopList::ordered(['pickup' => $d['pickup'], 'extra' => $extra, 'dropoff' => $d['dropoff']]))
+            : $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
         $visibility = $d['visibility'] ?? 'open';
         $operatorIds = array_map('intval', $d['operator_ids'] ?? []);
         if (Platform::companyOnly()) {
@@ -42,15 +45,16 @@ class NegotiationService
             throw new InvalidArgumentException('A direct request goes to exactly one provider.');
         }
 
-        return DB::transaction(function () use ($customerId, $d, $route, $visibility, $operatorIds, $isTest) {
+        return DB::transaction(function () use ($customerId, $d, $route, $visibility, $operatorIds, $isTest, $extra) {
             $id = DB::table('service_requests')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'customer_id' => $customerId, 'type' => $d['type'], 'service_type_id' => $d['service_type_id'],
-                'stops' => json_encode(['pickup' => $d['pickup'], 'dropoff' => $d['dropoff'], 'city_id' => $d['city_id']]),
+                'stops' => json_encode(['pickup' => $d['pickup'], 'dropoff' => $d['dropoff'], 'city_id' => $d['city_id']] + ($extra ? ['extra' => $extra] : [])),
                 'packages' => json_encode(['items' => $d['packages'] ?? [], 'errand' => $d['errand'] ?? null, 'vehicle_type_id' => $d['vehicle_type_id'] ?? null]),
                 'distance_m' => $route['distance_m'], 'budget_min' => $d['budget_min'] ?? null, 'budget_max' => $d['budget_max'] ?? null,
-                'needed_by' => $d['needed_by'] ?? null, 'visibility' => $visibility, 'status' => 'open', 'is_test' => $isTest,
+                'needed_by' => $d['needed_by'] ?? null, 'pickup_at' => self::local($d['pickup_at'] ?? null), 'rush' => (bool) ($d['rush'] ?? false),
+                'visibility' => $visibility, 'status' => 'open', 'is_test' => $isTest,
                 'verification' => isset($d['verification']) ? json_encode(VerificationPolicy::normalize($d['verification'])) : null,
-                'expires_at' => now()->addHours(self::REQUEST_TTL_HOURS), 'created_at' => now(), 'updated_at' => now(),
+                'expires_at' => $this->expiresAt($d['pickup_at'] ?? null), 'created_at' => now(), 'updated_at' => now(),
             ]);
 
             $targets = $visibility === 'open' ? $this->matchProviders((int) $d['service_type_id'], self::OPEN_REQUEST_FANOUT) : $operatorIds;
@@ -144,6 +148,8 @@ class NegotiationService
             $terms = [
                 'pickup' => $stops['pickup'], 'dropoff' => $stops['dropoff'], 'packages' => $pk['items'] ?? [], 'vehicle_type_id' => $o['vehicle_type_id'] ?? $pk['vehicle_type_id'] ?? null,
                 'note' => $o['note'] ?? null,
+                // Extra stops in driving order, the pickup time the customer chose and whether they asked for a rush job.
+                'stops' => $stops['extra'] ?? [], 'pickup_at' => $req->pickup_at, 'rush' => (bool) $req->rush,
                 // Proof of delivery: what the job giver asked for plus the provider's standard, signed with the rest of the terms.
                 'verification' => VerificationPolicy::agree($req->verification ? json_decode($req->verification, true) : null,
                     app(VerificationPolicy::class)->forProvider((int) $t->operator_id, $req->service_type_id ? (int) $req->service_type_id : null)),
@@ -214,6 +220,30 @@ class NegotiationService
         }
         $offers = DB::table('negotiation_messages')->where(['thread_id' => $threadId, 'kind' => 'counter_offer'])->count();
         $notify->notify((int) $t->customer_id, $offers <= 1 ? 'offer.received' : 'offer.counter_to_customer', ['provider' => $t->display_name, 'amount' => $amount], "/negotiations/{$t->public_id}");
+    }
+
+    /**
+     * Offers stay open a day, but a booking for later must also close before its pickup time, so a provider never
+     * agrees to a job that should already have started.
+     */
+    private function expiresAt(?string $pickupAt): \Carbon\CarbonInterface
+    {
+        $ttl = now()->addHours(self::REQUEST_TTL_HOURS);
+        if (! $pickupAt) {
+            return $ttl;
+        }
+        $pickup = \Carbon\Carbon::parse(self::local($pickupAt));
+
+        return $pickup->lt($ttl) ? $pickup : $ttl;
+    }
+
+    /**
+     * A time the customer sent (with its own offset) as the app's local wall-clock time, the way every other
+     * timestamp here is written, so comparisons with now() line up.
+     */
+    private static function local(?string $at): ?string
+    {
+        return $at ? \Carbon\Carbon::parse($at)->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s') : null;
     }
 
     private function openRequest(int $id): object

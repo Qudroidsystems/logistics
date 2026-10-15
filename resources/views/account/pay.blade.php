@@ -10,9 +10,21 @@
             <div class="d-flex justify-content-between"><span>Delivery price</span><span>{{ $naira($a->price) }}</span></div>
             @if($a->goods_budget > 0)<div class="d-flex justify-content-between"><span>Goods budget <span class="text-muted small">(unspent money comes back)</span></span><span>{{ $naira($a->goods_budget) }}</span></div>@endif
             @if($a->tip > 0)<div class="d-flex justify-content-between"><span>Tip</span><span>{{ $naira($a->tip) }}</span></div>@endif
+            @foreach($summary['discount_lines'] ?? [] as $dl)<div class="d-flex justify-content-between text-success"><span>{{ $dl['label'] }}</span><span>-{{ $naira($dl['amount']) }}</span></div>@endforeach
             <hr><div class="d-flex justify-content-between fw-semibold fs-5"><span>Total</span><span>{{ $naira($total) }}</span></div>
             <div class="small text-muted mt-2">Your money is held safely and only released to the provider when you confirm the delivery.</div>
         </x-cb.card>
+        @if($a->status === 'locked')
+        <x-cb.card title="Promo code" icon="ri-coupon-3-line" class="mt-3">
+            @if(!empty($summary['promo_code']))
+                <form method="POST" action="{{ route('account.pay.promo.remove', $a->public_id) }}" class="d-flex align-items-center gap-2">@csrf @method('DELETE')
+                    <span class="badge bg-success-subtle text-success fs-6">{{ $summary['promo_code'] }}</span><button class="btn btn-sm btn-link text-danger">Remove</button></form>
+            @else
+                <form method="POST" action="{{ route('account.pay.promo', $a->public_id) }}" class="d-flex gap-2">@csrf
+                    <input name="code" class="form-control text-uppercase" maxlength="32" placeholder="Enter a code" required><button class="btn btn-outline-primary">Apply</button></form>
+            @endif
+        </x-cb.card>
+        @endif
         <x-cb.card title="If the delivery fails" icon="ri-file-list-3-line" class="mt-3">
             @foreach(\App\Modules\Marketplace\FailedDeliveryPolicy::describe($a->failed_delivery_policy ? json_decode($a->failed_delivery_policy, true) : null) as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
             <div class="small text-muted">These terms are part of your agreement and were fixed when it was created.</div>

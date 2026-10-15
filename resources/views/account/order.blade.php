@@ -5,11 +5,13 @@
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="'Order '.$s->order_number" icon="ri-shopping-bag-3-line" :subtitle="$s->provider.' · tracking '.$s->tracking_code" :back="route('account.orders')" back-label="Orders">
         <x-slot:pills><span class="cb-meta-pill">{{ str_replace('_', ' ', $s->status) }}</span><span class="cb-meta-pill">{{ $naira($s->total) }}</span></x-slot:pills>
+        <x-slot:actions><a href="{{ route('account.order.receipt', $s->public_id) }}" class="action-btn btn-primary-cb"><i class="ri-download-2-line"></i>Receipt (PDF)</a></x-slot:actions>
     </x-cb.hero>
     @include('account._flash')
 
     <div class="row g-3">
         <div class="col-lg-7">
+            @include('partials.booking-details', ['bookingShipmentId' => $s->id])
             @include('partials.proofs')
             @if($canConfirm)
             <x-cb.card title="Delivered. Is everything right?" icon="ri-checkbox-circle-line" class="mb-3">

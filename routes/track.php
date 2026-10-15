@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 /** Public live tracking page, opened from the link sent to the customer or the receiver. */
 Route::get('/track/{token}', [TrackPageController::class, 'show'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:60,1')->name('track');
+Route::post('/track/{token}/reply', [TrackPageController::class, 'reply'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:10,1')->name('track.reply');
 
 /** Public page for a listed provider: standing, numbers and reviews. */
 Route::get('/p/{slug}', [ProviderPageController::class, 'show'])->where('slug', '[a-z0-9-]+')->middleware(['marketplace', 'throttle:60,1'])->name('provider.public');

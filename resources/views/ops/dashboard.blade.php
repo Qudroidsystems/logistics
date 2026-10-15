@@ -19,6 +19,9 @@
         <div class="col-6 col-lg-4"><x-cb.stat label="Payouts in transit" :value="$naira($d['payouts_in_transit'])" icon="ri-send-plane-line" accent="sky" /></div>
     </div>
 
+    @if(auth()->user()->hasAnyPermission(['View reports', 'View financial report']))@include('backoffice._revenue-card', ['operatorId' => null, 'reportsUrl' => route('ops.reports', 'daily')])@endif
+    @if(auth()->user()->hasAnyPermission(['View reports', 'View operations report']))@include('backoffice._drivers-card', ['operatorId' => null, 'reportsUrl' => route('ops.reports', 'drivers')])@endif
+
     <x-cb.card title="Needs attention" icon="ri-alarm-warning-line">
         <div class="list-group list-group-flush">
             @can('View dispute')<a href="{{ route('ops.disputes') }}" class="list-group-item d-flex justify-content-between align-items-center">Open disputes <span class="badge bg-{{ $d['open_disputes'] ? 'danger' : 'secondary' }}">{{ $d['open_disputes'] }}</span></a>@endcan

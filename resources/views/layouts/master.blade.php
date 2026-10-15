@@ -483,6 +483,7 @@
                             @endcan
                             <a class="dropdown-item" href="{{ route('profile.settings', ['id' => $userdata->id]) }}"><i class="mdi mdi-cog me-2"></i>Account Settings</a>
                             @endif
+                            <a class="dropdown-item" href="{{ route('security.index') }}"><i class="mdi mdi-shield-key-outline me-2"></i>Sign-in security</a>
                             <div class="dropdown-divider"></div>
                             <form method="POST" action="{{ route('logout') }}" id="topbar-logout-form">@csrf<a class="dropdown-item text-danger" href="{{ route('logout') }}" onclick="event.preventDefault();document.getElementById('topbar-logout-form').submit();"><i class="mdi mdi-logout me-2"></i>Logout</a></form>
                         </div>

@@ -76,7 +76,7 @@ class PartnerController extends Controller
             'dropoff.line1' => 'required|string|max:255', 'dropoff.lat' => 'required|numeric|between:-90,90', 'dropoff.lng' => 'required|numeric|between:-180,180',
             'dropoff.contact_name' => 'nullable|string|max:120', 'dropoff.contact_phone' => 'nullable|string|max:24',
             'weight_g' => 'nullable|integer|min:0', 'fragile' => 'nullable|boolean', 'declared_value' => 'nullable|integer|min:0',
-            'packages' => 'nullable|array|max:20', 'external_order_id' => 'nullable|string|max:80',
+            'packages' => 'nullable|array|max:20', 'external_order_id' => 'nullable|string|max:80', 'rush' => 'nullable|boolean',
         ]);
     }
 }

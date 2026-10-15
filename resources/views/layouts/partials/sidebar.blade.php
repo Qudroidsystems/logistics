@@ -45,6 +45,8 @@
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>OPERATIONS</span></li>
                 @can('dashboard')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dashboard') ? 'active' : '' }}" href="{{ route('ops.dashboard') }}"><i class="ri-truck-line"></i> <span>Overview</span></a></li>@endcan
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.order*') ? 'active' : '' }}" href="{{ route('ops.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>Orders</span></a></li>@endcan
+                @can('Create delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.booking*') ? 'active' : '' }}" href="{{ route('ops.booking.new') }}"><i class="ri-add-box-line"></i> <span>New booking</span></a></li>@endcan
+                @if(auth()->user()->hasAnyPermission(['View reports', 'View operations report', 'View financial report', 'View geographic report']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.reports*') ? 'active' : '' }}" href="{{ route('ops.reports') }}"><i class="ri-bar-chart-box-line"></i> <span>Reports</span></a></li>@endif
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.failed') ? 'active' : '' }}" href="{{ route('ops.failed') }}"><i class="ri-error-warning-line"></i> <span>Failed deliveries</span></a></li>@endcan
                 @can('View dispute')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dispute*') ? 'active' : '' }}" href="{{ route('ops.disputes') }}"><i class="ri-scales-3-line"></i> <span>Disputes</span></a></li>@endcan
                 @if(\App\Support\Platform::marketplace())@can('View kyc')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.application*') ? 'active' : '' }}" href="{{ route('ops.applications') }}"><i class="ri-shield-user-line"></i> <span>Provider applications</span></a></li>@endcan @endif
@@ -55,6 +57,8 @@
                 @can('View vendor')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.merchant*') ? 'active' : '' }}" href="{{ route('ops.merchants') }}"><i class="ri-store-3-line"></i> <span>Merchants and API keys</span></a></li>@endcan
                 @if(auth()->user()->hasAnyPermission(['Manage commission','Manage pricing rules']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.settings*') ? 'active' : '' }}" href="{{ route('ops.settings') }}"><i class="ri-settings-4-line"></i> <span>Fees and settings</span></a></li>@endif
                 @can('View zone')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.cit*') ? 'active' : '' }}" href="{{ route('ops.cities') }}"><i class="ri-map-pin-2-line"></i> <span>Cities and zones</span></a></li>@endcan
+                @can('View promo code')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.promo*') ? 'active' : '' }}" href="{{ route('ops.promos') }}"><i class="ri-coupon-3-line"></i> <span>Promo codes and discounts</span></a></li>@endcan
+                @can('Manage pricing rules')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.price-list*') ? 'active' : '' }}" href="{{ route('ops.price-lists') }}"><i class="ri-price-tag-3-line"></i> <span>Price lists and surcharges</span></a></li>@endcan
                 @can('Manage fraud flags')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.risk*') ? 'active' : '' }}" href="{{ route('ops.risk') }}"><i class="ri-alarm-warning-line"></i> <span>Risk events</span></a></li>@endcan
                 @endif
                 {{-- ===== Marketplace (Phase 2-4: vendors, drivers, shoppers, stores, business) ===== --}}
@@ -78,7 +82,7 @@
                 @endif
 
                 {{-- ===== Platform ===== --}}
-                @if(auth()->user()->canAny(['Manage feature flags', 'Manage payment gateways', 'Manage maintenance mode', 'Manage backups', 'View activity log']))
+                @if(auth()->user()->canAny(['Manage feature flags', 'Manage payment gateways', 'Manage maintenance mode', 'Manage backups', 'View activity log', 'View audit log', 'Manage security settings', 'Reset two-factor']))
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>PLATFORM</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link" href="#sidebarPlatform" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPlatform">
@@ -92,6 +96,8 @@
                             @can('Manage maintenance mode')<li class="nav-item"><a href="{{ route('maintenance.settings') }}" class="nav-link">Maintenance Mode</a></li>@endcan
                             @can('Manage backups')<li class="nav-item"><a href="{{ route('admin.backups.index') }}" class="nav-link">Backups</a></li>@endcan
                             @can('View activity log')<li class="nav-item"><a href="{{ route('activity.index') }}" class="nav-link">Activity Log</a></li>@endcan
+                            @can('View audit log')<li class="nav-item"><a href="{{ route('audit.index') }}" class="nav-link">Data Changes</a></li>@endcan
+                            @canany(['Manage security settings', 'Reset two-factor'])<li class="nav-item"><a href="{{ route('admin.security.index') }}" class="nav-link">Sign-in Security</a></li>@endcanany
                         </ul>
                     </div>
                 </li>

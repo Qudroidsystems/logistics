@@ -41,6 +41,15 @@ class TrackingService
         return $tokens;
     }
 
+    /** The shipment a live tracking link points at, or null. */
+    public function linkShipment(string $token): ?int
+    {
+        $id = DB::table('tracking_links')->where('token', $token)->whereNull('revoked_at')
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->value('shipment_id');
+
+        return $id ? (int) $id : null;
+    }
+
     /** What a tracking link may see. Never exposes phone numbers, price, or the delivery code. */
     public function snapshot(string $token): ?array
     {
@@ -60,21 +69,27 @@ class TrackingService
                  FROM driver_profiles p JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$assignment->driver_profile_id]
             );
             $vehicle = DB::selectOne('SELECT v.plate, v.make, v.model FROM vehicles v JOIN driver_profiles p ON p.current_vehicle_id = v.id WHERE p.id = ?', [$assignment->driver_profile_id]);
-            $next = collect($stops)->first(fn ($x) => $x->status !== 'completed');
-            $eta = $next && $d->lat ? max(1, (int) ceil(app(\App\Modules\Routing\RoutingEngine::class)->route((float) $d->lat, (float) $d->lng, (float) $next->lat, (float) $next->lng)['duration_s'] / 60)) : null;
+            $eta = $d->lat !== null ? app(\App\Modules\Eta\EtaService::class)->forShipment((int) $s->id) : null;
             $driver = [
                 'first_name' => Str::before($d->name, ' '), 'rating' => $d->rating_avg,
                 'vehicle' => $vehicle ? trim("{$vehicle->make} {$vehicle->model}")." · {$vehicle->plate}" : null,
                 'lat' => (float) $d->lat, 'lng' => (float) $d->lng,
                 'seconds_since_update' => $d->last_seen_at ? now()->diffInSeconds($d->last_seen_at) : null,
-                'eta_minutes' => $eta,
+                'eta_minutes' => $eta['minutes'] ?? null,
+                // A range, and whether the rider's position is old enough that the range is a guess.
+                'eta' => $eta ? ['label' => $eta['label'], 'low' => $eta['low'], 'high' => $eta['high'], 'stale' => $eta['stale'], 'to' => $eta['stop_type']] : null,
             ];
         }
+        $drop = DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'dropoff')->orderByDesc('seq')->first(['readiness', 'readiness_note', 'readiness_at']);
 
         return [
             'tracking_code' => $s->tracking_code, 'status' => $s->status, 'delivered_at' => $s->delivered_at,
             'stops' => array_map(fn ($x) => ['seq' => $x->seq, 'type' => $x->type, 'address' => $x->line1, 'status' => $x->status, 'lat' => (float) $x->lat, 'lng' => (float) $x->lng], $stops),
             'driver' => $driver,
+            // The receiver can tell the rider whether they are ready while the parcel is on its way.
+            'reply' => \App\Modules\Eta\ReceiverReplies::current($drop),
+            'can_reply' => in_array($s->status, \App\Modules\Eta\EtaService::MOVING, true),
+            'reply_options' => \App\Modules\Eta\ReceiverReplies::OPTIONS,
             'poll_after_seconds' => (int) (DB::table('platform_settings')->whereNull('operator_id')->where('key', 'tracking.location_interval_seconds')->value('value') ?? 8),
         ];
     }

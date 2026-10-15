@@ -20,6 +20,19 @@ class TrackingController extends Controller
         return response()->json($snap)->header('Cache-Control', 'no-store');
     }
 
+    /** The receiver (or the job giver) tells the rider whether they are ready. Public, guarded by the link token. */
+    public function reply(Request $request, string $token, TrackingService $tracking, \App\Modules\Eta\ReceiverReplies $replies)
+    {
+        $d = $request->validate(['reply' => 'required|string|in:'.implode(',', array_keys(\App\Modules\Eta\ReceiverReplies::OPTIONS)), 'note' => 'nullable|string|max:140']);
+        $id = $tracking->linkShipment($token);
+        abort_unless($id, 404);
+        try {
+            return response()->json($replies->reply($id, $d['reply'], $d['note'] ?? null));
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
     /** The paying customer re-reads the code to hand to the driver. Nobody else can see it. */
     public function deliveryCode(Request $request, string $shipment, TrackingService $tracking)
     {

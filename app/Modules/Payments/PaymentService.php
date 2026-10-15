@@ -25,13 +25,15 @@ class PaymentService
         if (! $a || $a->status !== 'locked') {
             throw new RuntimeException('Only a locked agreement can be paid.');
         }
-        $total = $this->escrow->escrowTotal($a);
+        $a = app(\App\Modules\Booking\AgreementDiscounts::class)->settleForPayment($a);
+        $total = $this->escrow->payableTotal($a);
         $gw = $this->gateways->choose($gateway);
 
         // A pending checkout on the SAME gateway is reused so a double-tap never creates two charges.
         // One on another gateway is closed first: its late webhook can no longer pay this agreement twice.
         $intent = DB::table('payment_intents')->where('agreement_id', $agreementId)->whereIn('status', ['initiated', 'pending'])->first();
-        if ($intent && $intent->gateway !== $gw->key()) {
+        // So is one opened for a different amount (a promo code was added or ran out since).
+        if ($intent && ($intent->gateway !== $gw->key() || (int) $intent->amount !== $total)) {
             DB::table('payment_intents')->where('id', $intent->id)->update(['status' => 'abandoned', 'updated_at' => now()]);
             $intent = null;
         }
@@ -61,6 +63,7 @@ class PaymentService
             if (! $a || $a->status !== 'locked') {
                 throw new RuntimeException('Only a locked agreement can be paid.');
             }
+            app(\App\Modules\Booking\AgreementDiscounts::class)->settleForPayment($a);
             $this->escrow->hold($agreementId, 'wallet', $customerId);
             DB::table('payment_intents')->where('agreement_id', $agreementId)->whereIn('status', ['initiated', 'pending'])->update(['status' => 'abandoned', 'updated_at' => now()]);
             $made = $this->orders->create($agreementId);

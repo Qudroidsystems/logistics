@@ -132,11 +132,24 @@ class VerificationPolicy
     {
         $p = $this->forShipment((int) $stop->shipment_id);
 
+        if ($stop->type === 'dropoff' && $this->isMidRoute($stop)) {
+            // A drop-off before the last one: the delivery code and the cash belong to the final hand-over,
+            // so a photo stands in for the code here.
+            $mid = array_values(array_diff($p['dropoff'], ['code', 'cod']));
+
+            return in_array('code', $p['dropoff'], true) && ! in_array('photo', $mid, true) ? [...$mid, 'photo'] : $mid;
+        }
+
         return match ($stop->type) {
             'pickup' => $p['pickup'],
             'dropoff' => $p['dropoff'],
             default => [],
         };
+    }
+
+    private function isMidRoute(object $stop): bool
+    {
+        return DB::table('shipment_stops')->where('shipment_id', $stop->shipment_id)->where('type', 'dropoff')->where('seq', '>', $stop->seq)->exists();
     }
 
     /** @return list<string> plain sentences for screens and SMS */

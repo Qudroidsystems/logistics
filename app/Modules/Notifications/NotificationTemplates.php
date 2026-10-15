@@ -28,6 +28,7 @@ class NotificationTemplates
 
         // ---- delivery lifecycle (customer side)
         'delivery.job_assigned' => ['title' => 'New job for you', 'body' => 'You have been given order {order}. Open it for the pickup details.', 'email' => false],
+        'delivery.job_updated' => ['title' => 'Job details changed', 'body' => 'Dispatch updated the details of order {order}. Open it to see the new address or instructions.', 'email' => false],
         'delivery.driver_issue' => ['title' => 'Driver reported a problem', 'body' => 'On order {order}: {reason}. Open the job to decide what to do.', 'email' => true],
         'delivery.driver_released' => ['title' => 'Driver handed a job back', 'body' => 'Order {order} needs a new driver ({reason}). Assign someone from the job page.', 'email' => true],
         'delivery.failed_customer' => ['title' => 'We could not deliver', 'body' => 'Delivery of order {order} did not go through because the receiver could not be reached. Your payment has been settled under the agreement you accepted; open the order to see the details.', 'email' => true],
@@ -35,6 +36,9 @@ class NotificationTemplates
         'delivery.returned_customer' => ['title' => 'Parcel returned', 'body' => 'The parcel for order {order} has been taken back to the pickup address.', 'email' => false],
         'delivery.returned_provider' => ['title' => 'Parcel returned', 'body' => 'The driver has returned the parcel for order {order} to the pickup address.', 'email' => false],
         'delivery.assigned' => ['title' => 'Rider assigned', 'body' => 'Your order {order} has a rider and is on its way to pickup.', 'email' => false],
+        'delivery.approaching' => ['title' => 'Your rider is close', 'body' => 'The rider for {order} is {when} from {place}.', 'email' => false],
+        'delivery.delayed' => ['title' => 'Your rider is running late', 'body' => 'The rider for {order} is held up. Now expected at {place} in {when}.', 'email' => false],
+        'driver.receiver_replied' => ['title' => 'The receiver replied', 'body' => 'Order {order}: {reply}', 'email' => false],
         'delivery.arrived' => ['title' => 'Rider has arrived', 'body' => 'The rider for {order} has arrived.', 'email' => false],
         'delivery.picked_up' => ['title' => 'Order picked up', 'body' => 'Order {order} is on its way. You can follow it live.', 'email' => false],
         'delivery.delivered' => ['title' => 'Delivered - please confirm', 'body' => 'Order {order} was delivered. Confirm to pay the provider, or report a problem.', 'email' => true],

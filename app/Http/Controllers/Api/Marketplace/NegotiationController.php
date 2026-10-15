@@ -46,15 +46,30 @@ class NegotiationController extends Controller
             'verification.pickup' => 'nullable|array', 'verification.pickup.*' => 'string|in:'.implode(',', VerificationPolicy::PICKUP),
             'verification.dropoff' => 'nullable|array', 'verification.dropoff.*' => 'string|in:'.implode(',', VerificationPolicy::DROPOFF),
             'verification.authorised_receivers' => 'nullable|array|max:'.VerificationPolicy::MAX_RECEIVERS, 'verification.authorised_receivers.*' => 'string|max:80',
+            'pickup.landmark' => 'nullable|string|max:255', 'pickup.instructions' => 'nullable|string|max:500',
+            'dropoff.landmark' => 'nullable|string|max:255', 'dropoff.instructions' => 'nullable|string|max:500',
+            // More pickups or drop-offs between the first pickup and the last drop-off, in driving order.
+            'stops' => 'nullable|array|max:'.(\App\Modules\Booking\StopList::MAX_STOPS - 2), 'stops.*.type' => 'required|in:pickup,dropoff',
+            'stops.*.line1' => 'required|string|max:255', 'stops.*.lat' => 'required|numeric|between:-90,90', 'stops.*.lng' => 'required|numeric|between:-180,180',
+            'stops.*.contact_name' => 'nullable|string|max:120', 'stops.*.contact_phone' => 'nullable|string|max:24',
+            'stops.*.landmark' => 'nullable|string|max:255', 'stops.*.instructions' => 'nullable|string|max:500',
+            // A booking for later: when the driver should collect. Up to 30 days ahead.
+            'pickup_at' => 'nullable|date|after:now|before:'.now()->addDays(30)->toDateTimeString(), 'rush' => 'nullable|boolean',
         ]);
 
-        return $this->run(fn () => ['request_id' => DB::table('service_requests')->where('id', $svc->createRequest($request->user()->id, $d))->value('public_id')], 201);
+        return $this->run(function () use ($svc, $request, $d) {
+            $id = $svc->createRequest($request->user()->id, $d);
+            app(\App\Modules\Booking\SavedAddresses::class)->touch($request->user()->id, [$d['pickup'], $d['dropoff'], ...($d['stops'] ?? [])]);
+
+            return ['request_id' => DB::table('service_requests')->where('id', $id)->value('public_id')];
+        }, 201);
     }
 
     public function myRequests(Request $request)
     {
         return response()->json(DB::table('service_requests')->where('customer_id', $request->user()->id)->orderByDesc('id')->limit(50)
-            ->get(['public_id', 'type', 'status', 'visibility', 'distance_m', 'expires_at', 'created_at']));
+            ->get(['public_id', 'type', 'status', 'visibility', 'distance_m', 'pickup_at', 'rush', 'expires_at', 'created_at'])
+            ->map(fn ($r) => ['pickup_at' => \App\Modules\Booking\LocalTime::iso($r->pickup_at)] + (array) $r));
     }
 
     /** Offers on one request, with the provider's standing. */
@@ -146,7 +161,8 @@ class NegotiationController extends Controller
         return response()->json(DB::table('request_invitations as i')->join('service_requests as r', 'r.id', '=', 'i.request_id')
             ->where('i.operator_id', $op)->whereIn('i.status', ['sent', 'viewed', 'countered'])->whereIn('r.status', ['open', 'negotiating'])->where('r.expires_at', '>', now())
             ->orderByDesc('r.id')->limit(50)
-            ->get(['r.public_id', 'r.type', 'r.distance_m', 'r.budget_min', 'r.budget_max', 'r.needed_by', 'r.stops', 'i.status as invitation']));
+            ->get(['r.public_id', 'r.type', 'r.distance_m', 'r.budget_min', 'r.budget_max', 'r.needed_by', 'r.pickup_at', 'r.rush', 'r.stops', 'i.status as invitation'])
+            ->map(fn ($r) => ['pickup_at' => \App\Modules\Booking\LocalTime::iso($r->pickup_at)] + (array) $r));
     }
 
     public function offer(Request $request, string $serviceRequest, NegotiationService $svc)

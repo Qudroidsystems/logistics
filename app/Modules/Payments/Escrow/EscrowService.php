@@ -17,6 +17,9 @@ use RuntimeException;
  */
 class EscrowService
 {
+    /** Order payment methods where the provider took the customer's money itself (manual bookings). */
+    public const OFFLINE_METHODS = ['cash', 'bank_transfer'];
+
     public function __construct(
         private LedgerPoster $ledger,
         private AccountResolver $accounts,
@@ -26,7 +29,8 @@ class EscrowService
     /**
      * Customer pays: move the money from the payer's source account into the agreement's escrow.
      *
-     * @param  'wallet'|'gateway'  $source  wallet = customer wallet balance; gateway = card/transfer just confirmed by a webhook
+     * @param  'wallet'|'gateway'|'offline'  $source  wallet = customer wallet balance; gateway = card/transfer just confirmed by a webhook;
+     *                                              offline = cash or a bank transfer the provider received itself (a manual booking)
      */
     public function hold(int $agreementId, string $source = 'gateway', ?int $postedBy = null): int
     {
@@ -38,11 +42,21 @@ class EscrowService
             }
 
             $total = $this->escrowTotal($agreement);
+            $subsidy = min($total, (int) ($agreement->discount ?? 0));
             $escrowAccount = $this->accounts->for('agreement', $agreementId, 'order_escrow', (int) $agreement->provider_operator_id);
 
-            $from = $source === 'wallet'
-                ? $this->accounts->wallet('customer', (int) $agreement->customer_id, 1)
-                : $this->accounts->platform('gateway_clearing');
+            $from = match ($source) {
+                'wallet' => $this->accounts->wallet('customer', (int) $agreement->customer_id, 1),
+                // An asset: money the provider is holding on the platform's behalf until the job settles.
+                'offline' => $this->accounts->for('operator', (int) $agreement->provider_operator_id, 'cod_clearing', (int) $agreement->provider_operator_id),
+                default => $this->accounts->platform('gateway_clearing'),
+            };
+            // A promo or corporate discount: the customer pays less and the platform tops escrow up to the agreed amount.
+            $legs = [['account_id' => $from, 'direction' => 'debit', 'amount' => $total - $subsidy]];
+            if ($subsidy > 0) {
+                $legs[] = ['account_id' => $this->accounts->platform('promo_expense'), 'direction' => 'debit', 'amount' => $subsidy];
+            }
+            $legs[] = ['account_id' => $escrowAccount, 'direction' => 'credit', 'amount' => $total];
 
             // Gateway payment: debit gateway_clearing (an asset: money the gateway owes us) and credit escrow.
             // Wallet payment: debit the customer's wallet (a liability that shrinks) and credit escrow.
@@ -54,15 +68,13 @@ class EscrowService
                 'description' => "Escrow for agreement {$agreement->number}",
                 'posted_by' => $postedBy,
                 'is_test' => (bool) $agreement->is_test,
-            ], [
-                ['account_id' => $from, 'direction' => 'debit', 'amount' => $total],
-                ['account_id' => $escrowAccount, 'direction' => 'credit', 'amount' => $total],
-            ]);
+            ], array_values(array_filter($legs, fn ($l) => $l['amount'] > 0)));
 
             $holdId = DB::table('escrow_holds')->insertGetId([
                 'agreement_id' => $agreementId,
                 'ledger_account_id' => $escrowAccount,
                 'amount' => $total,
+                'subsidy' => $subsidy,
                 'status' => 'held',
                 'release_after' => null,
                 'is_test' => (bool) $agreement->is_test,
@@ -149,6 +161,7 @@ class EscrowService
             ], $entries);
 
             $this->recordCommission($agreement, $fee, (int) $agreement->provider_net, $tx['id']);
+            $this->settleOffline($agreement, $net);
             DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->update(['status' => 'settled', 'updated_at' => now()]);
             DB::table('escrow_holds')->where('id', $hold->id)->update([
                 'released_amount' => (int) $hold->released_amount + max($net, 0) + $fee,
@@ -181,6 +194,8 @@ class EscrowService
             }
 
             $customerWallet = $this->accounts->wallet('customer', (int) $agreement->customer_id, 1);
+            // Emptying the hold: the platform's discount top-up goes back to the platform, the rest to the customer.
+            $toPlatform = $amount === $remaining ? $this->subsidyLeft($hold, $amount) : 0;
             $tx = $this->ledger->post("escrow-refund-{$agreementId}-{$hold->refunded_amount}-{$amount}", [
                 'operator_id' => (int) $agreement->provider_operator_id,
                 'kind' => 'refund',
@@ -189,20 +204,21 @@ class EscrowService
                 'description' => "Refund for agreement {$agreement->number}",
                 'posted_by' => $postedBy,
                 'is_test' => (bool) $agreement->is_test,
-            ], [
+            ], array_values(array_filter([
                 ['account_id' => (int) $hold->ledger_account_id, 'direction' => 'debit', 'amount' => $amount],
-                ['account_id' => $customerWallet, 'direction' => 'credit', 'amount' => $amount],
-            ]);
+                ['account_id' => $customerWallet, 'direction' => 'credit', 'amount' => $amount - $toPlatform],
+                ['account_id' => $this->accounts->platform('promo_expense'), 'direction' => 'credit', 'amount' => $toPlatform],
+            ], fn ($l) => $l['amount'] > 0)));
 
             $refunded = (int) $hold->refunded_amount + $amount;
             $status = ($refunded + (int) $hold->released_amount) >= (int) $hold->amount ? 'refunded' : 'partially_released';
-            DB::table('escrow_holds')->where('id', $hold->id)->update(['refunded_amount' => $refunded, 'status' => $status, 'updated_at' => now()]);
+            DB::table('escrow_holds')->where('id', $hold->id)->update(['refunded_amount' => $refunded, 'subsidy_returned' => (int) $hold->subsidy_returned + $toPlatform, 'status' => $status, 'updated_at' => now()]);
 
             if ($status === 'refunded') {
                 DB::table('agreements')->where('id', $agreementId)->update(['status' => 'cancelled', 'updated_at' => now()]);
             }
 
-            return ['transaction_id' => $tx['id'], 'refunded' => $amount];
+            return ['transaction_id' => $tx['id'], 'refunded' => $amount - $toPlatform, 'returned_to_platform' => $toPlatform];
         });
     }
 
@@ -245,6 +261,12 @@ class EscrowService
             if ($fee > 0) {
                 $entries[] = ['account_id' => $this->accounts->platform('platform_commission'), 'direction' => 'credit', 'amount' => $fee];
             }
+            // The platform's discount top-up is only spent on a delivery that happened: it comes back before the customer's money.
+            $toPlatform = $this->subsidyLeft($hold, $toCustomer);
+            $toCustomer -= $toPlatform;
+            if ($toPlatform > 0) {
+                $entries[] = ['account_id' => $this->accounts->platform('promo_expense'), 'direction' => 'credit', 'amount' => $toPlatform];
+            }
             if ($toCustomer > 0) {
                 $entries[] = ['account_id' => $this->accounts->wallet('customer', (int) $agreement->customer_id, 1), 'direction' => 'credit', 'amount' => $toCustomer];
             }
@@ -259,10 +281,11 @@ class EscrowService
             if ($providerShare > 0) {
                 $this->recordCommission($agreement, $fee, $providerShare - $fee, $tx['id']);
             }
+            $this->settleOffline($agreement, $net);
             DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->update(['status' => 'settled', 'updated_at' => now()]);
             DB::table('escrow_holds')->where('id', $hold->id)->update([
                 'released_amount' => (int) $hold->released_amount + max($net, 0) + $fee,
-                'refunded_amount' => (int) $hold->refunded_amount + $toCustomer,
+                'refunded_amount' => (int) $hold->refunded_amount + $toCustomer + $toPlatform, 'subsidy_returned' => (int) $hold->subsidy_returned + $toPlatform,
                 'status' => $providerShare + $goodsSpent > 0 ? 'released' : 'refunded', 'updated_at' => now(),
             ]);
             DB::table('agreements')->where('id', $agreementId)->update(['status' => $providerShare + $goodsSpent > 0 ? 'completed' : 'cancelled', 'updated_at' => now()]);
@@ -288,6 +311,33 @@ class EscrowService
         if ($added) {
             app(DriverPayService::class)->payForShipment((int) $shipmentId, $providerNet, (int) $agreement->provider_operator_id, (bool) $agreement->is_test);
         }
+    }
+
+    /**
+     * The provider already holds the customer's cash, so what was just credited to its wallet is set against that cash
+     * instead of being paid out a second time. What stays owed is the platform fee plus any driver pay the platform
+     * moved into the driver's wallet.
+     */
+    private function settleOffline(object $agreement, int $net): void
+    {
+        $order = DB::table('orders')->where('agreement_id', $agreement->id)->first(['id', 'payment_method']);
+        if (! $order || ! in_array($order->payment_method, self::OFFLINE_METHODS, true) || $net <= 0) {
+            return;
+        }
+        $driverPaid = (int) DB::table('assignments as a')->join('shipments as s', 's.id', '=', 'a.shipment_id')
+            ->where('s.order_id', $order->id)->whereNotNull('a.pay_posted_at')->sum('a.payout_amount');
+        $amount = $net - $driverPaid;
+        if ($amount <= 0) {
+            return;
+        }
+        $op = (int) $agreement->provider_operator_id;
+        $this->ledger->post("offline-settle-{$agreement->id}", [
+            'operator_id' => $op, 'kind' => 'offline_settlement', 'reference_type' => 'agreement', 'reference_id' => (int) $agreement->id,
+            'description' => "Cash already held by the provider for agreement {$agreement->number}", 'is_test' => (bool) $agreement->is_test,
+        ], [
+            ['account_id' => $this->accounts->wallet('operator', $op, $op), 'direction' => 'debit', 'amount' => $amount],
+            ['account_id' => $this->accounts->for('operator', $op, 'cod_clearing', $op), 'direction' => 'credit', 'amount' => $amount],
+        ]);
     }
 
     /** Customer approved extra goods money (shopping budget amendment): move it from their wallet into escrow. */
@@ -359,6 +409,18 @@ class EscrowService
     public function escrowTotal(object $agreement): int
     {
         return (int) $agreement->price + (int) $agreement->goods_budget + (int) $agreement->tip;
+    }
+
+    /** What the customer pays: the escrow total less any promo or corporate discount (the platform covers that part). */
+    public function payableTotal(object $agreement): int
+    {
+        return $this->escrowTotal($agreement) - min($this->escrowTotal($agreement), (int) ($agreement->discount ?? 0));
+    }
+
+    /** How much of the platform's discount top-up is still in the hold, capped at what is about to leave it. */
+    private function subsidyLeft(object $hold, int $outgoing): int
+    {
+        return max(0, min($outgoing, (int) ($hold->subsidy ?? 0) - (int) ($hold->subsidy_returned ?? 0)));
     }
 
     private function lockAgreement(int $id): object

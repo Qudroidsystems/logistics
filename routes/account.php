@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Customer\AccountController as A;
+use App\Http\Controllers\Customer\BookingPagesController as Bk;
 use Illuminate\Support\Facades\Route;
 
 /** The customer's own area: requests and offers, paying, orders, wallet. Every query is scoped to the signed-in user. */
@@ -36,6 +37,15 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::post('/orders/{shipment}/confirm', [A::class, 'confirm'])->name('order.confirm');
     Route::post('/orders/{shipment}/object', [A::class, 'object'])->name('order.object');
     Route::post('/orders/{shipment}/rate', [A::class, 'rate'])->name('order.rate');
+
+    Route::get('/addresses', [Bk::class, 'addresses'])->name('addresses');
+    Route::post('/addresses', [Bk::class, 'saveAddress'])->middleware('throttle:20,1')->name('address.save');
+    Route::delete('/addresses/{address}', [Bk::class, 'deleteAddress'])->name('address.delete');
+    Route::post('/requests/{serviceRequest}/files', [Bk::class, 'upload'])->middleware('throttle:20,1')->name('request.file');
+    Route::delete('/files/{attachment}', [Bk::class, 'deleteFile'])->name('file.delete');
+    Route::post('/pay/{agreement}/promo', [Bk::class, 'applyPromo'])->middleware('throttle:10,1')->name('pay.promo');
+    Route::delete('/pay/{agreement}/promo', [Bk::class, 'removePromo'])->name('pay.promo.remove');
+    Route::get('/orders/{shipment}/receipt', [Bk::class, 'receipt'])->middleware('throttle:20,1')->name('order.receipt');
 
     Route::get('/wallet', [A::class, 'walletPage'])->name('wallet');
     Route::post('/wallet/top-up', [A::class, 'topUp'])->middleware('throttle:10,1')->name('wallet.topup');

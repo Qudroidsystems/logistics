@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Temporary passwords (staff-created accounts) must be changed first.
         $middleware->web(append: [\App\Http\Middleware\MaintenanceMode::class, \App\Http\Middleware\FeatureRouteGuard::class, \App\Http\Middleware\ForcePasswordChange::class, \App\Http\Middleware\LogActivity::class]);
 
+        // Who is acting, for the data-change audit trail; then two-step sign-in where it is required.
+        $middleware->web(append: [\App\Http\Middleware\AuditContext::class, \App\Http\Middleware\RequireTwoFactor::class]);
+        $middleware->api(append: [\App\Http\Middleware\AuditContext::class]);
+
         $middleware->validateCsrfTokens(except: [
             'webhook/*',
             'payment/callback',

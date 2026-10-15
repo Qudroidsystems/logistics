@@ -5,14 +5,20 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use App\Models\User;
+use App\Modules\Identity\Security\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
-    use AuthenticatesUsers;
+    use AuthenticatesUsers {
+        sendLoginResponse as private finishPasswordLogin;
+    }
 
     protected $redirectTo = '/dashboard';
+
+    /** The password was right but the account uses two-step sign-in: the code is asked next. */
+    private bool $twoFactorPending = false;
 
     public function __construct()
     {
@@ -38,6 +44,42 @@ class LoginController extends Controller
             }
         }
         return ['email' => $login, 'password' => $request->input('password')];
+    }
+
+    /**
+     * With two-step sign-in on, a right password does not sign in yet: the person is remembered for ten minutes
+     * and asked for the code from their authenticator app (TwoFactorController::challenge).
+     */
+    protected function attemptLogin(Request $request)
+    {
+        $credentials = $this->credentials($request);
+        $provider = $this->guard()->getProvider();
+        $user = $provider->retrieveByCredentials($credentials);
+        if ($user && app(TwoFactorService::class)->enabled($user) && $provider->validateCredentials($user, $credentials)) {
+            $request->session()->put('login.two_factor', ['id' => $user->id, 'remember' => $request->boolean('remember'), 'at' => time(), 'tries' => 0]);
+            $this->twoFactorPending = true;
+
+            return true;
+        }
+
+        return $this->guard()->attempt($credentials, $request->boolean('remember'));
+    }
+
+    protected function sendLoginResponse(Request $request)
+    {
+        if (! $this->twoFactorPending) {
+            return $this->finishPasswordLogin($request);
+        }
+        $request->session()->regenerate();
+        $this->clearLoginAttempts($request);
+
+        return redirect()->route('two-factor.challenge');
+    }
+
+    /** Where to go once fully signed in (also used after the two-step code). */
+    public function afterSignIn(Request $request, User $user)
+    {
+        return $this->authenticated($request, $user) ?: redirect()->intended($this->redirectPath());
     }
 
     protected function authenticated(Request $request, $user)

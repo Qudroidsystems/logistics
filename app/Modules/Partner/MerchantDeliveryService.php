@@ -43,6 +43,7 @@ class MerchantDeliveryService
                     'operator_id' => $operatorId, 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],
                     'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'weight_g' => $d['weight_g'] ?? 0, 'fragile' => $d['fragile'] ?? false,
                     'declared_value' => $d['declared_value'] ?? 0, 'is_test' => $client->environment !== 'live',
+                    'rush' => (bool) ($d['rush'] ?? false), 'merchant_id' => (int) $merchant->id,
                 ] + $route);
             } catch (NoPricingPlan) {
                 continue;

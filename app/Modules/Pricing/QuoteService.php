@@ -14,14 +14,15 @@ use RuntimeException;
  * Expected $request keys:
  *   operator_id, service_type_id, vehicle_type_id?, city_id, customer_id?, distance_m, duration_s,
  *   weight_g, stops (array of pickup/dropoff points), fragile?, declared_value?, cod_amount?,
- *   dropoff_zone_ids?, wait_minutes?, promo_code?, scheduled_for?, is_test?
+ *   dropoff_zone_ids?, wait_minutes?, promo_code?, scheduled_for?, rush?, merchant_id?, is_test?
  */
 class QuoteService
 {
     public const QUOTE_TTL_MINUTES = 10;
 
-    public function __construct(private PriceCalculator $calculator)
+    public function __construct(private PriceCalculator $calculator, private ?Discounts $discounts = null)
     {
+        $this->discounts ??= new Discounts();
     }
 
     public function quote(array $request): array
@@ -57,6 +58,8 @@ class QuoteService
             'extra_stops' => max(0, count(array_filter($stops, fn ($s) => ($s['type'] ?? '') === 'dropoff')) - 1),
             'wait_minutes' => (int) ($request['wait_minutes'] ?? 0),
             'hour' => (int) $when->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('G'),
+            'weekday' => (int) $when->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('N'),
+            'rush' => (bool) ($request['rush'] ?? false),
             'fragile' => (bool) ($request['fragile'] ?? false),
             'declared_value' => (int) ($request['declared_value'] ?? 0),
             'cod_amount' => (int) ($request['cod_amount'] ?? 0),
@@ -73,8 +76,12 @@ class QuoteService
             $rules,
             $input,
         );
-        if ($promo) {
-            $input['discount'] = $this->promoDiscount($promo, $result['subtotal']);
+        $corporate = $this->discounts->corporate($request['merchant_id'] ?? null, $request['customer_id'] ?? null, (int) $request['operator_id']);
+        if ($promo || $corporate) {
+            // Both apply to the pre-discount subtotal; together they never exceed it (PriceCalculator caps the discount).
+            $input['corporate_discount'] = $corporate ? $this->discounts->corporateAmount($corporate, $result['subtotal']) : 0;
+            $input['promo_discount'] = $promo ? $this->discounts->promoAmount($promo, $result['subtotal']) : 0;
+            $input['discount'] = $input['corporate_discount'] + $input['promo_discount'];
             $result = $this->calculator->calculate(
                 ['min_fee' => (int) $plan->min_fee, 'max_fee' => $plan->max_fee !== null ? (int) $plan->max_fee : null, 'rounding_kobo' => (int) $plan->rounding_kobo],
                 $rules,
@@ -150,41 +157,6 @@ class QuoteService
 
     private function promo(array $r): ?object
     {
-        if (empty($r['promo_code'])) {
-            return null;
-        }
-
-        $promo = DB::table('promo_codes')->where('code', strtoupper($r['promo_code']))->where('active', true)
-            ->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('valid_to')->orWhere('valid_to', '>=', now()))
-            ->first();
-
-        if (! $promo) {
-            throw new RuntimeException('That promo code is not valid.');
-        }
-        if ($promo->usage_limit !== null && DB::table('promo_redemptions')->where('promo_code_id', $promo->id)->count() >= $promo->usage_limit) {
-            throw new RuntimeException('That promo code has been fully used.');
-        }
-        if (! empty($r['customer_id']) && DB::table('promo_redemptions')->where('promo_code_id', $promo->id)->where('user_id', $r['customer_id'])->count() >= $promo->per_user_limit) {
-            throw new RuntimeException('You have already used this promo code.');
-        }
-
-        return $promo;
-    }
-
-    private function promoDiscount(object $promo, int $subtotal): int
-    {
-        if ($promo->min_order !== null && $subtotal < $promo->min_order) {
-            return 0;
-        }
-
-        $discount = match ($promo->type) {
-            'percent' => intdiv($subtotal * (int) $promo->value, 10_000),
-            'fixed' => (int) $promo->value,
-            'free_delivery' => $subtotal,
-            default => 0,
-        };
-
-        return $promo->cap !== null ? min($discount, (int) $promo->cap) : $discount;
+        return empty($r['promo_code']) ? null : $this->discounts->promo((string) $r['promo_code'], $r['customer_id'] ?? null, (int) $r['operator_id']);
     }
 }

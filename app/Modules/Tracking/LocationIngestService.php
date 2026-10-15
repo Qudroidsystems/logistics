@@ -51,6 +51,7 @@ class LocationIngestService
             );
             if ($shipmentId) {
                 $this->geofence($driverProfileId, (int) $shipmentId, $last);
+                app(\App\Modules\Eta\ArrivalAlerts::class)->check((int) $shipmentId);
             }
         }
 
@@ -103,6 +104,7 @@ class LocationIngestService
             [$shipmentId, $stop->id, $driverProfileId, (int) round($stop->d), $p['lng'], $p['lat']]
         );
         DB::table('shipment_stops')->where('id', $stop->id)->update(['status' => 'arrived', 'arrived_at' => now(), 'updated_at' => now()]);
+        app(\App\Modules\Eta\ArrivalAlerts::class)->arrived($shipmentId, (int) $stop->id, (string) $stop->type);
         if ($stop->type === 'return') {
             return; // back at the pickup address with the parcel: the driver completes the stop themselves
         }

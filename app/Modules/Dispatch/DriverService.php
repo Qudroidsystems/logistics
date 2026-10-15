@@ -79,7 +79,7 @@ class DriverService
             return null;
         }
         $stops = DB::table('shipment_stops')->selectRaw(
-            'id, shipment_id, seq, type, line1, landmark, contact_name, contact_phone, instructions, status, requires_photo,
+            'id, shipment_id, seq, type, line1, landmark, contact_name, contact_phone, instructions, status, requires_photo, readiness, readiness_note, readiness_at,
              ST_Y(point::geometry) as lat, ST_X(point::geometry) as lng'
         )->where('shipment_id', $row->shipment_id)->orderBy('seq')->get();
 
@@ -91,12 +91,14 @@ class DriverService
             $mine = $exceptions->where('stop_id', (int) $s->id)->values();
             $waived = $mine->where('status', 'approved')->pluck('method')->intersect($requires)->values()->all();
             $a = (array) $s;
-            unset($a['shipment_id']);
+            unset($a['shipment_id'], $a['readiness'], $a['readiness_note'], $a['readiness_at']);
 
             return $a + [
                 'requires' => $requires, 'requires_labels' => VerificationPolicy::describe($requires), 'waived' => $waived,
                 'needs_code' => in_array('code', $requires, true) && ! in_array('code', $waived, true),
                 'exceptions' => $mine->all(),
+                // What the receiver told the rider from their tracking link ("I need 10 more minutes").
+                'receiver_reply' => \App\Modules\Eta\ReceiverReplies::current($s),
             ];
         })->all();
         $scanned = DB::table('package_scans')->where('shipment_id', $row->shipment_id)->get(['package_id', 'scan_type'])

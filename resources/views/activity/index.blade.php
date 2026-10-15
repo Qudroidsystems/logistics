@@ -48,6 +48,7 @@
                         <td><span class="status-pill {{ $ec }}"><i class="{{ $ei }}"></i> {{ $el }}</span></td>
                         <td class="small">{{ $l->description }}
                             @if($props)<details class="mt-1"><summary class="text-muted">details</summary><div class="text-muted" style="max-width:420px;word-break:break-word">@foreach($props as $k => $v)<span class="me-2"><b>{{ $k }}</b>: {{ is_scalar($v) ? $v : json_encode($v) }}</span>@endforeach<div>{{ $l->method }} {{ \Illuminate\Support\Str::limit($l->url, 90) }} {{ $l->status ? '· ' . $l->status : '' }}</div></div></details>@endif
+                            @if(!empty($l->request_id) && in_array($l->event, ['create', 'update', 'delete', 'action'], true))@can('View audit log')<div><a href="{{ route('audit.index', ['request' => $l->request_id]) }}" class="small">Data changed</a></div>@endcan @endif
                         </td>
                         <td class="small text-muted text-nowrap">{{ $l->ip }}<div>{{ $l->device }}</div></td>
                     </tr>

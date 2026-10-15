@@ -63,9 +63,16 @@ class StopService
             if ($stop->type === 'return') {
                 app(\App\Modules\Marketplace\FailedDeliveryService::class)->completeReturn((int) $stop->shipment_id, $driverProfileId);
             } elseif ($stop->type === 'pickup') {
-                DB::table('shipments')->where('id', $stop->shipment_id)->update(['status' => 'in_transit', 'updated_at' => now()]);
-                app(\App\Modules\Partner\ShipmentEvents::class)->record((int) $stop->shipment_id, 'picked_up', 'at_pickup', 'in_transit', 'driver', $driverProfileId);
+                // The first pickup puts the job in transit; later pickups on a multi-stop route just tick off.
+                if (DB::table('shipments')->where('id', $stop->shipment_id)->value('status') !== 'in_transit') {
+                    DB::table('shipments')->where('id', $stop->shipment_id)->update(['status' => 'in_transit', 'updated_at' => now()]);
+                    app(\App\Modules\Partner\ShipmentEvents::class)->record((int) $stop->shipment_id, 'picked_up', 'at_pickup', 'in_transit', 'driver', $driverProfileId);
+                }
                 DB::table('assignments')->where('shipment_id', $stop->shipment_id)->where('driver_profile_id', $driverProfileId)->update(['status' => 'active', 'updated_at' => now()]);
+            } elseif (DB::table('shipment_stops')->where('shipment_id', $stop->shipment_id)->whereIn('type', ['pickup', 'dropoff'])
+                ->where('id', '!=', $stopId)->whereNotIn('status', ['completed', 'skipped'])->exists()) {
+                // A drop-off with more stops still to do: the job carries on.
+                app(\App\Modules\Partner\ShipmentEvents::class)->record((int) $stop->shipment_id, 'stop_completed', 'in_transit', 'in_transit', 'driver', $driverProfileId);
             } else {
                 DB::table('assignments')->where('shipment_id', $stop->shipment_id)->where('driver_profile_id', $driverProfileId)->update(['status' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
                 DB::table('driver_profiles')->where('id', $driverProfileId)->update(['availability' => 'online', 'last_trip_at' => now(), 'updated_at' => now()]);

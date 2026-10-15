@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 
 // Public, token-guarded tracking page data.
 Route::get('/v1/track/{token}', [TrackingController::class, 'show'])->middleware('throttle:60,1');
+Route::post('/v1/track/{token}/reply', [TrackingController::class, 'reply'])->middleware('throttle:10,1');
 
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::prefix('driver')->middleware('throttle:120,1')->group(function () {

@@ -17,6 +17,7 @@
         <x-cb.card :title="ucfirst($s['type']).' '.$s['seq']" icon="{{ $s['type'] === 'pickup' ? 'ri-map-pin-line' : 'ri-flag-line' }}">
             <div class="d-flex justify-content-between"><strong>{{ $s['line1'] }}</strong><span class="badge bg-light text-dark">{{ $s['status'] }}</span></div>
             @if($s['landmark'])<div class="small text-muted">Near {{ $s['landmark'] }}</div>@endif
+            @if(!empty($s['receiver_reply']))<div class="alert alert-info py-1 px-2 small mt-2 mb-0"><i class="ri-chat-1-line"></i> Receiver: <strong>{{ $s['receiver_reply']['label'] }}</strong>@if($s['receiver_reply']['note']) "{{ $s['receiver_reply']['note'] }}"@endif</div>@endif
             @if($s['instructions'])<div class="small mt-1">{{ $s['instructions'] }}</div>@endif
             @if($s['contact_name'] || $s['contact_phone'])
                 <div class="small mt-1">{{ $s['contact_name'] }} @if($s['contact_phone'])<a href="tel:{{ $s['contact_phone'] }}">{{ $s['contact_phone'] }}</a>@endif</div>

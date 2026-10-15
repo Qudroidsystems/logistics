@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\BackofficeController as Bo;
 use App\Http\Controllers\Admin\CityZoneController as Z;
 use App\Http\Controllers\Admin\FailedDeliveriesController as Fd;
 use App\Http\Controllers\Admin\MerchantsController as Mc;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
+use App\Http\Controllers\Admin\PricingAdminController as Pr;
 use App\Http\Controllers\Admin\SettingsController as St;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +15,16 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
 
     Route::get('/orders', [C::class, 'orders'])->middleware('can:View delivery')->name('orders');
     Route::get('/orders/{order}', [C::class, 'order'])->middleware('can:View delivery')->name('order');
+    Route::get('/orders/{order}/edit', [Bo::class, 'editJob'])->middleware('can:Update delivery')->name('order.edit');
+    Route::put('/orders/{order}', [Bo::class, 'updateJob'])->middleware('can:Update delivery')->name('order.update');
+    Route::get('/bookings/new', [Bo::class, 'newBooking'])->middleware('can:Create delivery')->name('booking.new');
+    Route::post('/bookings/price', [Bo::class, 'price'])->middleware(['can:Create delivery', 'throttle:30,1'])->name('booking.price');
+    Route::post('/bookings', [Bo::class, 'storeBooking'])->middleware(['can:Create delivery', 'throttle:20,1'])->name('booking.store');
+
+    // Reports: each report checks its own permission; exports also need "Export reports".
+    Route::get('/reports/{report}/export.{format}', [Bo::class, 'export'])->middleware('can:Export reports')->whereIn('format', ['xlsx', 'pdf'])->name('reports.export');
+    Route::get('/reports/{report?}', [Bo::class, 'reports'])->name('reports');
+
     Route::get('/failed-deliveries', [Fd::class, 'index'])->middleware('can:View delivery')->name('failed');
 
     Route::get('/disputes', [C::class, 'disputes'])->middleware('can:View dispute')->name('disputes');
@@ -52,6 +64,18 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/settings', [St::class, 'index'])->name('settings');
     Route::post('/settings/fee', [St::class, 'saveFee'])->name('settings.fee');
     Route::post('/settings/rules', [St::class, 'saveRules'])->name('settings.rules');
+
+    Route::get('/promos', [Pr::class, 'promos'])->middleware('can:View promo code')->name('promos');
+    Route::post('/promos', [Pr::class, 'storePromo'])->middleware('can:Create promo code')->name('promo.store');
+    Route::post('/promos/{promo}/toggle', [Pr::class, 'togglePromo'])->middleware('can:Update promo code')->whereNumber('promo')->name('promo.toggle');
+    Route::post('/corporate-discounts', [Pr::class, 'storeCorporate'])->middleware('can:Create promo code')->name('corporate.store');
+    Route::post('/corporate-discounts/{discount}/toggle', [Pr::class, 'toggleCorporate'])->middleware('can:Update promo code')->whereNumber('discount')->name('corporate.toggle');
+    Route::get('/price-lists', [Pr::class, 'plans'])->middleware('can:Manage pricing rules')->name('price-lists');
+    Route::post('/price-lists', [Pr::class, 'storePlan'])->middleware('can:Manage pricing rules')->name('price-list.store');
+    Route::get('/price-lists/{plan}', [Pr::class, 'plan'])->middleware('can:Manage pricing rules')->whereNumber('plan')->name('price-list');
+    Route::post('/price-lists/{plan}/rules', [Pr::class, 'storeRule'])->middleware('can:Manage pricing rules')->whereNumber('plan')->name('price-list.rule');
+    Route::delete('/price-lists/{plan}/rules/{rule}', [Pr::class, 'deleteRule'])->middleware('can:Manage pricing rules')->whereNumber(['plan', 'rule'])->name('price-list.rule.delete');
+    Route::post('/price-lists/{plan}/status', [Pr::class, 'setPlanStatus'])->middleware('can:Manage pricing rules')->whereNumber('plan')->name('price-list.status');
 
     Route::get('/merchants', [Mc::class, 'index'])->middleware('can:View vendor')->name('merchants');
     Route::post('/merchants', [Mc::class, 'store'])->middleware('can:Create vendor')->name('merchant.store');

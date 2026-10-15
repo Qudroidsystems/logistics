@@ -33,6 +33,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     protected $casts = [
@@ -41,6 +43,7 @@ class User extends Authenticatable
         'must_change_password'=> 'boolean',
         'is_disabled'         => 'boolean',
         'last_login_at'       => 'datetime',
+        'two_factor_confirmed_at' => 'datetime',
     ];
 
     public function getFirstNameAttribute(): string

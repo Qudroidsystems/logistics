@@ -73,6 +73,8 @@
                 </form>
             </x-cb.card>
 
+            @include('provider._team-security')
+
             @if(count($invites))
             <x-cb.card title="Waiting to join" icon="ri-time-line" class="mt-3">
                 @foreach($invites as $i)

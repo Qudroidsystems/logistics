@@ -74,7 +74,10 @@ class StopVerifier
     private function scanProblem(object $stop): ?string
     {
         $type = $stop->type === 'pickup' ? 'pickup' : 'delivery';
-        $all = DB::table('packages')->where('shipment_id', $stop->shipment_id)->pluck('public_id', 'id');
+        // On a multi-stop route only the parcels loaded or unloaded at this stop count.
+        $column = $stop->type === 'pickup' ? 'pickup_stop_id' : 'dropoff_stop_id';
+        $all = DB::table('packages')->where('shipment_id', $stop->shipment_id)
+            ->where(fn ($q) => $q->where($column, $stop->id)->orWhereNull($column))->pluck('public_id', 'id');
         if ($all->isEmpty()) {
             return null;
         }

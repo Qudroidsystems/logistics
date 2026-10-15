@@ -99,6 +99,7 @@ class AccountController extends Controller
             'cities' => DB::table('cities')->orderBy('name')->selectRaw('id, name, ST_Y(centre::geometry) AS lat, ST_X(centre::geometry) AS lng')->get(),
             'vehicleTypes' => DB::table('vehicle_types')->where('active', true)->orderBy('id')->get(['id', 'name']),
             'provider' => $provider ? DB::table('operators')->where('id', $provider)->first(['id', 'display_name']) : null,
+            'savedAddresses' => app(\App\Modules\Booking\SavedAddresses::class)->list($request->user()->id),
             'proofOptions' => array_intersect_key(\App\Modules\Verification\VerificationPolicy::LABELS, array_flip(\App\Modules\Verification\VerificationPolicy::DROPOFF)),
             'pagetitle' => 'Ask for a delivery',
         ]);
@@ -114,6 +115,9 @@ class AccountController extends Controller
             'packages' => array_map(fn ($d) => ['description' => $d], $request->input('type') === 'shopping' ? [] : $items),
             'budget_min' => self::kobo($request->input('budget_min_naira')), 'budget_max' => self::kobo($request->input('budget_max_naira')),
             'needed_by' => $request->input('needed_by') ?: null,
+            'pickup_at' => $request->input('when') === 'later' ? ($request->input('pickup_at') ?: null) : null, 'rush' => $request->boolean('rush'),
+            // Extra stops from the form, in the order they were added; rows without a map pin are ignored.
+            'stops' => array_values(array_filter((array) $request->input('stops', []), fn ($st) => is_array($st) && ! empty($st['line1']) && ! empty($st['lat']))) ?: null,
             'visibility' => $request->filled('provider') ? 'direct' : 'open', 'operator_ids' => $request->filled('provider') ? [(int) $request->input('provider')] : null,
         ];
         $names = array_values(array_filter(array_map('trim', preg_split('/[,\n]/', (string) $request->input('authorised_receivers')))));
@@ -123,9 +127,15 @@ class AccountController extends Controller
         if ($request->input('type') === 'shopping') {
             $in['errand'] = ['list' => $items, 'budget_cap' => self::kobo($request->input('budget_cap_naira')), 'substitution_policy' => $request->input('substitution_policy', 'ask')];
         }
+        $request->validate(['files' => 'nullable|array|max:'.\App\Modules\Booking\RequestAttachments::MAX_FILES,
+            'files.*' => 'file|max:'.\App\Modules\Booking\RequestAttachments::MAX_KB.'|mimes:'.implode(',', \App\Modules\Booking\RequestAttachments::MIMES)]);
+        $files = (array) $request->file('files', []);
         $res = $this->neg->createRequest($request->replace(array_filter($in, fn ($v) => $v !== null)), app(NegotiationService::class));
         if ($res->getStatusCode() >= 400) {
             return back()->withInput()->with('error', $res->getData(true)['message'] ?? 'That could not be done.');
+        }
+        foreach ($files as $file) {
+            app(\App\Modules\Booking\RequestAttachments::class)->add($request->user()->id, $res->getData(true)['request_id'], $file);
         }
 
         return redirect()->route('account.request', $res->getData(true)['request_id'])->with('success', 'Request sent. Offers will appear here as providers reply.');
@@ -200,9 +210,11 @@ class AccountController extends Controller
         if ($order) {
             return redirect()->route('account.order', $order);
         }
-        $total = $escrow->escrowTotal($a);
+        // Promo and corporate discounts come off the delivery price; the summary keeps them current.
+        $summary = app(\App\Modules\Booking\AgreementDiscounts::class)->summary((int) $a->id, $request->user()->id);
+        $total = $summary['payable'];
 
-        return $this->view('account.pay', ['a' => $a, 'total' => $total, 'balance' => $wallet->balance($request->user()->id), 'pagetitle' => 'Pay']);
+        return $this->view('account.pay', ['a' => $a, 'total' => $total, 'summary' => $summary, 'balance' => $wallet->balance($request->user()->id), 'pagetitle' => 'Pay']);
     }
 
     public function doPay(Request $request, string $agreement, PaymentService $payments)

@@ -60,6 +60,8 @@ Route::middleware('auth')->group(function () {
 
     // Proof-of-delivery photos (private disk, access checked per file)
     Route::get('/proofs/{proof}', [\App\Http\Controllers\ProofController::class, 'show'])->where('proof', '[A-Za-z0-9]{26}')->middleware('throttle:120,1')->name('proofs.show');
+    // Photos and documents a customer added to a request (access checked per file)
+    Route::get('/files/{attachment}', [\App\Http\Controllers\Api\Customer\BookingController::class, 'showAttachment'])->where('attachment', '[A-Za-z0-9]{26}')->middleware('throttle:120,1')->name('request-files.show');
 
     // ------------------------------------------------------------ users, roles, permissions
     Route::get('/users/roles', [UserController::class, 'roles'])->name('users.roles');
@@ -131,3 +133,4 @@ require __DIR__.'/account.php';
 require __DIR__.'/driver.php';
 require __DIR__.'/merchant.php';
 require __DIR__.'/track.php';
+require __DIR__.'/security.php';

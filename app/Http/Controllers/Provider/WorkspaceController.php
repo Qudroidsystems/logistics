@@ -134,6 +134,9 @@ class WorkspaceController extends Controller
             'exceptions' => app(ExceptionService::class)->forShipment((int) $s->id),
             'custody' => app(CustodyLog::class)->verify((int) $s->id),
             'custodyEvents' => app(CustodyLog::class)->events((int) $s->id),
+            'alertsSent' => app(\App\Modules\Eta\ArrivalAlerts::class)->forShipment((int) $s->id),
+            'eta' => app(\App\Modules\Eta\EtaService::class)->forShipment((int) $s->id),
+            'receiverReply' => \App\Modules\Eta\ReceiverReplies::current(DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'dropoff')->orderByDesc('seq')->first()),
             'packages' => app(\App\Modules\Tracking\ParcelCodes::class)->forShipment((int) $s->id),
             'pagetitle' => 'Job',
         ], 'jobs');
@@ -178,8 +181,9 @@ class WorkspaceController extends Controller
 
         $ids = $waiting->pluck('id')->merge($moving->pluck('id'))->all();
         $stops = DB::table('shipment_stops')->whereIn('shipment_id', $ids)->orderBy('seq')->get(['shipment_id', 'type', 'line1'])->groupBy('shipment_id');
-        $drivers = DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
-            ->whereIn('a.shipment_id', $moving->pluck('id'))->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->pluck('u.name', 'a.shipment_id');
+        $live = DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
+            ->whereIn('a.shipment_id', $moving->pluck('id'))->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->get(['a.shipment_id', 'u.id as user_id', 'u.name']);
+        $drivers = $live->pluck('name', 'shipment_id');
         $issues = DB::table('shipment_events')->whereIn('shipment_id', $moving->pluck('id'))->where('type', 'driver_issue')->where('created_at', '>', now()->subDay())
             ->selectRaw('shipment_id, count(*) as n')->groupBy('shipment_id')->pluck('n', 'shipment_id');
         $line = fn ($id, $type) => optional(collect($stops[$id] ?? [])->firstWhere('type', $type))->line1
@@ -187,6 +191,7 @@ class WorkspaceController extends Controller
 
         return $this->view('provider.board', $request, [
             'waiting' => $waiting, 'moving' => $moving, 'driverOf' => $drivers, 'issues' => $issues, 'line' => $line,
+            'lanes' => $live->groupBy('user_id')->map(fn ($rows) => $rows->pluck('shipment_id')->all())->all(),
             'drivers' => app(ManualAssignmentService::class)->drivers($op->id), 'pagetitle' => 'Dispatch board',
         ], 'jobs');
     }
@@ -194,8 +199,10 @@ class WorkspaceController extends Controller
     public function assignJob(Request $request, string $shipment)
     {
         $this->ctx($request, 'jobs');
+        $res = app(\App\Http\Controllers\Api\Provider\DriverAssignmentController::class)->assign($request, $shipment);
 
-        return $this->back(app(\App\Http\Controllers\Api\Provider\DriverAssignmentController::class)->assign($request, $shipment), 'Driver assigned.');
+        // The drag-and-drop board posts in the background and wants the answer, not a page.
+        return $request->expectsJson() ? $res : $this->back($res, 'Driver assigned.');
     }
 
     public function cancelJob(Request $request, string $shipment, CancellationService $svc)

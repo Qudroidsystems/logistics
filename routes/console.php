@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Schedule;
 // Keep a year of platform activity.
 Schedule::command('activity:prune --days=365')->dailyAt('02:30');
 
+// Keep two years of data changes (who changed what).
+Schedule::command('audit:prune --days=730')->dailyAt('02:40');
+
 // Housekeeping for old in-app notifications.
 Schedule::command('app:cleanup-old-notifications')->dailyAt('03:15');
 
@@ -37,3 +40,6 @@ Schedule::command('providers:refresh-scores')->dailyAt('04:00')->withoutOverlapp
 
 // Payments: confirm online payments whose webhook never arrived.
 Schedule::command('payments:reconcile')->everyFiveMinutes()->withoutOverlapping(10);
+
+// Bookings for later: offer them to drivers shortly before the customer's pickup time.
+Schedule::command('dispatch:scheduled')->everyMinute()->withoutOverlapping(5);

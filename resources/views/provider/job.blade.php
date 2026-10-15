@@ -8,10 +8,15 @@
             <span class="cb-meta-pill">{{ str_replace('_', ' ', $s->status) }}</span>
             <span class="cb-meta-pill">{{ $naira($order->total) }}</span>
         </x-slot:pills>
+        @php $editable = \App\Modules\Backoffice\JobEditService::editable($s->status); @endphp
+        @if($editable['pickup'] || $editable['dropoff'])
+            <x-slot:actions><a class="cb-hero-btn" href="{{ route('provider.job.edit', $s->public_id) }}"><i class="ri-edit-2-line"></i> Edit details</a></x-slot:actions>
+        @endif
     </x-cb.hero>
     @include('provider._flash')
     <div class="row g-3">
         <div class="col-lg-8">
+            @include('partials.booking-details', ['bookingShipmentId' => $s->id])
             <x-cb.card title="If the delivery fails" icon="ri-file-list-3-line" class="mb-3">
                 @foreach($terms as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
                 <div class="small text-muted">Agreed with the customer when the job was booked.</div>
@@ -38,6 +43,15 @@
                 @endforeach
             </x-cb.card>
             @include('partials.proofs')
+            <x-cb.card title="Arrival and alerts" icon="ri-notification-3-line" class="mb-3">
+                @if($eta)<div class="small mb-1">Rider is <strong>{{ $eta['label'] }}</strong> from the {{ $eta['stop_type'] === 'pickup' ? 'pickup' : 'drop-off' }}@if($eta['stale']) <span class="text-warning">(last position is old, rough guess)</span>@endif.</div>@endif
+                @if($receiverReply)<div class="small mb-2">Receiver said: <strong>{{ $receiverReply['label'] }}</strong>@if($receiverReply['note']) "{{ $receiverReply['note'] }}"@endif</div>@endif
+                @forelse($alertsSent as $a)
+                    <div class="small d-flex justify-content-between border-bottom py-1"><span>{{ $a['label'] }} ({{ $a['stop_type'] === 'pickup' ? 'pickup' : 'drop-off' }})@if($a['status'] === 'skipped') <span class="text-muted">skipped, a closer alert went out</span>@elseif($a['channels']) <span class="text-muted">by {{ implode(' and ', array_map(fn ($c) => $c === 'sms' ? 'text' : 'app', $a['channels'])) }}</span>@endif</span><span class="text-muted">{{ \Illuminate\Support\Carbon::parse($a['at'])->format('j M H:i') }}</span></div>
+                @empty
+                    <span class="small text-muted">No alerts yet. <a href="{{ route('provider.alerts') }}">Choose when they go out</a>.</span>
+                @endforelse
+            </x-cb.card>
             <x-cb.card title="Custody trail" icon="ri-links-line" class="mb-3">
                 @if($custody['events'] === 0)
                     <span class="small text-muted">No scans or proofs yet.</span>
