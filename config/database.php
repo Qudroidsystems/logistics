@@ -96,6 +96,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            // The database session runs on the app's clock (config/app.php), so a time Laravel writes without an
+            // offset means what it says, SQL now() matches PHP now(), and times read back carry the +01:00 offset.
+            'timezone' => env('DB_TIMEZONE', 'Africa/Lagos'),
         ],
 
         'sqlsrv' => [
