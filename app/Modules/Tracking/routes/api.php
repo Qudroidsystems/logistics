@@ -28,6 +28,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::get('/packages/lookup', [DriverWorkController::class, 'package'])->middleware('throttle:60,1');
         Route::post('/location', [DriverJobController::class, 'location']);
         Route::post('/stops/{stop}/complete', [DriverJobController::class, 'completeStop']);
+        Route::post('/sync', [DriverJobController::class, 'sync']);
     });
     Route::get('/banks', [CustomerWalletController::class, 'banks']);
     Route::prefix('customer')->group(function () {

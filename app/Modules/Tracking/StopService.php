@@ -13,9 +13,10 @@ class StopService
     {
     }
 
-    public function complete(int $driverProfileId, int $stopId, string $proofType, ?string $filePath, ?string $otp, float $lat, float $lng, ?string $recipientName = null): void
+    /** $capturedAt is when the phone says the proof was taken (offline sync); the server's own time is kept in created_at. */
+    public function complete(int $driverProfileId, int $stopId, string $proofType, ?string $filePath, ?string $otp, float $lat, float $lng, ?string $recipientName = null, ?string $capturedAt = null): void
     {
-        DB::transaction(function () use ($driverProfileId, $stopId, $proofType, $filePath, $otp, $lat, $lng, $recipientName) {
+        DB::transaction(function () use ($driverProfileId, $stopId, $proofType, $filePath, $otp, $lat, $lng, $recipientName, $capturedAt) {
             $stop = DB::table('shipment_stops')->where('id', $stopId)->lockForUpdate()->first();
             $owns = $stop && DB::table('assignments')->where('shipment_id', $stop->shipment_id)
                 ->where('driver_profile_id', $driverProfileId)->whereIn('status', ['accepted', 'en_route', 'active'])->exists();
@@ -40,9 +41,9 @@ class StopService
             }
 
             DB::insert(
-                "INSERT INTO proofs (public_id, shipment_id, stop_id, type, file_path, otp_verified, recipient_name, point, distance_from_stop_m, verified_by, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, 'system', now(), now())",
-                [(string) \Illuminate\Support\Str::ulid(), $stop->shipment_id, $stopId, $proofType, $filePath, $otpOk, $recipientName, $lng, $lat, $dist]
+                "INSERT INTO proofs (public_id, shipment_id, stop_id, type, file_path, otp_verified, recipient_name, point, distance_from_stop_m, verified_by, captured_at, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, 'system', ?, now())",
+                [(string) \Illuminate\Support\Str::ulid(), $stop->shipment_id, $stopId, $proofType, $filePath, $otpOk, $recipientName, $lng, $lat, $dist, $capturedAt ?? now()]
             );
             DB::table('shipment_stops')->where('id', $stopId)->update(['status' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
 
