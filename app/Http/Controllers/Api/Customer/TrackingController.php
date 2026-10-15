@@ -37,7 +37,12 @@ class TrackingController extends Controller
     public function deliveryCode(Request $request, string $shipment, TrackingService $tracking)
     {
         $row = $this->own($request, $shipment);
-        if (! in_array('code', app(VerificationPolicy::class)->forShipment((int) $row->id)['dropoff'], true)) {
+        // A pickup point parcel is collected with a code, but only once it is there (the receiver is texted a fresh one then).
+        $point = app(\App\Modules\Returns\PickupPointService::class)->forCustomer((int) $row->id);
+        if ($point && ! $point['waiting']) {
+            return response()->json(['code' => null, 'expires_at' => null, 'message' => 'You get the collection code when the parcel reaches '.$point['name'].'.']);
+        }
+        if (! $point && ! in_array('code', app(VerificationPolicy::class)->forShipment((int) $row->id)['dropoff'], true)) {
             return response()->json(['code' => null, 'expires_at' => null, 'message' => 'This delivery is confirmed without a code.']);
         }
         $c = app(DeliveryCodes::class)->current((int) $row->id);
@@ -49,6 +54,15 @@ class TrackingController extends Controller
     public function newDeliveryCode(Request $request, string $shipment)
     {
         $row = $this->own($request, $shipment);
+        if ($row->status === 'at_pickup_point') {
+            try {
+                $c = app(\App\Modules\Returns\PickupPointService::class)->reissue((int) $row->id);
+            } catch (\RuntimeException $e) {
+                return response()->json(['message' => $e->getMessage()], 429);
+            }
+
+            return response()->json(['code' => $c['code'], 'expires_at' => $c['expires_at'], 'locked_until' => $c['locked_until']])->header('Cache-Control', 'no-store');
+        }
         abort_unless(in_array('code', app(VerificationPolicy::class)->forShipment((int) $row->id)['dropoff'], true), 422, 'This delivery is confirmed without a code.');
         abort_if(in_array($row->status, ['delivered', 'confirmed', 'completed', 'cancelled', 'failed', 'returned'], true), 422, 'This delivery is already finished.');
         try {

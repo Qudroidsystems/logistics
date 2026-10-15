@@ -130,20 +130,62 @@ class PickupPointService
         $code = $this->codes->issue($shipmentId, $until);
         $this->events->record($shipmentId, 'at_pickup_point', $from, 'at_pickup_point', 'driver', $driverProfileId, ['hold_until' => $until->toIso8601String()]);
 
-        $phone = $stop->contact_phone;
-        if ($phone && $code && $point) {
-            $order = (string) DB::table('orders as o')->join('shipments as s', 's.order_id', '=', 'o.id')->where('s.id', $shipmentId)->value('o.order_number');
-            $hours = $point->opening_hours ? " Open {$point->opening_hours}." : '';
-            $text = "Your parcel for order {$order} is ready to collect at {$point->name}, {$point->line1}.{$hours} Bring this code: {$code}. It is kept until ".$until->format('j M').'.';
-            try {
-                // A savepoint, so a failed text never undoes the hand-over.
-                DB::transaction(function () use ($phone, $text, $shipmentId) {
-                    app(\App\Modules\Notifications\Sms\SmsService::class)->toNumber($phone, $text, null, 'delivery.at_pickup_point');
-                    $this->codes->markSent($shipmentId);
-                });
-            } catch (Throwable $e) {
-                Log::warning("Pickup point text for shipment {$shipmentId} failed: {$e->getMessage()}");
-            }
+        if ($stop->contact_phone && $code && $point) {
+            $this->textCode($shipmentId, (string) $stop->contact_phone, $point, $code, $until);
+        }
+    }
+
+    /**
+     * What the customer app shows for a parcel going to, or waiting at, a pickup point. Null for a door delivery.
+     *
+     * @return array{name:string, code:string, address:string, landmark:?string, phone:?string, opening_hours:?string, lat:float, lng:float, waiting:bool, hold_until:?string}|null
+     */
+    public function forCustomer(int $shipmentId): ?array
+    {
+        $p = DB::table('shipment_stops as st')->join('pickup_points as p', 'p.id', '=', 'st.pickup_point_id')->join('shipments as s', 's.id', '=', 'st.shipment_id')
+            ->where('st.shipment_id', $shipmentId)->where('st.type', 'dropoff')
+            ->first(['p.name', 'p.code', 'p.line1', 'p.landmark', 'p.phone', 'p.opening_hours', 's.status', 's.hold_until',
+                DB::raw('ST_Y(p.point::geometry) AS lat'), DB::raw('ST_X(p.point::geometry) AS lng')]);
+        if (! $p) {
+            return null;
+        }
+
+        return ['name' => $p->name, 'code' => $p->code, 'address' => $p->line1, 'landmark' => $p->landmark, 'phone' => $p->phone,
+            'opening_hours' => $p->opening_hours, 'lat' => (float) $p->lat, 'lng' => (float) $p->lng, 'waiting' => $p->status === 'at_pickup_point',
+            'hold_until' => $p->status === 'at_pickup_point' && $p->hold_until ? CarbonImmutable::parse($p->hold_until)->toIso8601String() : null];
+    }
+
+    /** The customer lost the collection code: a new one, good until the hold ends, texted to the receiver again. */
+    public function reissue(int $shipmentId): array
+    {
+        $s = DB::table('shipments')->where('id', $shipmentId)->first(['status', 'hold_until']);
+        if (! $s || $s->status !== 'at_pickup_point') {
+            throw new RuntimeException('That parcel is not waiting at a pickup point.');
+        }
+        $until = $s->hold_until ? CarbonImmutable::parse($s->hold_until) : CarbonImmutable::now()->endOfDay();
+        $c = $this->codes->reissue($shipmentId, $until);
+        $stop = DB::table('shipment_stops')->where('shipment_id', $shipmentId)->where('type', 'dropoff')->whereNotNull('pickup_point_id')->first(['contact_phone', 'pickup_point_id']);
+        $point = $stop ? DB::table('pickup_points')->where('id', $stop->pickup_point_id)->first(['name', 'line1', 'opening_hours']) : null;
+        if ($stop?->contact_phone && $point) {
+            $this->textCode($shipmentId, (string) $stop->contact_phone, $point, $c['code'], $until);
+        }
+
+        return $c;
+    }
+
+    private function textCode(int $shipmentId, string $phone, object $point, string $code, CarbonImmutable $until): void
+    {
+        $order = (string) DB::table('orders as o')->join('shipments as s', 's.order_id', '=', 'o.id')->where('s.id', $shipmentId)->value('o.order_number');
+        $hours = $point->opening_hours ? " Open {$point->opening_hours}." : '';
+        $text = "Your parcel for order {$order} is ready to collect at {$point->name}, {$point->line1}.{$hours} Bring this code: {$code}. It is kept until ".$until->format('j M').'.';
+        try {
+            // A savepoint, so a failed text never undoes the hand-over.
+            DB::transaction(function () use ($phone, $text, $shipmentId) {
+                app(\App\Modules\Notifications\Sms\SmsService::class)->toNumber($phone, $text, null, 'delivery.at_pickup_point');
+                $this->codes->markSent($shipmentId);
+            });
+        } catch (Throwable $e) {
+            Log::warning("Pickup point text for shipment {$shipmentId} failed: {$e->getMessage()}");
         }
     }
 

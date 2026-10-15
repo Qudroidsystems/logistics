@@ -68,13 +68,13 @@ class DeliveryCodes
     }
 
     /** The job giver asks for a new code (lost it, or shared it with the wrong person). Rate limited. */
-    public function reissue(int $shipmentId): array
+    public function reissue(int $shipmentId, ?\DateTimeInterface $expires = null): array
     {
         $recent = DB::table('delivery_codes')->where('shipment_id', $shipmentId)->where('created_at', '>', self::at(now()->subHour()))->count();
         if ($recent >= self::MAX_REISSUES_PER_HOUR) {
             throw new RuntimeException('You have asked for several new codes. Try again in an hour, or use the code you have.');
         }
-        $this->issue($shipmentId);
+        $this->issue($shipmentId, $expires);
 
         return $this->current($shipmentId);
     }

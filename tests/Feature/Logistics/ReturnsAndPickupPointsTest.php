@@ -136,6 +136,45 @@ class ReturnsAndPickupPointsTest extends TestCase
             ->assertSessionHas('error', 'That parcel is not waiting at a pickup point.');
     }
 
+    public function test_the_customer_app_shows_the_point_and_the_collection_code(): void
+    {
+        $this->addPoint();
+        $s = $this->book(['pickup_point' => 'HILL1']);
+        $me = $this->makeUser('Shop Owner');
+        DB::table('orders')->where('id', $s->order_id)->update(['customer_id' => $me->id]);
+
+        // On the way: the app knows where to collect, but there is nothing to collect with yet.
+        $this->onTheWay($s);
+        Sanctum::actingAs($me);
+        $o = $this->getJson("/api/v1/customer/orders/{$s->public_id}")->assertOk()->json();
+        $this->assertSame(['Hill Office', 'HILL1', '2 Hill St', 'Mon to Sat, 8am to 6pm', false, null],
+            [$o['pickup_point']['name'], $o['pickup_point']['code'], $o['pickup_point']['address'], $o['pickup_point']['opening_hours'], $o['pickup_point']['waiting'], $o['pickup_point']['hold_until']]);
+        $this->assertFalse($o['verification']['uses_code']);
+        $this->getJson("/api/v1/customer/shipments/{$s->public_id}/delivery-code")->assertOk()->assertJsonPath('code', null);
+
+        // Left at the point: the same code the receiver was texted, good until the hold ends.
+        $stop = (int) DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'dropoff')->value('id');
+        Sanctum::actingAs($this->driver->fresh());
+        $this->post("/api/v1/driver/stops/{$stop}/complete", ['lat' => 7.82, 'lng' => 5.92, 'photo' => UploadedFile::fake()->image('shelf.jpg')], ['Accept' => 'application/json'])->assertOk();
+        $held = DB::table('shipments')->where('id', $s->id)->first();
+        Sanctum::actingAs($me);
+        $o = $this->getJson("/api/v1/customer/orders/{$s->public_id}")->assertOk()->json();
+        $this->assertTrue($o['pickup_point']['waiting']);
+        $this->assertTrue($o['verification']['uses_code']);
+        $this->assertTrue($o['shows_code']);
+        $this->assertSame(CarbonImmutable::parse($held->hold_until)->timestamp, CarbonImmutable::parse($o['pickup_point']['hold_until'])->timestamp);
+        $c = $this->getJson("/api/v1/customer/shipments/{$s->public_id}/delivery-code")->assertOk()->json();
+        $this->assertSame(app(DeliveryCodes::class)->current($s->id)['code'], $c['code']);
+
+        // Lost it: a new code, still good for the whole hold, and the receiver is texted the point details again.
+        $n = $this->postJson("/api/v1/customer/shipments/{$s->public_id}/delivery-code")->assertOk()->json();
+        $this->assertNotSame($c['code'], $n['code']);
+        $this->assertSame(CarbonImmutable::parse($held->hold_until)->timestamp, CarbonImmutable::parse($n['expires_at'])->timestamp);
+        $this->assertSame(2, DB::table('sms_log')->where('template_key', 'delivery.at_pickup_point')->count());
+        $this->actingAs($this->owner)->post("/provider/pickup-points/parcels/{$s->public_id}/collect", ['code' => $n['code']])
+            ->assertSessionHas('success', 'Handed over. The delivery is complete.');
+    }
+
     public function test_an_uncollected_parcel_is_closed_under_the_agreement_and_booked_back(): void
     {
         $this->addPoint();

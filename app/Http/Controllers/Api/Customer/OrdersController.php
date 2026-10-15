@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Modules\Marketplace\CancellationService;
 use App\Modules\Marketplace\FailedDeliveryPolicy;
+use App\Modules\Returns\PickupPointService;
 use App\Modules\Verification\VerificationPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,7 @@ class OrdersController extends Controller
         $isShopping = $agreement && DB::table('shopping_requests')->where('agreement_id', $agreement->id)->exists();
         $stage = $cancel->stage($s->status);
         $policy = $agreement && $agreement->failed_delivery_policy ? json_decode($agreement->failed_delivery_policy, true) : null;
+        $point = app(PickupPointService::class)->forCustomer((int) $s->id);
 
         return response()->json([
             'shipment' => $s->public_id, 'status' => $s->status, 'tracking_code' => $s->tracking_code, 'tracking_token' => $token,
@@ -60,7 +62,9 @@ class OrdersController extends Controller
             'agreement' => $agreement->public_id ?? null, 'is_shopping' => $isShopping,
             'terms' => $this->terms($policy),
             // Proof of delivery both sides agreed; the driver cannot finish the drop-off without them.
-            'verification' => $this->proofs((int) $s->id),
+            'verification' => $this->proofs((int) $s->id, $point),
+            // Set when the drop-off is one of the provider's pickup points: where to collect, and until when.
+            'pickup_point' => $point,
             // Booking extras: when it should be collected, any discount, the request's photos/documents and whether a receipt can be downloaded.
             'pickup_at' => \App\Modules\Booking\LocalTime::iso($s->pickup_window_start), 'rush' => (bool) ($agreement && $agreement->request_id
                 ? DB::table('service_requests')->where('id', $agreement->request_id)->value('rush') : false),
@@ -69,12 +73,13 @@ class OrdersController extends Controller
         ]);
     }
 
-    private function proofs(int $shipmentId): array
+    /** At a pickup point the receiver collects with a code once the parcel is there, whatever was agreed for a door. */
+    private function proofs(int $shipmentId, ?array $point): array
     {
         $p = app(VerificationPolicy::class)->forShipment($shipmentId);
 
         return ['pickup' => VerificationPolicy::describe($p['pickup']), 'dropoff' => VerificationPolicy::describe($p['dropoff']),
-            'uses_code' => in_array('code', $p['dropoff'], true), 'authorised_receivers' => $p['authorised_receivers']];
+            'uses_code' => $point ? $point['waiting'] : in_array('code', $p['dropoff'], true), 'authorised_receivers' => $p['authorised_receivers']];
     }
 
     private function terms(?array $policy): mixed
