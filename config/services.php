@@ -94,4 +94,18 @@ return [
         'voice_url' => env('AFRICASTALKING_VOICE_URL', 'https://voice.africastalking.com'),
     ],
 
+    // Accounting sync. Each provider connects its own company; these are the app's developer keys.
+    'quickbooks' => [
+        'client_id' => env('QUICKBOOKS_CLIENT_ID'),
+        'client_secret' => env('QUICKBOOKS_CLIENT_SECRET'),
+        // sandbox | production
+        'environment' => env('QUICKBOOKS_ENVIRONMENT', 'sandbox'),
+    ],
+
+    'xero' => [
+        'client_id' => env('XERO_CLIENT_ID'),
+        'client_secret' => env('XERO_CLIENT_SECRET'),
+        'scopes' => env('XERO_SCOPES', 'offline_access accounting.transactions accounting.settings.read'),
+    ],
+
 ];

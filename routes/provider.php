@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Provider\AccountingController as Acc;
 use App\Http\Controllers\Provider\AlertsController as A;
 use App\Http\Controllers\Provider\BackofficeController as Bo;
 use App\Http\Controllers\Provider\BusinessAccountsController as Ba;
@@ -54,6 +55,13 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/cash', [Cash::class, 'index'])->name('cash');
     Route::post('/cash/hand-in', [Cash::class, 'handIn'])->name('cash.handin');
     Route::post('/cash/pay-out', [Cash::class, 'payOut'])->name('cash.payout');
+    // Accounting: a daily journal of wallet money sent to the provider's QuickBooks or Xero
+    Route::get('/accounting', [Acc::class, 'index'])->name('accounting');
+    Route::post('/accounting/connect/{service}', [Acc::class, 'connect'])->whereIn('service', ['quickbooks', 'xero'])->name('accounting.connect');
+    Route::get('/accounting/callback/{service}', [Acc::class, 'callback'])->whereIn('service', ['quickbooks', 'xero'])->name('accounting.callback');
+    Route::post('/accounting', [Acc::class, 'save'])->name('accounting.save');
+    Route::post('/accounting/sync', [Acc::class, 'syncNow'])->middleware('throttle:6,1')->name('accounting.sync');
+    Route::post('/accounting/disconnect', [Acc::class, 'disconnect'])->name('accounting.disconnect');
     // Business accounts: customers who book on credit, billed by monthly invoice
     Route::get('/business-accounts', [Ba::class, 'index'])->name('accounts');
     Route::post('/business-accounts', [Ba::class, 'store'])->name('accounts.store');
