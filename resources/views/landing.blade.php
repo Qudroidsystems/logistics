@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2715%27 fill=%27%230f766e%27/%3E%3Crect x=%2722%27 y=%2719%27 width=%2711%27 height=%2726%27 rx=%273%27 fill=%27white%27/%3E%3Crect x=%2737%27 y=%2719%27 width=%2711%27 height=%2726%27 rx=%273%27 fill=%27white%27/%3E%3C/svg%3E">
 <title>Qudroid Logistics Demo</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="qudroid:viewport-fit-sides" content="cover">
 <meta name="description" content="Try the Qudroid Logistics demo: download the customer and driver apps, sign in with the demo logins and see live delivery tracking in action.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
