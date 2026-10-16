@@ -3,7 +3,7 @@
 @section('content')
 @php $naira = fn ($k) => $k === null ? '—' : '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $market = \App\Support\Platform::marketplace(); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
-    <x-cb.hero title="Promo codes and discounts" icon="ri-coupon-3-line" subtitle="Codes customers type before paying, and standing discounts for business customers. The platform pays for both; providers still receive the agreed price." :back="route('ops.dashboard')" back-label="Operations" />
+    <x-cb.hero title="Promo codes and discounts" icon="ri-coupon-3-line" subtitle="Codes customers type before paying, standing discounts for business customers, and invites. The platform pays for these; a provider's own codes come out of that provider's share." :back="route('ops.dashboard')" back-label="Operations" />
     @include('ops._flash')
 
     <x-cb.card title="Promo codes" icon="ri-coupon-3-line" :count="count($promos)" :flush="true">
@@ -15,7 +15,7 @@
                     <td class="fw-semibold">{{ $p->code }} @unless($p->active)<span class="badge bg-light text-dark">paused</span>@endunless</td>
                     <td class="small">{{ $types[$p->type] ?? $p->type }}: {{ $p->type === 'fixed' ? $naira($p->value) : ($p->type === 'free_delivery' ? 'whole delivery price' : rtrim(rtrim(number_format($p->value / 100, 2), '0'), '.').'%') }}@if($p->cap !== null) (max {{ $naira($p->cap) }})@endif</td>
                     <td class="small">{{ $p->per_user_limit }} per customer{{ $p->usage_limit ? ', '.$p->usage_limit.' in total' : '' }}{{ $p->min_order !== null ? ', min '.$naira($p->min_order) : '' }}{{ $p->budget !== null ? ', budget '.$naira($p->budget).' ('.$naira($p->budget_spent).' spent)' : '' }}</td>
-                    @if($market)<td class="small">{{ $p->provider ?: 'Any' }}</td>@endif
+                    @if($market)<td class="small">{{ $p->provider ?: 'Any' }}@if($p->funded_by === 'operator')<div class="text-muted">their own code</div>@endif</td>@endif
                     <td class="small">{{ $p->valid_from ? \Illuminate\Support\Carbon::parse($p->valid_from)->format('d M') : 'now' }} to {{ $p->valid_to ? \Illuminate\Support\Carbon::parse($p->valid_to)->format('d M Y') : 'no end' }}</td>
                     <td class="text-end">{{ $p->used }}</td>
                     <td class="text-end">@can('Update promo code')<form method="POST" action="{{ route('ops.promo.toggle', $p->id) }}">@csrf<button class="btn btn-sm btn-outline-secondary">{{ $p->active ? 'Pause' : 'Switch on' }}</button></form>@endcan</td>
@@ -72,5 +72,38 @@
     </div>
     </div>
     @endcan
+
+    <div class="row g-3 mt-1">
+    <div class="col-lg-5">
+    <x-cb.card title="Invite a friend" icon="ri-user-add-line">
+        <p class="small text-muted">Each customer has a code in the app. A friend who signs up with it gets money off their first delivery; the customer who invited them gets a wallet credit once that delivery is done.</p>
+        <div class="small mb-2">{{ $referralTotals->invited }} invited · {{ $referralTotals->rewarded }} credited · {{ $naira($referralTotals->paid) }} paid out</div>
+        @can('Update promo code')
+        <form method="POST" action="{{ route('ops.referrals.save') }}" class="row g-2">@csrf
+            <div class="col-12"><select name="enabled" class="form-select"><option value="1" @selected($referral['enabled'])>Invites are on</option><option value="0" @selected(! $referral['enabled'])>Invites are off</option></select></div>
+            <div class="col-6"><label class="form-label small">Friend gets off their first delivery (₦)</label><input name="friend_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['friend_discount'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">Inviter's wallet credit (₦)</label><input name="reward_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['reward'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">First delivery must cost at least (₦)</label><input name="min_price_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['min_price'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">Most credits per customer a month</label><input name="monthly_cap" type="number" min="0" class="form-control" value="{{ $referral['monthly_cap'] }}"></div>
+            <div class="col-12"><button class="btn btn-outline-primary">Save</button></div>
+        </form>
+        @endcan
+    </x-cb.card>
+    </div>
+    <div class="col-lg-7">
+    <x-cb.card title="Recent invites" icon="ri-team-line" :flush="true">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Invited by</th><th>Friend</th><th>Status</th><th class="text-end">Credit</th></tr></thead>
+            <tbody>
+            @forelse($referrals as $r)
+                <tr><td class="small">{{ $r->referrer }}</td><td class="small">{{ $r->friend }}</td><td class="small">{{ $r->status === 'pending' ? 'waiting for first delivery' : ($r->status === 'void' ? 'no credit'.($r->note ? ': '.strtolower($r->note) : '') : 'credited') }}</td><td class="text-end small">{{ $r->reward ? $naira($r->reward) : '—' }}</td></tr>
+            @empty
+                <tr><td colspan="4" class="text-center text-muted py-3">No invites yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </x-cb.card>
+    </div>
+    </div>
 </div></div></div>
 @endsection

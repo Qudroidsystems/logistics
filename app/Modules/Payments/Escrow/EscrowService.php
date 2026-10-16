@@ -130,6 +130,9 @@ class EscrowService
             if ($net + $fee + $unspent !== $remaining) {
                 throw new RuntimeException('Escrow balance does not match the amounts being released.');
             }
+            // The provider's own promo code: the platform topped escrow up when the customer paid, and gets that back from the provider's share.
+            $byProvider = min($this->providerFunded($agreement, $hold), max($net, 0));
+            $net -= $byProvider;
 
             $providerWallet = $this->accounts->wallet('operator', (int) $agreement->provider_operator_id, (int) $agreement->provider_operator_id);
             $commission = $this->accounts->platform('platform_commission');
@@ -148,6 +151,9 @@ class EscrowService
             if ($unspent > 0) {
                 $entries[] = ['account_id' => $customerWallet, 'direction' => 'credit', 'amount' => $unspent];
             }
+            if ($byProvider > 0) {
+                $entries[] = ['account_id' => $this->accounts->platform('promo_expense'), 'direction' => 'credit', 'amount' => $byProvider];
+            }
             $toProvider = $net;
 
             $tx = $this->ledger->post("escrow-release-{$agreementId}", [
@@ -160,17 +166,20 @@ class EscrowService
                 'is_test' => (bool) $agreement->is_test,
             ], $entries);
 
-            $this->recordCommission($agreement, $fee, (int) $agreement->provider_net, $tx['id']);
+            $this->recordCommission($agreement, $fee, (int) $agreement->provider_net - $byProvider, $tx['id']);
             $this->settleOffline($agreement, $net);
             DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->update(['status' => 'settled', 'updated_at' => now()]);
             DB::table('escrow_holds')->where('id', $hold->id)->update([
                 'released_amount' => (int) $hold->released_amount + max($net, 0) + $fee,
-                'refunded_amount' => (int) $hold->refunded_amount + $unspent,
+                'refunded_amount' => (int) $hold->refunded_amount + $unspent + $byProvider,
+                'subsidy_returned' => (int) $hold->subsidy_returned + $byProvider,
                 'status' => 'released',
                 'updated_at' => now(),
             ]);
             DB::table('agreements')->where('id', $agreementId)->update(['status' => 'completed', 'updated_at' => now()]);
             DB::table('shopping_requests')->where('agreement_id', $agreementId)->update(['actual_spend' => $goodsSpent, 'status' => 'completed', 'updated_at' => now()]);
+
+            app(\App\Modules\Marketing\ReferralService::class)->rewardFor($agreementId);
 
             return ['transaction_id' => $tx['id'], 'to_provider' => $toProvider, 'platform_fee' => $fee, 'to_customer' => $unspent];
         });
@@ -245,7 +254,10 @@ class EscrowService
             $advance = (int) DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->sum('amount');
             // What the provider ends up with in their wallet; negative when they must hand back unspent advance.
             $net = $providerShare - $fee + $goodsSpent - $advance;
-            $toCustomer = $remaining - $net - $fee;
+            // The provider's own promo code, in proportion to the share they keep.
+            $byProvider = min(intdiv($this->providerFunded($agreement, $hold) * $providerShare, max($price, 1)), max($net, 0));
+            $net -= $byProvider;
+            $toCustomer = $remaining - $net - $fee - $byProvider;
             if ($toCustomer < 0) {
                 throw new RuntimeException('Settlement exceeds the escrow balance.');
             }
@@ -262,10 +274,11 @@ class EscrowService
                 $entries[] = ['account_id' => $this->accounts->platform('platform_commission'), 'direction' => 'credit', 'amount' => $fee];
             }
             // The platform's discount top-up is only spent on a delivery that happened: it comes back before the customer's money.
+            $hold->subsidy_returned = (int) $hold->subsidy_returned + $byProvider;
             $toPlatform = $this->subsidyLeft($hold, $toCustomer);
             $toCustomer -= $toPlatform;
-            if ($toPlatform > 0) {
-                $entries[] = ['account_id' => $this->accounts->platform('promo_expense'), 'direction' => 'credit', 'amount' => $toPlatform];
+            if ($toPlatform + $byProvider > 0) {
+                $entries[] = ['account_id' => $this->accounts->platform('promo_expense'), 'direction' => 'credit', 'amount' => $toPlatform + $byProvider];
             }
             if ($toCustomer > 0) {
                 $entries[] = ['account_id' => $this->accounts->wallet('customer', (int) $agreement->customer_id, 1), 'direction' => 'credit', 'amount' => $toCustomer];
@@ -279,16 +292,20 @@ class EscrowService
             ], $entries);
 
             if ($providerShare > 0) {
-                $this->recordCommission($agreement, $fee, $providerShare - $fee, $tx['id']);
+                $this->recordCommission($agreement, $fee, $providerShare - $fee - $byProvider, $tx['id']);
             }
             $this->settleOffline($agreement, $net);
             DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->update(['status' => 'settled', 'updated_at' => now()]);
             DB::table('escrow_holds')->where('id', $hold->id)->update([
                 'released_amount' => (int) $hold->released_amount + max($net, 0) + $fee,
-                'refunded_amount' => (int) $hold->refunded_amount + $toCustomer + $toPlatform, 'subsidy_returned' => (int) $hold->subsidy_returned + $toPlatform,
+                'refunded_amount' => (int) $hold->refunded_amount + $toCustomer + $toPlatform + $byProvider, 'subsidy_returned' => (int) $hold->subsidy_returned + $toPlatform,
                 'status' => $providerShare + $goodsSpent > 0 ? 'released' : 'refunded', 'updated_at' => now(),
             ]);
             DB::table('agreements')->where('id', $agreementId)->update(['status' => $providerShare + $goodsSpent > 0 ? 'completed' : 'cancelled', 'updated_at' => now()]);
+
+            if ($providerShare > 0) {
+                app(\App\Modules\Marketing\ReferralService::class)->rewardFor($agreementId);
+            }
 
             return ['transaction_id' => $tx['id'], 'to_provider' => $toProvider, 'platform_fee' => $fee, 'to_customer' => $toCustomer];
         });
@@ -418,6 +435,15 @@ class EscrowService
     }
 
     /** How much of the platform's discount top-up is still in the hold, capped at what is about to leave it. */
+    /** How much of the discount was the provider's own promo code, so theirs to pay. Never more than the platform's top-up still in escrow. */
+    private function providerFunded(object $agreement, object $hold): int
+    {
+        $lines = $agreement->discount_lines ? (array) json_decode($agreement->discount_lines, true) : [];
+        $amount = (int) collect($lines)->where('funded_by', 'operator')->sum('amount');
+
+        return max(0, min($amount, (int) $agreement->provider_net, $this->subsidyLeft($hold, PHP_INT_MAX)));
+    }
+
     private function subsidyLeft(object $hold, int $outgoing): int
     {
         return max(0, min($outgoing, (int) ($hold->subsidy ?? 0) - (int) ($hold->subsidy_returned ?? 0)));

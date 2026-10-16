@@ -49,6 +49,9 @@
                     <textarea name="items" rows="3" class="form-control mb-2" maxlength="2000" placeholder="Box of shoes&#10;Envelope">{{ old('items') }}</textarea>
                     <label class="form-label small">Total weight in kg <span class="text-muted">(optional)</span></label>
                     <input type="number" step="0.1" min="0" name="weight_kg" class="form-control mb-2" value="{{ old('weight_kg') }}">
+                    <label class="form-label small">Cash on delivery (₦) <span class="text-muted">(optional)</span></label>
+                    <input type="number" step="0.01" min="0" name="cod_naira" class="form-control mb-1" value="{{ old('cod_naira') }}" placeholder="Goods money to collect from the receiver">
+                    <div class="form-text mb-2">The rider collects this at the door and hands it in at your office; you pay it to the sender.</div>
                     <label class="form-label small">Note for the team <span class="text-muted">(optional)</span></label>
                     <input name="note" class="form-control" maxlength="500" value="{{ old('note') }}">
                 </x-cb.card>

@@ -59,6 +59,10 @@ class StopService
                 'captured_at' => $capturedAt,
             ]);
             DB::table('shipment_stops')->where('id', $stopId)->update(['status' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
+            if (in_array('cod', $checks['satisfied'], true)) {
+                // The receiver paid the goods money: the rider now holds it for the sender (CodService).
+                app(\App\Modules\Cod\CodService::class)->collect((int) $stop->shipment_id, $driverProfileId, (int) $evidence['cod_collected']);
+            }
 
             if ($stop->type === 'return') {
                 app(\App\Modules\Marketplace\FailedDeliveryService::class)->completeReturn((int) $stop->shipment_id, $driverProfileId);

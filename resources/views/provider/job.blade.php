@@ -64,6 +64,16 @@
                     <div class="small d-flex justify-content-between border-bottom py-1"><span>{{ $ev['seq'] }}. {{ $ev['kind'] === 'scan' ? 'Parcel scanned ('.($ev['payload']['stage'] ?? '').')' : ($ev['kind'] === 'proof' ? 'Proof at '.($ev['payload']['stop_type'] ?? 'stop') : 'Exception '.($ev['payload']['status'] ?? '')) }}</span><span class="text-muted">{{ \Illuminate\Support\Carbon::parse($ev['at'])->format('j M H:i') }} · <code title="{{ $ev['hash'] }}">{{ substr($ev['hash'], 0, 8) }}</code></span></div>
                 @endforeach
             </x-cb.card>
+            @if(count($chat) || count($calls))
+            <x-cb.card title="Rider and customer chat" icon="ri-chat-3-line" class="mb-3">
+                @foreach($chat as $m)
+                    <div class="small border-bottom py-1"><strong>{{ $m['side'] }}</strong> <span class="text-muted">{{ \Illuminate\Support\Carbon::parse($m['at'])->format('j M H:i') }}</span>@if($m['flagged']) <span class="badge bg-warning-subtle text-warning" title="Has a phone number in it">number shared</span>@endif<br>{{ $m['body'] }}</div>
+                @endforeach
+                @foreach($calls as $c)
+                    <div class="small text-muted py-1"><i class="ri-phone-line"></i> {{ \Illuminate\Support\Carbon::parse($c->created_at)->format('j M H:i') }} · {{ $c->purpose === 'inbound' ? 'Call to the shared number' : ($c->purpose === 'driver' ? 'Customer called the rider' : 'Rider called the '.(['customer' => 'customer', 'pickup' => 'sender', 'dropoff' => 'receiver'][$c->purpose] ?? $c->purpose)) }} · {{ $c->outcome }}@if($c->duration_s) · {{ gmdate('i:s', $c->duration_s) }}@endif</div>
+                @endforeach
+            </x-cb.card>
+            @endif
             <x-cb.card title="Parcels" icon="ri-qr-code-line" class="mb-3">
                 @forelse($packages as $p)
                     <div class="d-flex justify-content-between border-bottom py-1"><span>{{ $p['seq'] }}. {{ $p['description'] }}@if($p['quantity'] > 1) ×{{ $p['quantity'] }}@endif @if($p['fragile'])<span class="badge bg-warning-subtle text-warning">fragile</span>@endif</span><code>{{ $p['barcode'] }}</code></div>

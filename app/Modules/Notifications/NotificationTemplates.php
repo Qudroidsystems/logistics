@@ -42,6 +42,9 @@ class NotificationTemplates
         'driver.receiver_replied' => ['title' => 'The receiver replied', 'body' => 'Order {order}: {reply}', 'email' => false],
         'delivery.arrived' => ['title' => 'Rider has arrived', 'body' => 'The rider for {order} has arrived.', 'email' => false],
         'delivery.picked_up' => ['title' => 'Order picked up', 'body' => 'Order {order} is on its way. You can follow it live.', 'email' => false],
+        'cod.collected' => ['title' => 'Cash collected', 'body' => 'The rider collected {amount} for order {order}. It will be paid to you by {provider}.', 'email' => false],
+        'cod.paid' => ['title' => 'Cash on delivery paid', 'body' => '{provider} paid you {amount} for {count} delivery(ies). Reference: {reference}.', 'email' => true],
+        'cod.overdue' => ['title' => 'Cash not handed in', 'body' => '{rider} has held {amount} of cash on delivery for over a day.', 'email' => false],
         'delivery.delivered' => ['title' => 'Delivered - please confirm', 'body' => 'Order {order} was delivered. Confirm to pay the provider, or report a problem.', 'email' => true],
         'delivery.dispute_resolved_customer' => ['title' => 'Dispute decided', 'body' => 'Our team has decided the dispute on order {order}.', 'email' => true],
         'delivery.cancelled_customer' => ['title' => 'Order cancelled', 'body' => 'Order {order} was cancelled. Any refund is on its way to your wallet.', 'email' => true],
@@ -57,6 +60,7 @@ class NotificationTemplates
 
         // ---- money
         'payout.processing' => ['title' => 'Payout on its way', 'body' => 'Your payout of {amount} was approved and is being sent.', 'email' => false],
+        'referral.rewarded' => ['title' => 'You earned a referral credit', 'body' => '{friend} finished their first delivery, so {amount} is now in your wallet.', 'email' => true],
         'payout.paid' => ['title' => 'Payout sent', 'body' => '{amount} has been sent to your bank account.', 'email' => true],
         'payout.failed' => ['title' => 'Payout failed', 'body' => 'Your payout of {amount} could not be completed. The money is back in your wallet. {note}', 'email' => true],
 

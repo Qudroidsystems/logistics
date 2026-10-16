@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Support\Platform;
+use App\Modules\Marketing\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -41,7 +42,25 @@ class PricingAdminController extends Controller
                 ->orderByDesc('c.id')->get(['c.*', 'm.display_name as merchant', 'u.email as user_email', 'o.display_name as provider']),
             'merchants' => DB::table('merchants')->orderBy('display_name')->get(['id', 'display_name as name']),
             'operators' => $this->operators(), 'types' => self::PROMO_TYPES, 'pagetitle' => 'Promo codes and discounts',
+            'referral' => ReferralService::settings(),
+            'referrals' => DB::table('referrals as r')->join('users as a', 'a.id', '=', 'r.referrer_id')->join('users as f', 'f.id', '=', 'r.friend_id')
+                ->orderByDesc('r.id')->limit(50)->get(['r.status', 'r.reward', 'r.note', 'r.created_at', 'a.email as referrer', 'f.email as friend']),
+            'referralTotals' => DB::table('referrals')->selectRaw("count(*) as invited, count(*) filter (where status = 'rewarded') as rewarded, coalesce(sum(reward), 0) as paid")->first(),
         ]);
+    }
+
+    public function saveReferrals(Request $request)
+    {
+        $d = $request->validate([
+            'enabled' => 'required|in:0,1', 'reward_naira' => 'required|numeric|min:0|max:100000', 'friend_naira' => 'required|numeric|min:0|max:100000',
+            'min_price_naira' => 'required|numeric|min:0|max:1000000', 'monthly_cap' => 'required|integer|min:0|max:1000',
+        ]);
+        ReferralService::save([
+            'enabled' => $d['enabled'] === '1', 'reward' => self::kobo($d['reward_naira']), 'friend_discount' => self::kobo($d['friend_naira']),
+            'min_price' => self::kobo($d['min_price_naira']), 'monthly_cap' => (int) $d['monthly_cap'],
+        ], $request->user()->id);
+
+        return back()->with('success', $d['enabled'] === '1' ? 'Invites are on with the new amounts.' : 'Invites are off. Codes already shared stop giving anything.');
     }
 
     public function storePromo(Request $request)

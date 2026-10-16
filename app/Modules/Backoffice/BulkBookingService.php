@@ -36,6 +36,7 @@ class BulkBookingService
         'items' => 'What is being sent; separate items with ;',
         'weight_kg' => 'Total weight in kg',
         'price_naira' => 'Price for this delivery; leave empty to use your price list',
+        'cod_naira' => 'Cash on delivery: goods money the rider collects from the receiver, if any',
         'pickup_address' => 'Only when this row is picked up somewhere other than the usual pickup',
         'pickup_lat' => '',
         'pickup_lng' => '',
@@ -268,6 +269,10 @@ class BulkBookingService
 
         $weight = $num($get('weight_kg'), 0, 50000, 'Weight');
         $price = $num($get('price_naira'), 1, 100000000, 'Price');
+        $cod = $num($get('cod_naira'), 0, 100000000, 'Cash on delivery');
+        if ($cod > 0 && isset($drop['pickup_point'])) {
+            $errors[] = 'Cash on delivery cannot go to a pickup point.';
+        }
         $items = array_values(array_filter(array_map('trim', explode(';', (string) $get('items')))));
         $packages = array_map(fn ($t) => ['description' => mb_substr($t, 0, 255)], $items ?: ['Parcel']);
         $grams = $weight ? (int) round($weight * 1000) : 0;
@@ -282,7 +287,7 @@ class BulkBookingService
         return ['input' => [
             'reference' => $ref, 'customer' => array_filter($customer, fn ($v) => $v !== null), 'pickup' => array_filter($pick, fn ($v) => $v !== null),
             'dropoff' => array_filter($drop, fn ($v) => $v !== null), 'packages' => $packages, 'weight_g' => $grams,
-            'price' => $price !== null ? (int) round($price * 100) : null, 'note' => $ref ? "Bulk booking, ref {$ref}" : 'Bulk booking',
+            'price' => $price !== null ? (int) round($price * 100) : null, 'cod_amount' => $cod ? (int) round($cod * 100) : 0, 'note' => $ref ? "Bulk booking, ref {$ref}" : 'Bulk booking',
         ], 'errors' => $errors];
     }
 

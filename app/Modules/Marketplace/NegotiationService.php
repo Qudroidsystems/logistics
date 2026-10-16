@@ -49,7 +49,7 @@ class NegotiationService
             $id = DB::table('service_requests')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'customer_id' => $customerId, 'type' => $d['type'], 'service_type_id' => $d['service_type_id'],
                 'stops' => json_encode(['pickup' => $d['pickup'], 'dropoff' => $d['dropoff'], 'city_id' => $d['city_id']] + ($extra ? ['extra' => $extra] : [])),
-                'packages' => json_encode(['items' => $d['packages'] ?? [], 'errand' => $d['errand'] ?? null, 'vehicle_type_id' => $d['vehicle_type_id'] ?? null]),
+                'packages' => json_encode(['items' => $d['packages'] ?? [], 'errand' => $d['errand'] ?? null, 'vehicle_type_id' => $d['vehicle_type_id'] ?? null] + (($d['cod_amount'] ?? 0) > 0 ? ['cod_amount' => (int) $d['cod_amount']] : [])),
                 'distance_m' => $route['distance_m'], 'budget_min' => $d['budget_min'] ?? null, 'budget_max' => $d['budget_max'] ?? null,
                 'needed_by' => $d['needed_by'] ?? null, 'pickup_at' => self::local($d['pickup_at'] ?? null), 'rush' => (bool) ($d['rush'] ?? false),
                 'visibility' => $visibility, 'status' => 'open', 'is_test' => $isTest,
@@ -150,6 +150,8 @@ class NegotiationService
                 'note' => $o['note'] ?? null,
                 // Extra stops in driving order, the pickup time the customer chose and whether they asked for a rush job.
                 'stops' => $stops['extra'] ?? [], 'pickup_at' => $req->pickup_at, 'rush' => (bool) $req->rush,
+                // Goods money the rider collects from the receiver and the provider pays back to the customer.
+                'cod_amount' => (int) ($pk['cod_amount'] ?? 0),
                 // Proof of delivery: what the job giver asked for plus the provider's standard, signed with the rest of the terms.
                 'verification' => VerificationPolicy::agree($req->verification ? json_decode($req->verification, true) : null,
                     app(VerificationPolicy::class)->forProvider((int) $t->operator_id, $req->service_type_id ? (int) $req->service_type_id : null)),

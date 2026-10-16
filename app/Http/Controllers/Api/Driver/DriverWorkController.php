@@ -22,6 +22,8 @@ class DriverWorkController extends Controller
 
         return response()->json([
             'driver' => $d, 'offers' => $this->drivers->offers($d->id), 'jobs' => $this->drivers->jobs($d->id),
+            // Cash on delivery collected and not yet handed in at the office.
+            'cash_held' => app(\App\Modules\Cod\CodService::class)->heldBy((int) $d->id),
         ]);
     }
 

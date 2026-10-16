@@ -36,6 +36,7 @@ trait HandlesBackoffice
         $rules = $stop('pickup') + $stop('dropoff') + ['dropoff.pickup_point' => 'nullable|string|max:40'] + [
             'service_type_id' => 'required|integer|exists:service_types,id', 'city_id' => 'required|integer|exists:cities,id',
             'vehicle_type_id' => 'nullable|integer|exists:vehicle_types,id', 'weight_kg' => 'nullable|numeric|min:0|max:50000',
+            'cod_naira' => 'nullable|numeric|min:0|max:100000000',
         ];
         if (! $forPrice) {
             $rules += [
@@ -68,6 +69,7 @@ trait HandlesBackoffice
             'price' => isset($d['price_naira']) && $d['price_naira'] !== null ? (int) round(((float) $d['price_naira']) * 100) : null,
             'payment' => $d['payment'] ?? 'link', 'driver_user_id' => isset($d['driver_user_id']) ? (int) $d['driver_user_id'] : null,
             'note' => $d['note'] ?? null, 'business_account' => $d['business_account'] ?? null,
+            'cod_amount' => \App\Modules\Cod\CodService::kobo($d['cod_naira'] ?? null),
         ];
     }
 

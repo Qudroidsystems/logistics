@@ -6,11 +6,14 @@ use App\Http\Controllers\Api\Customer\OrdersController;
 use App\Http\Controllers\Api\Customer\TrackingController;
 use App\Http\Controllers\Api\Driver\DriverJobController;
 use App\Http\Controllers\Api\Driver\DriverWorkController;
+use App\Http\Controllers\Api\Messaging\ChatController;
 use Illuminate\Support\Facades\Route;
 
 // Public, token-guarded tracking page data.
 Route::get('/v1/track/{token}', [TrackingController::class, 'show'])->middleware('throttle:60,1');
 Route::post('/v1/track/{token}/reply', [TrackingController::class, 'reply'])->middleware('throttle:10,1');
+// The voice provider's callback for calls through the shared number.
+Route::post('/v1/voice/{secret}', [ChatController::class, 'voice'])->middleware('throttle:120,1');
 
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::prefix('driver')->middleware('throttle:120,1')->group(function () {
@@ -31,6 +34,9 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::post('/stops/{stop}/complete', [DriverJobController::class, 'completeStop']);
         Route::post('/stops/{stop}/exceptions', [DriverJobController::class, 'requestException']);
         Route::post('/sync', [DriverJobController::class, 'sync']);
+        Route::get('/jobs/{shipment}/chat', [ChatController::class, 'show']);
+        Route::post('/jobs/{shipment}/chat', [ChatController::class, 'send'])->middleware('throttle:30,1');
+        Route::post('/jobs/{shipment}/call', [ChatController::class, 'call'])->middleware('throttle:6,1');
     });
     Route::get('/banks', [CustomerWalletController::class, 'banks']);
     Route::prefix('customer')->group(function () {
@@ -38,6 +44,9 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::get('/orders/{shipment}', [OrdersController::class, 'show']);
         Route::get('/shipments/{shipment}/delivery-code', [TrackingController::class, 'deliveryCode']);
         Route::post('/shipments/{shipment}/delivery-code', [TrackingController::class, 'newDeliveryCode'])->middleware('throttle:6,60');
+        Route::get('/shipments/{shipment}/chat', [ChatController::class, 'show']);
+        Route::post('/shipments/{shipment}/chat', [ChatController::class, 'send'])->middleware('throttle:30,1');
+        Route::post('/shipments/{shipment}/call', [ChatController::class, 'call'])->middleware('throttle:6,1');
         Route::get('/shipments/{shipment}/cancel-preview', [CancellationController::class, 'preview']);
         Route::post('/shipments/{shipment}/cancel', [CancellationController::class, 'cancel']);
 

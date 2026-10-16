@@ -78,4 +78,20 @@ return [
         'channel'   => env('TERMII_CHANNEL', 'dnd'),
     ],
 
+    // Calls between rider and customer through one shared number, so neither sees the other's phone.
+    'calls' => [
+        // off (default: the rider app dials directly, as before) | log (pretend, for testing) | africastalking
+        'driver' => env('CALLS_DRIVER', 'off'),
+        // The shared number, in international form (+234...). Callers see this instead of the other phone.
+        'number' => env('CALLS_NUMBER'),
+        // Put in the callback URL set on the number in the Africa's Talking dashboard: /api/v1/voice/{secret}
+        'callback_secret' => env('CALLS_CALLBACK_SECRET'),
+    ],
+
+    'africastalking' => [
+        'username' => env('AFRICASTALKING_USERNAME'),
+        'api_key' => env('AFRICASTALKING_API_KEY'),
+        'voice_url' => env('AFRICASTALKING_VOICE_URL', 'https://voice.africastalking.com'),
+    ],
+
 ];

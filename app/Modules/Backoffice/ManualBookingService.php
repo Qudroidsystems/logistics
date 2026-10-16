@@ -83,7 +83,7 @@ class ManualBookingService
             $q = $this->quotes->quote([
                 'operator_id' => $operatorId, 'service_type_id' => (int) $d['service_type_id'], 'city_id' => (int) $d['city_id'],
                 'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'weight_g' => (int) ($d['weight_g'] ?? 0),
-                'stops' => [['type' => 'pickup'], ['type' => 'dropoff']],
+                'stops' => [['type' => 'pickup'], ['type' => 'dropoff']], 'cod_amount' => (int) ($d['cod_amount'] ?? 0),
             ] + $route);
         } catch (NoPricingPlan) {
             throw new RuntimeException('There is no price list for this service and city. Type the price instead.');
@@ -190,6 +190,7 @@ class ManualBookingService
                     'packages' => array_values($d['packages'] ?? []), 'vehicle_type_id' => $d['vehicle_type_id'] ?? null,
                     'quote_id' => $price['quote_id'], 'channel' => 'manual', 'booked_by' => $staffUserId, 'note' => $d['note'] ?? null,
                     'return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null,
+                    'cod_amount' => ($d['cod_amount'] ?? 0) > 0 ? (int) $d['cod_amount'] : null,
                 ], fn ($v) => $v !== null),
                 'price' => $price['total'], 'distance_m' => $price['distance_m'],
                 'service_type_id' => (int) $d['service_type_id'], 'city_id' => (int) $d['city_id'],
@@ -261,6 +262,10 @@ class ManualBookingService
     private function toPoint(int $operatorId, array $d): array
     {
         if (! empty($d['dropoff']['pickup_point'])) {
+            if (($d['cod_amount'] ?? 0) > 0) {
+                // Staff at a point hand parcels over by code; nobody there collects the goods money.
+                throw new RuntimeException('Cash on delivery cannot go to a pickup point. Deliver it to the receiver, or remove the cash amount.');
+            }
             $d['dropoff'] = app(\App\Modules\Returns\PickupPointService::class)->asDropoff($operatorId, (string) $d['dropoff']['pickup_point'], $d['dropoff']);
         }
 

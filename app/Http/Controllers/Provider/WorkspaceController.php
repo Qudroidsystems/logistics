@@ -134,6 +134,8 @@ class WorkspaceController extends Controller
             'exceptions' => app(ExceptionService::class)->forShipment((int) $s->id),
             'custody' => app(CustodyLog::class)->verify((int) $s->id),
             'custodyEvents' => app(CustodyLog::class)->events((int) $s->id),
+            'chat' => app(\App\Modules\Messaging\ChatService::class)->forStaff((int) $s->id),
+            'calls' => \Illuminate\Support\Facades\DB::table('call_logs')->where('shipment_id', $s->id)->orderBy('id')->get(['purpose', 'outcome', 'duration_s', 'created_at']),
             'alertsSent' => app(\App\Modules\Eta\ArrivalAlerts::class)->forShipment((int) $s->id),
             'eta' => app(\App\Modules\Eta\EtaService::class)->forShipment((int) $s->id),
             'receiverReply' => \App\Modules\Eta\ReceiverReplies::current(DB::table('shipment_stops')->where('shipment_id', $s->id)->where('type', 'dropoff')->orderByDesc('seq')->first()),

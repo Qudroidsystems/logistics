@@ -65,6 +65,10 @@ class OrdersController extends Controller
             'verification' => $this->proofs((int) $s->id, $point),
             // Set when the drop-off is one of the provider's pickup points: where to collect, and until when.
             'pickup_point' => $point,
+            // Chat and calls with the rider while one is on the job.
+            'chat' => app(\App\Modules\Messaging\ChatService::class)->summary((int) $s->id, $request->user()->id),
+            // Goods money the rider collects from the receiver, and whether the provider has paid it to you yet.
+            'cod' => app(\App\Modules\Cod\CodService::class)->forShipment((int) $s->id),
             // Booking extras: when it should be collected, any discount, the request's photos/documents and whether a receipt can be downloaded.
             'pickup_at' => \App\Modules\Booking\LocalTime::iso($s->pickup_window_start), 'rush' => (bool) ($agreement && $agreement->request_id
                 ? DB::table('service_requests')->where('id', $agreement->request_id)->value('rush') : false),

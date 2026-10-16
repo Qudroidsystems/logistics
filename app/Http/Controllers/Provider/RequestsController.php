@@ -54,7 +54,7 @@ class RequestsController extends WorkspaceController
         $open = in_array($req->status, ['open', 'negotiating'], true) && ($req->expires_at === null || $req->expires_at > now()) && ! in_array($req->invitation, ['declined', 'accepted'], true);
 
         return $this->view('provider.request', $request, [
-            'req' => $req, 'stops' => json_decode($req->stops, true) ?? [], 'packages' => json_decode($req->packages ?? '[]', true) ?? [],
+            'req' => $req, 'stops' => json_decode($req->stops, true) ?? [], 'packages' => array_diff_key(json_decode($req->packages ?? '[]', true) ?? [], ['cod_amount' => 1]),
             'thread' => $thread, 'canOffer' => $open && ! $thread, 'pagetitle' => 'Request',
             'costProfiles' => app(\App\Modules\Pricing\ProviderCostingService::class)->profiles($op->id),
         ], 'requests');

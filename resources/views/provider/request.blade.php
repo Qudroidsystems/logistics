@@ -15,6 +15,8 @@
                     <dt class="col-sm-4">Pickup</dt><dd class="col-sm-8">{{ $stops['pickup']['line1'] ?? '—' }}</dd>
                     <dt class="col-sm-4">Drop-off</dt><dd class="col-sm-8">{{ $stops['dropoff']['line1'] ?? '—' }}</dd>
                     @if($req->needed_by)<dt class="col-sm-4">Needed by</dt><dd class="col-sm-8">{{ \Illuminate\Support\Carbon::parse($req->needed_by)->format('d M Y H:i') }}</dd>@endif
+                    @php($codDue = (int) (json_decode($req->packages, true)['cod_amount'] ?? 0))
+                    @if($codDue > 0)<dt class="col-sm-4">Cash on delivery</dt><dd class="col-sm-8">Collect {{ $naira($codDue) }} from the receiver</dd>@endif
                     @if($req->budget_min || $req->budget_max)<dt class="col-sm-4">Budget</dt><dd class="col-sm-8">{{ $req->budget_min ? $naira($req->budget_min).' to ' : 'up to ' }}{{ $naira($req->budget_max) }}</dd>@endif
                 </dl>
                 @if(count($packages))

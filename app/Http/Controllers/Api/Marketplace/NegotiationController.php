@@ -38,7 +38,7 @@ class NegotiationController extends Controller
             'pickup.contact_name' => 'nullable|string|max:120', 'pickup.contact_phone' => 'nullable|string|max:24',
             'dropoff.line1' => 'required|string|max:255', 'dropoff.lat' => 'required|numeric|between:-90,90', 'dropoff.lng' => 'required|numeric|between:-180,180',
             'dropoff.contact_name' => 'nullable|string|max:120', 'dropoff.contact_phone' => 'nullable|string|max:24',
-            'packages' => 'nullable|array|max:20', 'budget_min' => 'nullable|integer|min:0', 'budget_max' => 'nullable|integer|min:0', 'needed_by' => 'nullable|date|after:now',
+            'packages' => 'nullable|array|max:20', 'budget_min' => 'nullable|integer|min:0', 'budget_max' => 'nullable|integer|min:0', 'cod_amount' => 'nullable|integer|min:0|max:10000000000', 'needed_by' => 'nullable|date|after:now',
             'visibility' => 'nullable|in:direct,invited,open', 'operator_ids' => 'nullable|array|max:20', 'operator_ids.*' => 'integer',
             'errand.list' => 'required_if:type,shopping|array', 'errand.budget_cap' => 'required_if:type,shopping|integer|min:1', 'errand.market_id' => 'nullable|integer',
             'errand.substitution_policy' => 'nullable|in:ask,allow,none',

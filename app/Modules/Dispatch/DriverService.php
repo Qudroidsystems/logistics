@@ -86,12 +86,18 @@ class DriverService
         // What each stop needs before it can be completed, as agreed between the job giver and the provider.
         $policy = app(VerificationPolicy::class);
         $exceptions = collect(app(ExceptionService::class)->forShipment((int) $row->shipment_id));
-        $stops = $stops->map(function ($s) use ($policy, $exceptions) {
+        // With calls through the shared number, the rider sees only the last digits and calls through the app.
+        $masked = app(\App\Modules\Messaging\CallService::class)->enabled();
+        $codDue = (int) DB::table('shipments')->where('id', $row->shipment_id)->value('cod_amount');
+        $stops = $stops->map(function ($s) use ($policy, $exceptions, $masked, $codDue) {
             $requires = $policy->forStop($s);
             $mine = $exceptions->where('stop_id', (int) $s->id)->values();
             $waived = $mine->where('status', 'approved')->pluck('method')->intersect($requires)->values()->all();
             $a = (array) $s;
             unset($a['shipment_id'], $a['readiness'], $a['readiness_note'], $a['readiness_at'], $a['pickup_point_id']);
+            if ($masked && $a['contact_phone']) {
+                $a['contact_phone'] = \App\Modules\Messaging\CallService::hide($a['contact_phone']);
+            }
 
             return $a + [
                 // Left at a pickup point: the receiver is not there, so no code is asked for.
@@ -101,6 +107,9 @@ class DriverService
                 'exceptions' => $mine->all(),
                 // What the receiver told the rider from their tracking link ("I need 10 more minutes").
                 'receiver_reply' => \App\Modules\Eta\ReceiverReplies::current($s),
+                'masked_call' => $masked && ! empty($s->contact_phone),
+                // Cash on delivery to collect from the receiver at this stop, in kobo; 0 when none.
+                'cod_amount' => in_array('cod', $requires, true) ? $codDue : 0,
             ];
         })->all();
         $scanned = DB::table('package_scans')->where('shipment_id', $row->shipment_id)->get(['package_id', 'scan_type'])
@@ -116,9 +125,19 @@ class DriverService
         return (array) $row + [
             'stops' => $stops, 'live' => in_array($row->assignment, self::LIVE, true),
             'packages' => $packages,
+            'chat_unread' => $this->unreadChat((int) $row->shipment_id, $driverId),
             'authorised_receivers' => $policy->forShipment((int) $row->shipment_id)['authorised_receivers'],
             'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describeForDriver($policyJson ? json_decode($policyJson, true) : null),
         ];
+    }
+
+    /** Chat messages from the customer the rider has not opened yet. */
+    private function unreadChat(int $shipmentId, int $driverId): int
+    {
+        $user = DB::table('driver_profiles')->where('id', $driverId)->value('user_id');
+
+        return DB::table('messages as m')->join('conversations as c', 'c.id', '=', 'm.conversation_id')
+            ->where('c.shipment_id', $shipmentId)->where('c.type', 'customer_driver')->where('m.sender_id', '<>', $user)->whereNull('m.read_at')->count();
     }
 
     /** Driver sets off for the pickup. Arrival is then picked up from their location. */

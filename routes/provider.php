@@ -5,6 +5,8 @@ use App\Http\Controllers\Provider\BackofficeController as Bo;
 use App\Http\Controllers\Provider\BusinessAccountsController as Ba;
 use App\Http\Controllers\Provider\PickupPointsController as Pp;
 use App\Http\Controllers\Provider\PricingController as P;
+use App\Http\Controllers\Provider\PromoCodesController as Pc;
+use App\Http\Controllers\Provider\CashController as Cash;
 use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
 use App\Http\Controllers\Provider\VerificationController as V;
@@ -37,6 +39,14 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::post('/jobs/{shipment}/exceptions/{exception}', [W::class, 'decideException'])->name('job.exception');
     Route::post('/jobs/{shipment}/return', [Pp::class, 'bookReturn'])->middleware('throttle:20,1')->name('job.return');
 
+    // The provider's own promo codes, paid out of their share of each job
+    Route::get('/promo-codes', [Pc::class, 'index'])->name('promos');
+    Route::post('/promo-codes', [Pc::class, 'store'])->name('promos.store');
+    Route::post('/promo-codes/{promo}/toggle', [Pc::class, 'toggle'])->whereNumber('promo')->name('promos.toggle');
+    // Cash on delivery: count in what riders collected, then pay the senders
+    Route::get('/cash', [Cash::class, 'index'])->name('cash');
+    Route::post('/cash/hand-in', [Cash::class, 'handIn'])->name('cash.handin');
+    Route::post('/cash/pay-out', [Cash::class, 'payOut'])->name('cash.payout');
     // Business accounts: customers who book on credit, billed by monthly invoice
     Route::get('/business-accounts', [Ba::class, 'index'])->name('accounts');
     Route::post('/business-accounts', [Ba::class, 'store'])->name('accounts.store');

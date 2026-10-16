@@ -68,6 +68,7 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/promos', [Pr::class, 'promos'])->middleware('can:View promo code')->name('promos');
     Route::post('/promos', [Pr::class, 'storePromo'])->middleware('can:Create promo code')->name('promo.store');
     Route::post('/promos/{promo}/toggle', [Pr::class, 'togglePromo'])->middleware('can:Update promo code')->whereNumber('promo')->name('promo.toggle');
+    Route::post('/referrals', [Pr::class, 'saveReferrals'])->middleware('can:Update promo code')->name('referrals.save');
     Route::post('/corporate-discounts', [Pr::class, 'storeCorporate'])->middleware('can:Create promo code')->name('corporate.store');
     Route::post('/corporate-discounts/{discount}/toggle', [Pr::class, 'toggleCorporate'])->middleware('can:Update promo code')->whereNumber('discount')->name('corporate.toggle');
     Route::get('/price-lists', [Pr::class, 'plans'])->middleware('can:Manage pricing rules')->name('price-lists');

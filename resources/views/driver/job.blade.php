@@ -47,6 +47,10 @@
                     <input name="recipient_name" class="form-control mb-2" maxlength="120" @if(in_array('receiver_name', $req, true)) required @endif>
                     @if(!empty($job['authorised_receivers']) && in_array('receiver_name', $req, true))<div class="small text-muted mb-2">Only: {{ implode(', ', $job['authorised_receivers']) }}</div>@endif
                 @endif
+                @if(($s['cod_amount'] ?? 0) > 0)
+                    <label class="form-label small">Cash collected (₦). Collect exactly {{ \App\Modules\Cod\CodService::naira((int) $s['cod_amount']) }}</label>
+                    <input name="cod_naira" type="number" step="0.01" min="0" inputmode="decimal" class="form-control form-control-lg mb-2" required>
+                @endif
                 @if(in_array('receiver_id', $req, true))
                     <div class="row g-2 mb-2">
                         <div class="col-7"><select name="id_type" class="form-select" required><option value="">Receiver's ID</option>@foreach(['nin' => 'NIN', 'drivers_licence' => "Driver's licence", 'voters_card' => "Voter's card", 'passport' => 'Passport', 'staff_id' => 'Staff ID', 'other' => 'Other'] as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select></div>

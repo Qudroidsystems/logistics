@@ -46,3 +46,6 @@ Schedule::command('payments:reconcile')->everyFiveMinutes()->withoutOverlapping(
 
 // Bookings for later: offer them to drivers shortly before the customer's pickup time.
 Schedule::command('dispatch:scheduled')->everyMinute()->withoutOverlapping(5);
+
+// Cash on delivery: tell providers when a rider has held collected cash past the hand-in time.
+Schedule::command('cod:flag-overdue')->hourly()->withoutOverlapping(10);

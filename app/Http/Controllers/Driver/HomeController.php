@@ -79,8 +79,12 @@ class HomeController extends Controller
             'lat' => 'required|numeric|between:-90,90', 'lng' => 'required|numeric|between:-180,180',
             'otp' => 'nullable|string|max:12', 'recipient_name' => 'nullable|string|max:120',
             'id_type' => 'nullable|string|max:20', 'id_last4' => 'nullable|string|max:4',
-            'photo' => 'nullable|image|max:6144', 'signature' => 'nullable|image|max:2048',
+            'photo' => 'nullable|image|max:6144', 'signature' => 'nullable|image|max:2048', 'cod_naira' => 'nullable|numeric|min:0',
         ], ['lat.required' => 'We could not read your location. Allow location access and try again.']);
+        if ($request->filled('cod_naira')) {
+            // The form takes naira; the stop check compares kobo.
+            $request->merge(['cod_collected' => (int) round(((float) $request->input('cod_naira')) * 100)]);
+        }
 
         // The stop must belong to this job and this driver.
         $job = $this->drivers->job($d->id, $shipment);

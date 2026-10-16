@@ -2,18 +2,21 @@
 
 namespace App\Modules\Booking;
 
+use App\Modules\Marketing\ReferralService;
 use App\Modules\Pricing\Discounts;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
  * Discounts on a negotiated job, settled before the customer pays: a promo code the customer enters and any corporate
- * discount their account has. Both come off the delivery price only (never goods money or the tip). The platform
- * pays for the discount, so the provider still receives what was agreed; escrow records the platform's share.
+ * discount their account has, or a first-delivery discount for a customer a friend invited. All come off the delivery
+ * price only (never goods money or the tip). The platform pays for its own discounts, so the provider still receives
+ * what was agreed; escrow records the platform's share. A provider's own promo code is paid by that provider: it comes
+ * out of their share when the job pays out (EscrowService).
  */
 class AgreementDiscounts
 {
-    public function __construct(private Discounts $discounts)
+    public function __construct(private Discounts $discounts, private ReferralService $referrals)
     {
     }
 
@@ -89,7 +92,13 @@ class AgreementDiscounts
             $lines[] = ['kind' => 'corporate', 'label' => $corp->name, 'amount' => $amt];
         }
         if ($promo && ($amt = $this->discounts->promoAmount($promo, $price)) > 0) {
-            $lines[] = ['kind' => 'promo', 'label' => 'Promo '.$promo->code, 'code' => $promo->code, 'amount' => $amt];
+            $byProvider = $promo->funded_by === 'operator';
+            // A provider's code can't cost them more than they would have earned on the job.
+            $amt = $byProvider ? min($amt, (int) $a->provider_net) : $amt;
+            $lines[] = ['kind' => 'promo', 'label' => 'Promo '.$promo->code, 'code' => $promo->code, 'amount' => $amt, 'funded_by' => $byProvider ? 'operator' : 'platform'];
+        } elseif (! $a->merchant_id && ($amt = $this->referrals->friendDiscount((int) $a->customer_id, $price)) > 0) {
+            // Invited by a friend: money off the first delivery, unless they use a promo code instead.
+            $lines[] = ['kind' => 'referral', 'label' => 'Invited by a friend', 'amount' => $amt, 'funded_by' => 'platform'];
         }
         $total = min($price, array_sum(array_column($lines, 'amount')));
 

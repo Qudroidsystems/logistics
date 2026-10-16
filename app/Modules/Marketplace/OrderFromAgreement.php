@@ -52,7 +52,8 @@ class OrderFromAgreement
                 'kind' => empty($t['return_of']) ? 'forward' : 'return', 'parent_shipment_id' => $t['return_of'] ?? null, 'return_reason' => $t['return_reason'] ?? null,
                 'service_type_id' => $t['service_type_id'], 'vehicle_type_id' => $t['vehicle_type_id'] ?? null,
                 'status' => 'created', 'tracking_code' => ParcelCodes::make('QD', 9), 'distance_m' => $a->distance_m,
-                'cod_amount' => 0, 'insured_value' => 0, 'is_test' => $a->is_test, 'created_at' => now(), 'updated_at' => now(),
+                // Goods money the rider collects from the receiver for the sender (cash on delivery).
+                'cod_amount' => max(0, (int) ($t['cod_amount'] ?? 0)), 'insured_value' => 0, 'is_test' => $a->is_test, 'created_at' => now(), 'updated_at' => now(),
                 // A booking for later: dispatch waits until shortly before this (DispatchService::start).
                 'pickup_window_start' => $pickupAt, 'pickup_window_end' => $pickupAt?->copy()->addMinutes(30),
                 // The proofs both sides signed up to; agreements made before policies existed get the provider's standard.

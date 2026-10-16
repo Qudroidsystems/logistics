@@ -21,6 +21,10 @@ class AccountResolver
         'payout_in_transit' => 'liability',
         'gateway_clearing' => 'asset',
         'cod_clearing' => 'asset',
+        // Cash on delivery: what a rider is carrying, what is in the provider's office, and what is owed to the sender.
+        'cod_with_rider' => 'asset',
+        'cod_in_office' => 'asset',
+        'cod_payable' => 'liability',
         'platform_commission' => 'revenue',
         'platform_revenue' => 'revenue',
         'promo_expense' => 'expense',

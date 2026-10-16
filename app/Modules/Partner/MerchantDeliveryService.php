@@ -45,6 +45,7 @@ class MerchantDeliveryService
                     'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'weight_g' => $d['weight_g'] ?? 0, 'fragile' => $d['fragile'] ?? false,
                     'declared_value' => $d['declared_value'] ?? 0, 'is_test' => $client->environment !== 'live',
                     'rush' => (bool) ($d['rush'] ?? false), 'merchant_id' => (int) $merchant->id,
+                    'cod_amount' => (int) ($d['cod_amount'] ?? 0),
                 ] + $route);
             } catch (NoPricingPlan) {
                 continue;
@@ -93,7 +94,7 @@ class MerchantDeliveryService
                     'external_order_id' => $d['external_order_id'], 'pickup' => $d['pickup'], 'dropoff' => $d['dropoff'],
                     'packages' => $d['packages'] ?? [], 'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'quote_id' => $q['quote_id'],
                     'verification' => VerificationPolicy::agree($d['verification'] ?? null, app(VerificationPolicy::class)->forProvider((int) $q['operator_id'], (int) $d['service_type_id'])),
-                ] + array_filter(['return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null]),
+                ] + array_filter(['return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null, 'cod_amount' => (int) ($d['cod_amount'] ?? 0) ?: null]),
                 'price' => $q['total'], 'distance_m' => $q['route']['distance_m'],
                 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],
             ], $owner);
@@ -221,6 +222,7 @@ class MerchantDeliveryService
         return ['external_order_id' => $terms['external_order_id'] ?? null] + $this->present($a, null) + [
             'delivery_status' => $s->status ?? 'awaiting_payment', 'tracking_code' => $s->tracking_code ?? null,
             'delivered_at' => $s && $s->delivered_at ? \Carbon\CarbonImmutable::parse($s->delivered_at)->toIso8601String() : null,
+            'cod' => $s ? app(\App\Modules\Cod\CodService::class)->forShipment((int) $s->id) : null,
             'eta' => $eta ? ['to' => $eta['stop_type'], 'label' => $eta['label'], 'low_minutes' => $eta['low'], 'high_minutes' => $eta['high'], 'stale' => $eta['stale']] : null,
             'updated_at' => \Carbon\CarbonImmutable::parse($s->updated_at ?? $a->updated_at)->toIso8601String(),
         ];
