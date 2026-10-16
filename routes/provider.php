@@ -7,6 +7,7 @@ use App\Http\Controllers\Provider\PickupPointsController as Pp;
 use App\Http\Controllers\Provider\PricingController as P;
 use App\Http\Controllers\Provider\PromoCodesController as Pc;
 use App\Http\Controllers\Provider\CashController as Cash;
+use App\Http\Controllers\Provider\MarketingController as Mk;
 use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
 use App\Http\Controllers\Provider\VerificationController as V;
@@ -43,6 +44,12 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/promo-codes', [Pc::class, 'index'])->name('promos');
     Route::post('/promo-codes', [Pc::class, 'store'])->name('promos.store');
     Route::post('/promo-codes/{promo}/toggle', [Pc::class, 'toggle'])->whereNumber('promo')->name('promos.toggle');
+    // Campaigns to the provider's own customers, and Google review requests
+    Route::get('/campaigns', [Mk::class, 'index'])->name('campaigns');
+    Route::post('/campaigns', [Mk::class, 'store'])->name('campaigns.store');
+    Route::post('/campaigns/{campaign}', [Mk::class, 'update'])->whereNumber('campaign')->name('campaigns.update');
+    Route::post('/campaigns/{campaign}/{action}', [Mk::class, 'action'])->whereNumber('campaign')->whereIn('action', ['test', 'send', 'cancel'])->middleware('throttle:20,1')->name('campaigns.action');
+    Route::post('/reviews', [Mk::class, 'saveReviews'])->name('reviews.save');
     // Cash on delivery: count in what riders collected, then pay the senders
     Route::get('/cash', [Cash::class, 'index'])->name('cash');
     Route::post('/cash/hand-in', [Cash::class, 'handIn'])->name('cash.handin');

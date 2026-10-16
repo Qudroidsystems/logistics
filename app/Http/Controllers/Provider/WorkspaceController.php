@@ -32,6 +32,7 @@ class WorkspaceController extends Controller
         'requests' => ['owner', 'admin', 'dispatcher'],
         'money' => ['owner', 'admin', 'finance'],
         'team' => ['owner', 'admin', 'driver_manager'],
+        'marketing' => ['owner', 'admin'],
     ];
 
     public const BANKS = [

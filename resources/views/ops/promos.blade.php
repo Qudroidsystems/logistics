@@ -105,5 +105,58 @@
     </x-cb.card>
     </div>
     </div>
+
+    <div class="row g-3 mt-1">
+    <div class="col-lg-5">
+    <x-cb.card title="Loyalty points" icon="ri-medal-line">
+        <p class="small text-muted">Customers earn points on every finished delivery they pay for, and spend them at payment for money off the delivery price. The platform pays for points spent.</p>
+        <div class="small mb-2">{{ number_format($loyaltyTotals->earned) }} earned · {{ number_format($loyaltyTotals->spent) }} spent · {{ number_format($loyaltyTotals->outstanding) }} unspent (worth {{ $naira($loyaltyTotals->outstanding * $loyalty['point_value']) }})</div>
+        @can('Update promo code')
+        <form method="POST" action="{{ route('ops.loyalty.save') }}" class="row g-2">@csrf
+            <div class="col-12"><select name="enabled" class="form-select"><option value="1" @selected($loyalty['enabled'])>Points are on</option><option value="0" @selected(! $loyalty['enabled'])>Points are off</option></select></div>
+            <div class="col-6"><label class="form-label small">Points for each ₦100 paid</label><input name="earn_per_100" type="number" min="0" class="form-control" value="{{ $loyalty['earn_per_100'] }}"></div>
+            <div class="col-6"><label class="form-label small">One point is worth (₦)</label><input name="point_value_naira" type="number" step="0.01" min="0.01" class="form-control" value="{{ $loyalty['point_value'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">Points needed to spend any</label><input name="min_redeem" type="number" min="0" class="form-control" value="{{ $loyalty['min_redeem'] }}"></div>
+            <div class="col-6"><label class="form-label small">Most of one delivery points pay (%)</label><input name="max_share_percent" type="number" min="1" max="100" class="form-control" value="{{ intdiv($loyalty['max_share_bp'], 100) }}"></div>
+            <div class="col-12"><button class="btn btn-outline-primary">Save</button></div>
+        </form>
+        @endcan
+    </x-cb.card>
+    @can('Create promo code')
+    <x-cb.card title="Give a gift card" icon="ri-gift-line">
+        <form method="POST" action="{{ route('ops.giftcards.issue') }}" class="row g-2">@csrf
+            <div class="col-6"><label class="form-label small">Amount (₦)</label><input name="amount_naira" type="number" step="0.01" min="1" class="form-control" required value="{{ old('amount_naira') }}"></div>
+            <div class="col-6"><label class="form-label small">Expires (optional)</label><input name="expires_at" type="date" class="form-control" value="{{ old('expires_at') }}"></div>
+            <div class="col-12"><label class="form-label small">For</label><input name="recipient_name" class="form-control" maxlength="120" placeholder="Name" value="{{ old('recipient_name') }}"></div>
+            <div class="col-6"><input name="recipient_phone" class="form-control" maxlength="24" placeholder="Phone, to text the code" value="{{ old('recipient_phone') }}"></div>
+            <div class="col-6"><input name="recipient_email" type="email" class="form-control" maxlength="190" placeholder="Email, to send the code" value="{{ old('recipient_email') }}"></div>
+            <div class="col-12"><input name="message" class="form-control" maxlength="300" placeholder="Message (optional)" value="{{ old('message') }}"></div>
+            <div class="col-12"><button class="btn btn-primary">Create gift card</button> <span class="small text-muted">The platform pays for it.</span></div>
+        </form>
+    </x-cb.card>
+    @endcan
+    </div>
+    <div class="col-lg-7">
+    <x-cb.card title="Gift cards" icon="ri-gift-2-line" :flush="true">
+        <div class="small text-muted px-3 pt-2">{{ $giftTotals->cards }} active · {{ $naira($giftTotals->unspent) }} unspent</div>
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Card</th><th>From</th><th>For</th><th class="text-end">Value</th><th class="text-end">Left</th><th></th></tr></thead>
+            <tbody>
+            @forelse($giftCards as $g)
+                <tr class="{{ $g->status === 'active' ? '' : 'text-muted' }}">
+                    <td class="small">…{{ $g->last4 }} @if($g->status !== 'active')<span class="badge bg-light text-dark">stopped</span>@endif @if($g->expires_at)<div class="text-muted">until {{ \Illuminate\Support\Carbon::parse($g->expires_at)->format('d M Y') }}</div>@endif</td>
+                    <td class="small">{{ $g->source === 'issued' ? 'Staff' : ($g->buyer ?? 'Customer') }}</td>
+                    <td class="small">{{ $g->recipient_name ?? '—' }}</td>
+                    <td class="text-end small">{{ $naira($g->initial_value) }}</td><td class="text-end small">{{ $naira($g->balance) }}</td>
+                    <td class="text-end">@can('Update promo code')<form method="POST" action="{{ route('ops.giftcards.toggle', $g->id) }}">@csrf<button class="btn btn-sm btn-outline-secondary">{{ $g->status === 'active' ? 'Stop' : 'Allow' }}</button></form>@endcan</td>
+                </tr>
+            @empty
+                <tr><td colspan="6" class="text-center text-muted py-3">No gift cards yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </x-cb.card>
+    </div>
+    </div>
 </div></div></div>
 @endsection

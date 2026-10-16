@@ -46,6 +46,11 @@ class PricingAdminController extends Controller
             'referrals' => DB::table('referrals as r')->join('users as a', 'a.id', '=', 'r.referrer_id')->join('users as f', 'f.id', '=', 'r.friend_id')
                 ->orderByDesc('r.id')->limit(50)->get(['r.status', 'r.reward', 'r.note', 'r.created_at', 'a.email as referrer', 'f.email as friend']),
             'referralTotals' => DB::table('referrals')->selectRaw("count(*) as invited, count(*) filter (where status = 'rewarded') as rewarded, coalesce(sum(reward), 0) as paid")->first(),
+            'loyalty' => \App\Modules\Marketing\LoyaltyService::settings(),
+            'loyaltyTotals' => DB::table('loyalty_points')->selectRaw("coalesce(sum(points) filter (where kind = 'earn'), 0) as earned, coalesce(-sum(points) filter (where kind = 'redeem'), 0) as spent, coalesce(sum(points), 0) as outstanding")->first(),
+            'giftCards' => DB::table('gift_cards as g')->leftJoin('users as b', 'b.id', '=', 'g.bought_by')->orderByDesc('g.id')->limit(50)
+                ->get(['g.id', 'g.last4', 'g.initial_value', 'g.balance', 'g.source', 'g.status', 'g.recipient_name', 'g.expires_at', 'g.created_at', 'b.email as buyer']),
+            'giftTotals' => DB::table('gift_cards')->where('status', 'active')->selectRaw('count(*) as cards, coalesce(sum(balance), 0) as unspent')->first(),
         ]);
     }
 
@@ -61,6 +66,47 @@ class PricingAdminController extends Controller
         ], $request->user()->id);
 
         return back()->with('success', $d['enabled'] === '1' ? 'Invites are on with the new amounts.' : 'Invites are off. Codes already shared stop giving anything.');
+    }
+
+    public function saveLoyalty(Request $request)
+    {
+        $d = $request->validate([
+            'enabled' => 'required|in:0,1', 'earn_per_100' => 'required|integer|min:0|max:100', 'point_value_naira' => 'required|numeric|min:0.01|max:1000',
+            'min_redeem' => 'required|integer|min:0|max:1000000', 'max_share_percent' => 'required|integer|min:1|max:100',
+        ]);
+        \App\Modules\Marketing\LoyaltyService::save([
+            'enabled' => $d['enabled'] === '1', 'earn_per_100' => (int) $d['earn_per_100'], 'point_value' => self::kobo($d['point_value_naira']),
+            'min_redeem' => (int) $d['min_redeem'], 'max_share_bp' => (int) $d['max_share_percent'] * 100,
+        ], $request->user()->id);
+
+        return back()->with('success', $d['enabled'] === '1' ? 'Loyalty points are on with the new rates.' : 'Loyalty points are off. Customers keep their points but cannot earn or spend them.');
+    }
+
+    /** A card given away by staff. The code is shown once, here. */
+    public function issueGiftCard(Request $request, \App\Modules\Marketing\GiftCardService $cards)
+    {
+        $d = $request->validate([
+            'amount_naira' => 'required|numeric|min:1', 'recipient_name' => 'nullable|string|max:120', 'recipient_phone' => 'nullable|string|max:24',
+            'recipient_email' => 'nullable|email:rfc|max:190', 'message' => 'nullable|string|max:300', 'expires_at' => 'nullable|date|after:today',
+        ]);
+        try {
+            $card = $cards->issue($request->user()->id, self::kobo($d['amount_naira']), [
+                'name' => $d['recipient_name'] ?? null, 'phone' => $d['recipient_phone'] ?? null, 'email' => $d['recipient_email'] ?? null, 'message' => $d['message'] ?? null,
+            ], $d['expires_at'] ?? null);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "Gift card {$card['code']} created. Copy the code now; it is not shown again.");
+    }
+
+    public function toggleGiftCard(Request $request, int $card, \App\Modules\Marketing\GiftCardService $cards)
+    {
+        $row = DB::table('gift_cards')->where('id', $card)->first();
+        abort_unless($row, 404);
+        $cards->setActive($card, $row->status !== 'active');
+
+        return back()->with('success', $row->status === 'active' ? 'Gift card stopped. It can no longer pay.' : 'Gift card can pay again.');
     }
 
     public function storePromo(Request $request)

@@ -69,6 +69,13 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::post('/promos', [Pr::class, 'storePromo'])->middleware('can:Create promo code')->name('promo.store');
     Route::post('/promos/{promo}/toggle', [Pr::class, 'togglePromo'])->middleware('can:Update promo code')->whereNumber('promo')->name('promo.toggle');
     Route::post('/referrals', [Pr::class, 'saveReferrals'])->middleware('can:Update promo code')->name('referrals.save');
+    Route::get('/campaigns', [\App\Http\Controllers\Admin\CampaignsController::class, 'index'])->middleware('can:View promo code')->name('campaigns');
+    Route::post('/campaigns', [\App\Http\Controllers\Admin\CampaignsController::class, 'store'])->middleware('can:Create promo code')->name('campaigns.store');
+    Route::post('/campaigns/{campaign}', [\App\Http\Controllers\Admin\CampaignsController::class, 'update'])->middleware('can:Create promo code')->whereNumber('campaign')->name('campaigns.update');
+    Route::post('/campaigns/{campaign}/{action}', [\App\Http\Controllers\Admin\CampaignsController::class, 'action'])->middleware(['can:Create promo code', 'throttle:20,1'])->whereNumber('campaign')->whereIn('action', ['test', 'send', 'cancel'])->name('campaigns.action');
+    Route::post('/loyalty', [Pr::class, 'saveLoyalty'])->middleware('can:Update promo code')->name('loyalty.save');
+    Route::post('/gift-cards', [Pr::class, 'issueGiftCard'])->middleware('can:Create promo code')->name('giftcards.issue');
+    Route::post('/gift-cards/{card}/toggle', [Pr::class, 'toggleGiftCard'])->middleware('can:Update promo code')->whereNumber('card')->name('giftcards.toggle');
     Route::post('/corporate-discounts', [Pr::class, 'storeCorporate'])->middleware('can:Create promo code')->name('corporate.store');
     Route::post('/corporate-discounts/{discount}/toggle', [Pr::class, 'toggleCorporate'])->middleware('can:Update promo code')->whereNumber('discount')->name('corporate.toggle');
     Route::get('/price-lists', [Pr::class, 'plans'])->middleware('can:Manage pricing rules')->name('price-lists');

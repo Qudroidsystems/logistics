@@ -30,6 +30,7 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|max:100',
             'device_name' => 'nullable|string|max:60',
             'referral_code' => 'nullable|string|max:16',
+            'offers' => 'nullable|boolean',
         ]);
         $phone = isset($d['phone']) ? self::normalizePhone($d['phone']) : null;
         if ($phone !== null && (strlen($phone) < 10 || DB::table('users')->where('phone_number', $phone)->exists())) {
@@ -40,6 +41,8 @@ class AuthController extends Controller
             $u = User::create(['name' => $d['name'], 'email' => strtolower($d['email']), 'phone_number' => $phone, 'password' => Hash::make($d['password'])]);
             DB::table('customer_profiles')->insert([
                 'public_id' => (string) Str::ulid(), 'user_id' => $u->id, 'referral_code' => strtoupper(Str::random(8)), 'created_at' => now(), 'updated_at' => now(),
+                // Offers only when the customer ticked the box.
+                'marketing_opt_in' => (bool) ($d['offers'] ?? false), 'marketing_changed_at' => isset($d['offers']) ? now() : null,
             ]);
             // Invited by a friend: an unknown code is ignored rather than blocking sign-up.
             app(\App\Modules\Marketing\ReferralService::class)->attach($u->id, $d['referral_code'] ?? null);

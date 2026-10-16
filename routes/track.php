@@ -14,3 +14,6 @@ Route::get('/p/{slug}', [ProviderPageController::class, 'show'])->where('slug', 
 /** Public reference for merchants integrating the Partner API. */
 Route::get('/developers/partner-api', fn () => view('developers.partner-api', ['base' => url('/api/v1/partner')]))->middleware('throttle:60,1')->name('developers.partner');
 Route::get('/developers/app-api', fn () => view('developers.app-api', ['base' => url('/api/v1')]))->middleware('throttle:60,1')->name('developers.app');
+
+/** One-click stop for campaign emails; the link is signed so it only works for the person it was sent to. */
+Route::get('/unsubscribe/{user}', [\App\Http\Controllers\MarketingUnsubscribeController::class, 'show'])->whereNumber('user')->middleware(['signed', 'throttle:20,1'])->name('marketing.unsubscribe');

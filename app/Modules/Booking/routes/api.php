@@ -17,6 +17,15 @@ Route::middleware(['auth:sanctum', 'throttle:90,1'])->prefix('v1')->group(functi
         Route::get('/agreements/{agreement}/payment', [B::class, 'paymentSummary']);
         Route::post('/agreements/{agreement}/promo', [B::class, 'applyPromo'])->middleware('throttle:10,1');
         Route::delete('/agreements/{agreement}/promo', [B::class, 'removePromo']);
+        Route::post('/agreements/{agreement}/points', [B::class, 'usePoints']);
+        Route::post('/agreements/{agreement}/gift-card', [B::class, 'applyGiftCard'])->middleware('throttle:10,1');
+        Route::delete('/agreements/{agreement}/gift-card', [B::class, 'removeGiftCard']);
+
+        // Loyalty points and gift cards
+        Route::get('/loyalty', [\App\Http\Controllers\Api\Customer\RewardsController::class, 'loyalty']);
+        Route::get('/gift-cards', [\App\Http\Controllers\Api\Customer\RewardsController::class, 'giftCards']);
+        Route::post('/gift-cards', [\App\Http\Controllers\Api\Customer\RewardsController::class, 'buy'])->middleware('throttle:10,1');
+        Route::post('/gift-cards/check', [\App\Http\Controllers\Api\Customer\RewardsController::class, 'check'])->middleware('throttle:10,1');
 
         Route::get('/orders/{shipment}/receipt', [B::class, 'receipt'])->middleware('throttle:20,1');
     });

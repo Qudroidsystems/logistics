@@ -28,6 +28,8 @@ class AccountResolver
         'platform_commission' => 'revenue',
         'platform_revenue' => 'revenue',
         'promo_expense' => 'expense',
+        // Unspent gift card balances: owed to whoever holds the card.
+        'gift_card' => 'liability',
     ];
 
     public function for(string $ownerType, ?int $ownerId, string $purpose, int $operatorId, string $currency = 'NGN'): int

@@ -90,6 +90,10 @@ class OrderFromAgreement
                 $promoPart = (int) collect(json_decode((string) $a->discount_lines, true) ?: [])->where('kind', 'promo')->sum('amount');
                 app(\App\Modules\Pricing\Discounts::class)->redeem((int) $a->promo_code_id, (int) $a->customer_id, $orderId, $promoPart);
             }
+            // Points and gift card balance the payment used are taken now, once the job is paid for.
+            $paidWith = collect(json_decode((string) $a->discount_lines, true) ?: []);
+            app(\App\Modules\Marketing\LoyaltyService::class)->spend($a, (int) $paidWith->where('kind', 'loyalty')->sum('amount'));
+            app(\App\Modules\Marketing\GiftCardService::class)->spend($a, (int) $paidWith->where('kind', 'gift_card')->sum('amount'));
 
             // Arm the drop-off code and share links in the same transaction as the shipment.
             $this->tracking->arm($shipmentId);

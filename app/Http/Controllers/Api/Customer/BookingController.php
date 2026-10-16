@@ -101,6 +101,25 @@ class BookingController extends Controller
         return $this->run(fn () => $svc->removePromo($this->agreementId($request, $agreement), $request->user()->id));
     }
 
+    public function usePoints(Request $request, AgreementDiscounts $svc, string $agreement)
+    {
+        $d = $request->validate(['use' => 'required|boolean']);
+
+        return $this->run(fn () => $svc->usePoints($this->agreementId($request, $agreement), $request->user()->id, (bool) $d['use']));
+    }
+
+    public function applyGiftCard(Request $request, AgreementDiscounts $svc, string $agreement)
+    {
+        $d = $request->validate(['code' => 'required|string|max:40']);
+
+        return $this->run(fn () => $svc->applyGiftCard($this->agreementId($request, $agreement), $request->user()->id, $d['code']));
+    }
+
+    public function removeGiftCard(Request $request, AgreementDiscounts $svc, string $agreement)
+    {
+        return $this->run(fn () => $svc->removeGiftCard($this->agreementId($request, $agreement), $request->user()->id));
+    }
+
     // ---------- receipts
 
     public function receipt(Request $request, Receipts $svc, string $shipment)

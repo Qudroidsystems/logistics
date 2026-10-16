@@ -49,3 +49,7 @@ Schedule::command('dispatch:scheduled')->everyMinute()->withoutOverlapping(5);
 
 // Cash on delivery: tell providers when a rider has held collected cash past the hand-in time.
 Schedule::command('cod:flag-overdue')->hourly()->withoutOverlapping(10);
+
+// Marketing: send campaigns in batches, and ask for Google reviews after finished deliveries.
+Schedule::command('campaigns:send')->everyMinute()->withoutOverlapping(10);
+Schedule::command('reviews:send')->everyTenMinutes()->withoutOverlapping(10);

@@ -24,6 +24,27 @@
                     <input name="code" class="form-control text-uppercase" maxlength="32" placeholder="Enter a code" required><button class="btn btn-outline-primary">Apply</button></form>
             @endif
         </x-cb.card>
+        @if(!empty($summary['points']['enabled']))
+        <x-cb.card title="Loyalty points" icon="ri-medal-line" class="mt-3">
+            @php $pts = $summary['points']; @endphp
+            @if($pts['balance'] >= $pts['min_redeem'] && $pts['balance'] > 0)
+                <form method="POST" action="{{ route('account.pay.points', $a->public_id) }}" class="d-flex align-items-center justify-content-between gap-2">@csrf
+                    <span>You have {{ number_format($pts['balance']) }} points (worth {{ $naira($pts['balance'] * $pts['point_value']) }}).</span>
+                    <input type="hidden" name="use" value="{{ $summary['use_points'] ? 0 : 1 }}"><button class="btn btn-sm {{ $summary['use_points'] ? 'btn-outline-secondary' : 'btn-outline-primary' }}">{{ $summary['use_points'] ? 'Stop using' : 'Use points' }}</button></form>
+            @else
+                <div class="small text-muted">You have {{ number_format($pts['balance']) }} points. You can spend them once you have {{ number_format($pts['min_redeem']) }}.</div>
+            @endif
+        </x-cb.card>
+        @endif
+        <x-cb.card title="Gift card" icon="ri-gift-line" class="mt-3">
+            @if(!empty($summary['gift_card']))
+                <form method="POST" action="{{ route('account.pay.giftcard.remove', $a->public_id) }}" class="d-flex align-items-center gap-2">@csrf @method('DELETE')
+                    <span class="badge bg-success-subtle text-success fs-6">Ending {{ $summary['gift_card']->last4 }}</span><span class="small text-muted">{{ $naira($summary['gift_card']->balance) }} on the card</span><button class="btn btn-sm btn-link text-danger">Remove</button></form>
+            @else
+                <form method="POST" action="{{ route('account.pay.giftcard', $a->public_id) }}" class="d-flex gap-2">@csrf
+                    <input name="code" class="form-control text-uppercase" maxlength="40" placeholder="GC12-3456-7890" required><button class="btn btn-outline-primary">Apply</button></form>
+            @endif
+        </x-cb.card>
         @endif
         <x-cb.card title="If the delivery fails" icon="ri-file-list-3-line" class="mt-3">
             @foreach(\App\Modules\Marketplace\FailedDeliveryPolicy::describe($a->failed_delivery_policy ? json_decode($a->failed_delivery_policy, true) : null) as $line)<p class="small mb-2">{{ $line }}</p>@endforeach

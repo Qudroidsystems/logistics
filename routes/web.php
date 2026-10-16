@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Session;
 | their own routes from app/Modules/
 */
 
-Route::get('/', fn () => redirect('/login'));
+Route::view('/', 'landing')->name('landing');
 
 Auth::routes(['register' => false]);
 Route::get('/home', [HomeController::class, 'index'])->name('home');

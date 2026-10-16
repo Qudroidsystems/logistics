@@ -180,6 +180,8 @@ class EscrowService
             DB::table('shopping_requests')->where('agreement_id', $agreementId)->update(['actual_spend' => $goodsSpent, 'status' => 'completed', 'updated_at' => now()]);
 
             app(\App\Modules\Marketing\ReferralService::class)->rewardFor($agreementId);
+            app(\App\Modules\Marketing\LoyaltyService::class)->earnFor($agreementId);
+            app(\App\Modules\Marketing\ReviewRequestService::class)->queueFor($agreementId);
 
             return ['transaction_id' => $tx['id'], 'to_provider' => $toProvider, 'platform_fee' => $fee, 'to_customer' => $unspent];
         });
@@ -226,6 +228,7 @@ class EscrowService
             if ($status === 'refunded') {
                 DB::table('agreements')->where('id', $agreementId)->update(['status' => 'cancelled', 'updated_at' => now()]);
             }
+            $this->giveBackRewards($agreementId, $toPlatform);
 
             return ['transaction_id' => $tx['id'], 'refunded' => $amount - $toPlatform, 'returned_to_platform' => $toPlatform];
         });
@@ -306,6 +309,7 @@ class EscrowService
             if ($providerShare > 0) {
                 app(\App\Modules\Marketing\ReferralService::class)->rewardFor($agreementId);
             }
+            $this->giveBackRewards($agreementId, $toPlatform);
 
             return ['transaction_id' => $tx['id'], 'to_provider' => $toProvider, 'platform_fee' => $fee, 'to_customer' => $toCustomer];
         });
@@ -436,6 +440,19 @@ class EscrowService
 
     /** How much of the platform's discount top-up is still in the hold, capped at what is about to leave it. */
     /** How much of the discount was the provider's own promo code, so theirs to pay. Never more than the platform's top-up still in escrow. */
+    /**
+     * The platform's top-up came back on a refund. Part of it may have been the customer's own gift card balance or
+     * points: those go back to the customer, gift card first.
+     */
+    private function giveBackRewards(int $agreementId, int $kobo): void
+    {
+        if ($kobo <= 0) {
+            return;
+        }
+        $kobo -= app(\App\Modules\Marketing\GiftCardService::class)->restore($agreementId, $kobo);
+        app(\App\Modules\Marketing\LoyaltyService::class)->restore($agreementId, $kobo);
+    }
+
     private function providerFunded(object $agreement, object $hold): int
     {
         $lines = $agreement->discount_lines ? (array) json_decode($agreement->discount_lines, true) : [];

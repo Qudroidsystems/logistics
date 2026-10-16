@@ -57,6 +57,21 @@ class BookingPagesController extends Controller
         return $this->done($this->api->removePromo($request, $svc, $agreement), 'Promo code removed.');
     }
 
+    public function usePoints(Request $request, AgreementDiscounts $svc, string $agreement)
+    {
+        return $this->done($this->api->usePoints($request, $svc, $agreement), $request->boolean('use') ? 'Points applied.' : 'Points no longer used.');
+    }
+
+    public function applyGiftCard(Request $request, AgreementDiscounts $svc, string $agreement)
+    {
+        return $this->done($this->api->applyGiftCard($request, $svc, $agreement), 'Gift card applied.');
+    }
+
+    public function removeGiftCard(Request $request, AgreementDiscounts $svc, string $agreement)
+    {
+        return $this->done($this->api->removeGiftCard($request, $svc, $agreement), 'Gift card removed.');
+    }
+
     public function receipt(Request $request, Receipts $svc, string $shipment)
     {
         $res = $this->api->receipt($request, $svc, $shipment);

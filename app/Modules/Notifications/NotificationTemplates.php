@@ -61,6 +61,8 @@ class NotificationTemplates
         // ---- money
         'payout.processing' => ['title' => 'Payout on its way', 'body' => 'Your payout of {amount} was approved and is being sent.', 'email' => false],
         'referral.rewarded' => ['title' => 'You earned a referral credit', 'body' => '{friend} finished their first delivery, so {amount} is now in your wallet.', 'email' => true],
+        'review.request' => ['title' => 'How did we do?', 'body' => 'Thanks for using {provider}. Would you leave a quick Google review? {link}', 'email' => true],
+        'loyalty.earned' => ['title' => 'Points earned', 'body' => 'You earned {points} loyalty points. You now have {balance}.', 'email' => false],
         'payout.paid' => ['title' => 'Payout sent', 'body' => '{amount} has been sent to your bank account.', 'email' => true],
         'payout.failed' => ['title' => 'Payout failed', 'body' => 'Your payout of {amount} could not be completed. The money is back in your wallet. {note}', 'email' => true],
 

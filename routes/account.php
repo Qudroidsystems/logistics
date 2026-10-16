@@ -45,6 +45,9 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::delete('/files/{attachment}', [Bk::class, 'deleteFile'])->name('file.delete');
     Route::post('/pay/{agreement}/promo', [Bk::class, 'applyPromo'])->middleware('throttle:10,1')->name('pay.promo');
     Route::delete('/pay/{agreement}/promo', [Bk::class, 'removePromo'])->name('pay.promo.remove');
+    Route::post('/pay/{agreement}/points', [Bk::class, 'usePoints'])->name('pay.points');
+    Route::post('/pay/{agreement}/gift-card', [Bk::class, 'applyGiftCard'])->middleware('throttle:10,1')->name('pay.giftcard');
+    Route::delete('/pay/{agreement}/gift-card', [Bk::class, 'removeGiftCard'])->name('pay.giftcard.remove');
     Route::get('/orders/{shipment}/receipt', [Bk::class, 'receipt'])->middleware('throttle:20,1')->name('order.receipt');
 
     Route::get('/wallet', [A::class, 'walletPage'])->name('wallet');
