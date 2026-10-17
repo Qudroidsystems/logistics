@@ -152,4 +152,32 @@ class PartnerDeliveryOptionsTest extends TestCase
         $owner = \App\Models\User::find(DB::table('operator_members')->where('operator_id', DB::table('merchants')->value('operator_id'))->value('user_id'));
         $this->actingAs($owner)->get('/merchant/api')->assertOk()->assertSee("Connect your shop's checkout")->assertSee('/quotes/options');
     }
+
+    public function test_a_lost_webhook_secret_can_be_replaced_from_the_portal(): void
+    {
+        $owner = \App\Models\User::find(DB::table('operator_members')->where('operator_id', DB::table('merchants')->value('operator_id'))->value('user_id'));
+        $this->actingAs($owner)->post('/merchant/api/webhooks', ['url' => 'https://shop.example/api/webhooks/logistics', 'environment' => 'sandbox'])->assertSessionHas('new_secret');
+        $hook = DB::table('webhook_endpoints')->first();
+        $res = $this->actingAs($owner)->post("/merchant/api/webhooks/{$hook->id}/secret");
+        $new = $res->getSession()->get('new_secret');
+        $this->assertStringStartsWith('whsec_', $new);
+        $this->assertNotSame($hook->secret, $new);
+        $this->assertSame($new, DB::table('webhook_endpoints')->value('secret'));
+        $this->actingAs($owner)->get('/merchant/api')->assertSee('New secret');
+    }
+
+    public function test_staff_can_replace_a_merchants_webhook_secret(): void
+    {
+        $staff = \App\Models\User::factory()->create(['must_change_password' => false]);
+        foreach (['View vendor', 'Update vendor'] as $p) {
+            \Spatie\Permission\Models\Permission::findOrCreate($p, 'web');
+        }
+        $staff->givePermissionTo(['View vendor', 'Update vendor']);
+        $this->actingAs($staff)->post("/ops/merchants/{$this->merchantId}/webhooks", ['url' => 'https://shop.example/api/webhooks/logistics', 'environment' => 'sandbox'])->assertSessionHas('new_secret');
+        $hook = DB::table('webhook_endpoints')->first();
+        $this->actingAs($staff)->get("/ops/merchants/{$this->merchantId}")->assertOk()->assertSee('New secret');
+        $new = $this->actingAs($staff)->post("/ops/merchants/{$this->merchantId}/webhooks/{$hook->id}/secret")->getSession()->get('new_secret');
+        $this->assertSame($new, DB::table('webhook_endpoints')->value('secret'));
+        $this->assertNotSame($hook->secret, $new);
+    }
 }

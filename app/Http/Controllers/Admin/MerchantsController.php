@@ -217,6 +217,18 @@ class MerchantsController extends Controller
         return back()->with('success', 'Webhook added. Copy the signing secret now: it will not be shown again.')->with('new_secret', $secret);
     }
 
+    /** A fresh signing secret (the old one stops working at once), shown once. For when the first one was not copied. */
+    public function rotateWebhookSecret(int $merchant, int $hook)
+    {
+        $m = $this->find($merchant);
+        $h = DB::table('webhook_endpoints')->where('id', $hook)->where('operator_id', $m->operator_id)->first();
+        abort_unless($h, 404);
+        $secret = 'whsec_'.Str::random(40);
+        DB::table('webhook_endpoints')->where('id', $h->id)->update(['secret' => $secret, 'updated_at' => now()]);
+
+        return back()->with('success', 'New signing secret made. Copy it now and update the receiving app: the old secret no longer works.')->with('new_secret', $secret);
+    }
+
     public function toggleWebhook(int $merchant, int $hook)
     {
         $m = $this->find($merchant);

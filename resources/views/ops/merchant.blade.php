@@ -110,7 +110,10 @@
                             <td class="small text-break">{{ $h->url }}</td>
                             <td><span class="badge {{ $h->is_test ? 'bg-secondary' : 'bg-success' }}">{{ $h->is_test ? 'sandbox' : 'live' }}</span> @unless($h->active)<span class="badge bg-danger">off</span>@endunless</td>
                             <td class="small text-muted">{{ count($ev) ? count($ev).' kinds' : 'everything' }}</td>
-                            <td class="text-end">@can('Update vendor')<form method="POST" action="{{ route('ops.merchant.hook.toggle', [$m->id, $h->id]) }}">@csrf<button class="btn btn-sm btn-outline-secondary">{{ $h->active ? 'Switch off' : 'Switch on' }}</button></form>@endcan</td>
+                            <td class="text-end text-nowrap">@can('Update vendor')
+                                <form method="POST" action="{{ route('ops.merchant.hook.secret', [$m->id, $h->id]) }}" class="d-inline" onsubmit="return confirm('Make a new signing secret? The old one stops working straight away.')">@csrf<button class="btn btn-sm btn-outline-warning">New secret</button></form>
+                                <form method="POST" action="{{ route('ops.merchant.hook.toggle', [$m->id, $h->id]) }}" class="d-inline">@csrf<button class="btn btn-sm btn-outline-secondary">{{ $h->active ? 'Switch off' : 'Switch on' }}</button></form>
+                            @endcan</td>
                         </tr>
                     @empty
                         <tr><td colspan="4" class="text-center text-muted py-3">No webhook address yet. The merchant will not hear about delivery progress until one is added.</td></tr>

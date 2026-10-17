@@ -95,4 +95,5 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::delete('/merchants/{merchant}/keys/{client}', [Mc::class, 'revokeKey'])->middleware('can:Update vendor')->whereNumber(['merchant', 'client'])->name('merchant.key.revoke');
     Route::post('/merchants/{merchant}/webhooks', [Mc::class, 'addWebhook'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.hook.add');
     Route::post('/merchants/{merchant}/webhooks/{hook}/toggle', [Mc::class, 'toggleWebhook'])->middleware('can:Update vendor')->whereNumber(['merchant', 'hook'])->name('merchant.hook.toggle');
+    Route::post('/merchants/{merchant}/webhooks/{hook}/secret', [Mc::class, 'rotateWebhookSecret'])->middleware(['can:Update vendor', 'throttle:10,1'])->whereNumber(['merchant', 'hook'])->name('merchant.hook.secret');
 });

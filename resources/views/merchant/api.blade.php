@@ -83,6 +83,7 @@
                     <td class="text-end text-nowrap">
                         @if($canEdit)
                         <form method="POST" action="{{ route('merchant.hook.test', $h->id) }}" class="d-inline">@csrf<button class="btn btn-sm btn-outline-primary" @disabled(! $h->active)>Send test</button></form>
+                        <form method="POST" action="{{ route('merchant.hook.secret', $h->id) }}" class="d-inline" onsubmit="return confirm('Make a new signing secret? The old one stops working straight away.')">@csrf<button class="btn btn-sm btn-outline-warning">New secret</button></form>
                         <form method="POST" action="{{ route('merchant.hook.toggle', $h->id) }}" class="d-inline">@csrf<button class="btn btn-sm btn-outline-secondary">{{ $h->active ? 'Switch off' : 'Switch on' }}</button></form>
                         @endif
                     </td>

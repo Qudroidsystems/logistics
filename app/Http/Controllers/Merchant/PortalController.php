@@ -149,6 +149,18 @@ class PortalController extends Controller
         return back()->with('success', 'Webhook added. Copy the signing secret now: it will not be shown again.')->with('new_secret', $secret);
     }
 
+    /** A fresh signing secret (the old one stops working at once), shown once. For when the first one was not copied. */
+    public function rotateHookSecret(Request $request, int $hook)
+    {
+        [$m] = $this->managing($request);
+        $h = DB::table('webhook_endpoints')->where('id', $hook)->where('operator_id', $m->operator_id)->first();
+        abort_unless($h, 404);
+        $secret = 'whsec_'.Str::random(40);
+        DB::table('webhook_endpoints')->where('id', $h->id)->update(['secret' => $secret, 'updated_at' => now()]);
+
+        return back()->with('success', 'New signing secret made. Copy it now and update your app: the old secret no longer works.')->with('new_secret', $secret);
+    }
+
     public function toggleHook(Request $request, int $hook)
     {
         [$m] = $this->managing($request);
