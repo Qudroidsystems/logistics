@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-<div class="main-content"><div class="page-content"><div class="container-fluid">
+<div class="main-content" data-live-page><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="API and webhooks" icon="ri-key-2-line" subtitle="Connect your store to deliveries." :back="route('merchant.home')" back-label="Overview" />
     @include('merchant._flash')
 
@@ -151,4 +151,5 @@
         <p class="small text-muted mt-2 mb-0">Also: <code>GET {{ $base }}/catalog</code> (service types, cities, vehicle types), <code>POST /deliveries/{id}/cancel</code>, <code>POST /deliveries/{id}/return</code>, <code>POST /deliveries/batch</code>.</p>
     </x-cb.card>
 </div></div></div>
+@include('partials.live-forms')
 @endsection
