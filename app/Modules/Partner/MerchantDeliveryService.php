@@ -11,6 +11,7 @@ use App\Modules\Payments\PaymentService;
 use App\Modules\Pricing\NoPricingPlan;
 use App\Modules\Pricing\QuoteService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -31,31 +32,24 @@ class MerchantDeliveryService
     ) {
     }
 
+    /** Who pays the delivery fee: the merchant (its settlement mode) or the receiver, in cash to the rider at the door. */
+    public const FEE_PAYERS = ['merchant', 'receiver'];
+
+    /** Service types offered when the merchant does not name one: fastest first. */
+    public const DEFAULT_SERVICE_CODES = ['instant', 'same_day', 'next_day'];
+
     /** Price a delivery with the best eligible provider without committing to anything. */
     public function quote(object $client, array $d): array
     {
         $merchant = $this->merchant($client);
+        $d = $this->normalise($d);
         $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
 
         $best = null;
         foreach ($this->candidateOperators($merchant, (int) $d['service_type_id']) as $operatorId) {
-            try {
-                $q = $this->quotes->quote([
-                    'operator_id' => $operatorId, 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],
-                    'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'weight_g' => $d['weight_g'] ?? 0, 'fragile' => $d['fragile'] ?? false,
-                    'declared_value' => $d['declared_value'] ?? 0, 'is_test' => $client->environment !== 'live',
-                    'rush' => (bool) ($d['rush'] ?? false), 'merchant_id' => (int) $merchant->id,
-                    'cod_amount' => (int) ($d['cod_amount'] ?? 0),
-                ] + $route);
-            } catch (NoPricingPlan) {
-                continue;
-            }
-            $pref = DB::table('merchant_provider_preferences')->where('merchant_id', $merchant->id)->first();
-            if ($pref && $pref->max_price !== null && $q['total'] > $pref->max_price) {
-                continue;
-            }
-            if (! $best || $q['total'] < $best['total']) {
-                $best = $q + ['operator_id' => $operatorId, 'route' => $route];
+            $q = $this->priceWith($client, $merchant, $d, $route, $operatorId);
+            if ($q && (! $best || $q['total'] < $best['total'])) {
+                $best = $q;
             }
         }
         if (! $best) {
@@ -64,6 +58,198 @@ class MerchantDeliveryService
 
         // The terms a delivery created now would be bound by, so the merchant can show them to its customer.
         return $best + ['failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::current()];
+    }
+
+    /**
+     * Every eligible provider (and service speed) with its own price, so the merchant's customer can choose.
+     * Each option carries an option_id (the quote's public id) to send back when creating the delivery.
+     */
+    public function options(object $client, array $d): array
+    {
+        $merchant = $this->merchant($client);
+        $d = $this->normalise($d, false);
+        $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
+        $branding = DB::table('merchant_branding')->where('merchant_id', $merchant->id)->first();
+        $showProvider = (bool) ($branding->show_provider_name ?? true);
+
+        $types = ! empty($d['service_type_id'])
+            ? DB::table('service_types')->where('id', $d['service_type_id'])->where('active', true)->get()
+            : DB::table('service_types')->whereIn('code', self::DEFAULT_SERVICE_CODES)->where('active', true)->get()
+                ->sortBy(fn ($t) => array_search($t->code, self::DEFAULT_SERVICE_CODES, true))->values();
+
+        $options = [];
+        foreach ($types as $type) {
+            if (! empty($d['cod_amount']) && ! $type->allows_cod) {
+                continue;
+            }
+            foreach ($this->candidateOperators($merchant, (int) $type->id) as $operatorId) {
+                $q = $this->priceWith($client, $merchant, ['service_type_id' => $type->id] + $d, $route, $operatorId);
+                if (! $q) {
+                    continue;
+                }
+                $options[] = $this->option($q, $type, $route, $showProvider);
+            }
+        }
+        if (! $options) {
+            throw new RuntimeException('No provider can serve this delivery right now.');
+        }
+        usort($options, fn ($a, $b) => [$a['price'], $a['eta']['high_minutes']] <=> [$b['price'], $b['eta']['high_minutes']]);
+        $cheapest = $options[0]['option_id'];
+        $fastest = collect($options)->sortBy([['eta.high_minutes', 'asc'], ['price', 'asc']])->first()['option_id'];
+        foreach ($options as &$o) {
+            $o['tags'] = array_values(array_filter([$o['option_id'] === $cheapest ? 'cheapest' : null, $o['option_id'] === $fastest ? 'fastest' : null]));
+        }
+        unset($o);
+
+        return [
+            'marketplace' => ['name' => $branding->marketplace_display_name ?? config('app.name'), 'badge_text' => $branding->badge_text ?? null, 'badge_logo' => $this->fileUrl($branding->badge_logo ?? null)],
+            'city_id' => (int) $d['city_id'],
+            'distance_m' => (int) $route['distance_m'],
+            'currency' => 'NGN',
+            'amount_unit' => 'kobo',
+            'expires_at' => now()->addMinutes(\App\Modules\Pricing\QuoteService::QUOTE_TTL_MINUTES)->toIso8601String(),
+            'fee_payers' => self::FEE_PAYERS,
+            'options' => $options,
+            'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::current(),
+        ];
+    }
+
+    /** One provider's price, or null when it has no price list here or is above the merchant's ceiling. */
+    private function priceWith(object $client, object $merchant, array $d, array $route, int $operatorId): ?array
+    {
+        try {
+            $q = $this->quotes->quote([
+                'operator_id' => $operatorId, 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],
+                'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'weight_g' => $d['weight_g'] ?? 0, 'fragile' => $d['fragile'] ?? false,
+                'declared_value' => $d['declared_value'] ?? 0, 'is_test' => $client->environment !== 'live',
+                'rush' => (bool) ($d['rush'] ?? false), 'merchant_id' => (int) $merchant->id,
+                'cod_amount' => (int) ($d['cod_amount'] ?? 0),
+            ] + $route);
+        } catch (NoPricingPlan) {
+            return null;
+        }
+        $pref = DB::table('merchant_provider_preferences')->where('merchant_id', $merchant->id)->first();
+        if ($pref && $pref->max_price !== null && $q['total'] > $pref->max_price) {
+            return null;
+        }
+
+        return $q + ['operator_id' => $operatorId, 'route' => $route];
+    }
+
+    private function option(array $q, object $type, array $route, bool $showProvider): array
+    {
+        $op = DB::table('operators as o')->leftJoin('provider_profiles as p', 'p.operator_id', '=', 'o.id')->where('o.id', $q['operator_id'])
+            ->first(['o.public_id', 'o.display_name', 'o.branding', 'p.public_slug', 'p.logo', 'p.tier', 'p.rating_avg', 'p.rating_count', 'p.on_time_rate', 'p.jobs_completed']);
+        $branding = $op && $op->branding ? (json_decode($op->branding, true) ?: []) : [];
+        $drive = (int) ceil(((int) $route['duration_s']) / 60);
+        $low = max(20, $drive + 20);
+        $high = max($low + 20, $type->sla_minutes ? (int) $type->sla_minutes : $drive + 60);
+
+        return [
+            'option_id' => (string) DB::table('quotes')->where('id', $q['quote_id'])->value('public_id'),
+            'price' => (int) $q['total'],
+            'service' => ['id' => (int) $type->id, 'code' => $type->code, 'name' => $type->name, 'allows_cod' => (bool) $type->allows_cod],
+            'provider' => $showProvider && $op ? [
+                'id' => $op->public_id, 'name' => $op->display_name, 'slug' => $op->public_slug,
+                'logo' => $this->fileUrl($op->logo ?? ($branding['logo'] ?? null)), 'tier' => $op->tier,
+                'rating' => $op->rating_avg !== null ? round((float) $op->rating_avg, 1) : null, 'rating_count' => (int) ($op->rating_count ?? 0),
+                'on_time_rate' => $op->on_time_rate !== null ? (float) $op->on_time_rate : null, 'jobs_completed' => (int) ($op->jobs_completed ?? 0),
+            ] : ['id' => $op->public_id ?? null, 'name' => 'Delivery partner', 'slug' => null, 'logo' => null, 'tier' => null, 'rating' => null, 'rating_count' => 0, 'on_time_rate' => null, 'jobs_completed' => 0],
+            'eta' => ['low_minutes' => $low, 'high_minutes' => $high, 'label' => $this->etaLabel($low, $high)],
+            'breakdown' => $q['lines'] ?? [],
+        ];
+    }
+
+    private function etaLabel(int $low, int $high): string
+    {
+        $fmt = function (int $m): string {
+            if ($m < 90) {
+                return "{$m} min";
+            }
+            if ($m < 1440) {
+                return round($m / 60).' h';
+            }
+
+            return round($m / 1440).' day'.(round($m / 1440) > 1 ? 's' : '');
+        };
+
+        return $high >= 1440 && $low >= 720 ? 'By '.now()->addMinutes($high)->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('D j M') : $fmt($low).' – '.$fmt($high);
+    }
+
+    private function fileUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        return preg_match('#^https?://#', $path) ? $path : Storage::disk('public')->url($path);
+    }
+
+    /**
+     * Fill in what a merchant may leave out: the city (from the drop-off position) and the service type.
+     *
+     * @param  bool  $needType  quote/create need one service type; options may span several
+     */
+    public function normalise(array $d, bool $needType = true): array
+    {
+        if (empty($d['city_id'])) {
+            $d['city_id'] = $this->cityAt((float) $d['dropoff']['lat'], (float) $d['dropoff']['lng'])
+                ?? throw new RuntimeException('We do not deliver to that location yet.');
+        }
+        if ($needType && empty($d['service_type_id'])) {
+            $d['service_type_id'] = (int) DB::table('service_types')->whereIn('code', self::DEFAULT_SERVICE_CODES)->where('active', true)
+                ->orderByRaw("CASE code WHEN 'same_day' THEN 0 WHEN 'instant' THEN 1 ELSE 2 END")->value('id')
+                ?: throw new RuntimeException('No delivery service is available.');
+        }
+
+        return $d;
+    }
+
+    /** The city whose boundary holds the point; without boundaries, the nearest city centre within 80 km. */
+    public function cityAt(float $lat, float $lng): ?int
+    {
+        $pt = 'ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography';
+        $inside = DB::selectOne("SELECT id FROM cities WHERE bounds IS NOT NULL AND ST_Covers(bounds, {$pt}) ORDER BY ST_Area(bounds) LIMIT 1", [$lng, $lat]);
+        if ($inside) {
+            return (int) $inside->id;
+        }
+        $near = DB::selectOne("SELECT id FROM cities WHERE ST_DWithin(centre, {$pt}, 80000) ORDER BY ST_Distance(centre, {$pt}) LIMIT 1", [$lng, $lat, $lng, $lat]);
+
+        return $near ? (int) $near->id : null;
+    }
+
+    /**
+     * The quote behind an option the merchant's customer chose. A fresh one keeps its price; an expired one is priced
+     * again with the same provider, and refused when the new price is above max_price (when the merchant sends one).
+     */
+    private function chosen(object $client, object $merchant, array $d): array
+    {
+        $quote = DB::table('quotes')->where('public_id', $d['option_id'])->first();
+        $req = $quote ? (json_decode($quote->request, true) ?: []) : [];
+        if (! $quote || (int) ($req['merchant_id'] ?? 0) !== (int) $merchant->id) {
+            throw new RuntimeException('Unknown option_id. Ask for delivery options again.');
+        }
+        if (! in_array((int) $quote->operator_id, $this->candidateOperators($merchant, (int) $quote->service_type_id), true)) {
+            throw new RuntimeException('That provider is no longer available. Ask for delivery options again.');
+        }
+        $d['service_type_id'] = (int) $quote->service_type_id;
+        $d['vehicle_type_id'] = $d['vehicle_type_id'] ?? $quote->vehicle_type_id;
+        $d['city_id'] = $d['city_id'] ?? ($req['city_id'] ?? null);
+        $d = $this->normalise($d);
+
+        if ($quote->expires_at && now()->lt($quote->expires_at)) {
+            $q = ['quote_id' => (int) $quote->id, 'total' => (int) $quote->total, 'operator_id' => (int) $quote->operator_id,
+                'route' => ['distance_m' => (int) $quote->route_distance_m, 'duration_s' => (int) $quote->route_duration_s]];
+        } else {
+            $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
+            $q = $this->priceWith($client, $merchant, $d, $route, (int) $quote->operator_id)
+                ?? throw new RuntimeException('That provider can no longer price this delivery. Ask for delivery options again.');
+        }
+        if (isset($d['max_price']) && $q['total'] > (int) $d['max_price']) {
+            throw new RuntimeException('The price has gone up to '.$q['total'].' kobo, above max_price. Ask for delivery options again.');
+        }
+
+        return [$d, $q];
     }
 
     /** Create the delivery. Safe to retry: external_order_id is the idempotency key. */
@@ -75,26 +261,34 @@ class MerchantDeliveryService
             return $this->present($dupe, null);
         }
 
-        $q = $this->quote($client, $d);
+        if (! empty($d['option_id'])) {
+            [$d, $q] = $this->chosen($client, $merchant, $d);
+        } else {
+            $d = $this->normalise($d);
+            $q = $this->quote($client, $d);
+        }
+        $feePayer = in_array($d['fee_payer'] ?? null, self::FEE_PAYERS, true) ? $d['fee_payer'] : 'merchant';
         $owner = DB::table('operator_members')->where('operator_id', $merchant->operator_id)->where('role', 'owner')->value('user_id');
         if (! $owner) {
             throw new RuntimeException('Merchant has no owner account.');
         }
         // A merchant on monthly invoicing with a business account at this provider books on credit.
-        $account = $merchant->settlement_mode === 'monthly_invoice'
+        $account = $feePayer === 'merchant' && $merchant->settlement_mode === 'monthly_invoice'
             ? DB::table('business_accounts')->where('operator_id', $q['operator_id'])->where('merchant_id', $merchant->id)->first()
             : null;
         if ($account) {
             $this->accounts->check($account, (int) $q['total']);
         }
 
-        $agreementId = DB::transaction(function () use ($d, $q, $merchant, $owner, $client) {
+        $agreementId = DB::transaction(function () use ($d, $q, $merchant, $owner, $client, $feePayer) {
             $id = $this->agreements->propose($owner, $q['operator_id'], [
                 'terms' => [
                     'external_order_id' => $d['external_order_id'], 'pickup' => $d['pickup'], 'dropoff' => $d['dropoff'],
                     'packages' => $d['packages'] ?? [], 'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'quote_id' => $q['quote_id'],
                     'verification' => VerificationPolicy::agree($d['verification'] ?? null, app(VerificationPolicy::class)->forProvider((int) $q['operator_id'], (int) $d['service_type_id'])),
-                ] + array_filter(['return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null, 'cod_amount' => (int) ($d['cod_amount'] ?? 0) ?: null]),
+                ] + array_filter(['return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null, 'cod_amount' => (int) ($d['cod_amount'] ?? 0) ?: null,
+                    // The receiver pays the delivery fee to the rider at the door.
+                    'fee_payer' => $feePayer === 'receiver' ? 'receiver' : null, 'fee_on_delivery' => $feePayer === 'receiver' ? (int) $q['total'] : null]),
                 'price' => $q['total'], 'distance_m' => $q['route']['distance_m'],
                 'service_type_id' => $d['service_type_id'], 'city_id' => $d['city_id'],
             ], $owner);
@@ -108,6 +302,21 @@ class MerchantDeliveryService
         });
 
         $agreement = DB::table('agreements')->find($agreementId);
+        if ($feePayer === 'receiver') {
+            // Same path as a cash booking taken by provider staff: the provider holds the fee once the rider collects it,
+            // and the platform's commission is set against that cash when the job settles (EscrowService::settleOffline).
+            $made = DB::transaction(function () use ($agreementId, $owner) {
+                $this->escrow->hold($agreementId, 'offline', $owner);
+                $made = $this->orders->create($agreementId);
+                DB::table('orders')->where('id', $made['order_id'])->update(['payment_method' => 'cash', 'updated_at' => now()]);
+                DB::table('shipments')->where('id', $made['shipment_id'])->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
+
+                return $made;
+            });
+            $this->dispatch->start($made['shipment_id']);
+
+            return $this->present(DB::table('agreements')->find($agreementId), null);
+        }
         if ($account) {
             $made = DB::transaction(function () use ($agreementId, $account, $owner, $q) {
                 $this->accounts->chargeable((int) $q['operator_id'], (string) $account->public_id, (int) $q['total']);
@@ -234,8 +443,13 @@ class MerchantDeliveryService
         $track = $order ? DB::table('tracking_links')->join('shipments', 'shipments.id', '=', 'tracking_links.shipment_id')
             ->where('shipments.order_id', $order->id)->where('audience', 'customer')->value('token') : null;
 
+        $terms = json_decode($a->terms ?? '[]', true) ?: [];
+        $provider = DB::table('operators')->where('id', $a->provider_operator_id ?? 0)->first(['public_id', 'display_name']);
+
         return [
             'agreement' => $a->number, 'status' => $a->status, 'price' => (int) $a->price, 'currency' => 'NGN',
+            'provider' => $provider ? ['id' => $provider->public_id, 'name' => $provider->display_name] : null,
+            'fee_payer' => $terms['fee_payer'] ?? 'merchant', 'fee_on_delivery' => (int) ($terms['fee_on_delivery'] ?? 0),
             'payment_url' => $payUrl, 'order' => $order->order_number ?? null, 'tracking_url' => $track ? url("/track/{$track}") : null,
             'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::normalize($a->failed_delivery_policy ? json_decode($a->failed_delivery_policy, true) : null),
         ];

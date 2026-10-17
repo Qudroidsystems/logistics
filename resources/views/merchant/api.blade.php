@@ -128,5 +128,26 @@
             </tbody>
         </table></div>
     </x-cb.card>
+
+    <x-cb.card title="Connect your shop's checkout" icon="ri-code-s-slash-line" class="mt-3">
+        @php $base = url('/api/v1/partner'); @endphp
+        <p class="small text-muted mb-2">Every call sends your key as <code>Authorization: Bearer lgk_…</code>. Amounts are in <b>kobo</b>. Test keys never create real jobs.</p>
+        <ol class="small mb-3">
+            <li><b>Check the connection</b> — <code>GET {{ $base }}/me</code> returns your merchant code, status and the marketplace name to show your customers.</li>
+            <li><b>Show delivery choices at checkout</b> — <code>POST {{ $base }}/quotes/options</code> with <code>pickup</code> and <code>dropoff</code> (<code>line1</code>, <code>lat</code>, <code>lng</code>, contact). The city and service are worked out for you; you get every provider and speed with its price, ETA, rating and an <code>option_id</code> (valid {{ \App\Modules\Pricing\QuoteService::QUOTE_TTL_MINUTES }} minutes).</li>
+            <li><b>Book the one your customer chose</b> — <code>POST {{ $base }}/deliveries</code> with your <code>external_order_id</code>, the same addresses, the <code>option_id</code>, and <code>fee_payer</code>: <code>merchant</code> (paid through your account) or <code>receiver</code> (the rider collects the fee in cash at the door). Booking later? Send <code>max_price</code>: an expired option is priced again with the same provider and refused if it went above that.</li>
+            <li><b>Follow it</b> — add a webhook above (signed with <code>X-Logistics-Signature: t=…,v1=hmac_sha256(secret, "t.body")</code>), or poll <code>GET {{ $base }}/deliveries/{external_order_id}</code>.</li>
+        </ol>
+<pre class="small bg-light p-2 rounded mb-0" style="white-space: pre-wrap;">curl -X POST {{ $base }}/quotes/options \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"pickup":{"line1":"12 Allen Ave, Ikeja","lat":6.6018,"lng":3.3515},
+       "dropoff":{"line1":"3 Admiralty Way, Lekki","lat":6.4474,"lng":3.4728,"contact_name":"Ada","contact_phone":"0803..."},
+       "weight_g":2500}'
+
+→ {"marketplace":{"name":"…"},"options":[{"option_id":"01J…","price":250000,
+     "provider":{"name":"Swift Haulage","rating":4.8},"service":{"name":"Same-day delivery"},
+     "eta":{"label":"1 h – 3 h"},"tags":["cheapest"]}, …]}</pre>
+        <p class="small text-muted mt-2 mb-0">Also: <code>GET {{ $base }}/catalog</code> (service types, cities, vehicle types), <code>POST /deliveries/{id}/cancel</code>, <code>POST /deliveries/{id}/return</code>, <code>POST /deliveries/batch</code>.</p>
+    </x-cb.card>
 </div></div></div>
 @endsection

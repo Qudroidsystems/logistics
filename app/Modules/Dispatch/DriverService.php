@@ -89,7 +89,12 @@ class DriverService
         // With calls through the shared number, the rider sees only the last digits and calls through the app.
         $masked = app(\App\Modules\Messaging\CallService::class)->enabled();
         $codDue = (int) DB::table('shipments')->where('id', $row->shipment_id)->value('cod_amount');
-        $stops = $stops->map(function ($s) use ($policy, $exceptions, $masked, $codDue) {
+        // A merchant delivery where the receiver pays the delivery fee: collected in cash at the last drop-off.
+        $terms = json_decode((string) DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->join('agreements as g', 'g.id', '=', 'o.agreement_id')
+            ->where('s.id', $row->shipment_id)->value('g.terms'), true) ?: [];
+        $feeDue = ($terms['fee_payer'] ?? null) === 'receiver' ? (int) ($terms['fee_on_delivery'] ?? 0) : 0;
+        $lastDrop = (int) $stops->where('type', 'dropoff')->max('seq');
+        $stops = $stops->map(function ($s) use ($policy, $exceptions, $masked, $codDue, $feeDue, $lastDrop) {
             $requires = $policy->forStop($s);
             $mine = $exceptions->where('stop_id', (int) $s->id)->values();
             $waived = $mine->where('status', 'approved')->pluck('method')->intersect($requires)->values()->all();
@@ -110,6 +115,8 @@ class DriverService
                 'masked_call' => $masked && ! empty($s->contact_phone),
                 // Cash on delivery to collect from the receiver at this stop, in kobo; 0 when none.
                 'cod_amount' => in_array('cod', $requires, true) ? $codDue : 0,
+                // Delivery fee the receiver pays the rider in cash at this stop, in kobo; 0 when the sender paid.
+                'fee_on_delivery' => $s->type === 'dropoff' && (int) $s->seq === $lastDrop ? $feeDue : 0,
             ];
         })->all();
         $scanned = DB::table('package_scans')->where('shipment_id', $row->shipment_id)->get(['package_id', 'scan_type'])

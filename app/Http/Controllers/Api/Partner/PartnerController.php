@@ -35,6 +35,37 @@ class PartnerController extends Controller
         return response()->json(['quote_id' => $q['quote_id'], 'total' => $q['total'], 'currency' => 'NGN', 'distance_m' => $q['route']['distance_m'], 'breakdown' => $q['lines'], 'failed_delivery_terms' => $q['failed_delivery_terms']]);
     }
 
+    /**
+     * POST /v1/partner/quotes/options — every eligible provider and speed with its own price, for the merchant's
+     * customer to choose at checkout. Send the chosen option_id to POST /deliveries.
+     */
+    public function options(Request $request, MerchantDeliveryService $svc)
+    {
+        try {
+            return response()->json($svc->options($request->attributes->get('api_client'), $this->validated($request)));
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => 'unavailable', 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    /** GET /v1/partner/catalog — service types, live cities and vehicle types, so a merchant can fill in ids. */
+    public function catalog()
+    {
+        return response()->json([
+            'service_types' => DB::table('service_types')->where('active', true)->orderBy('id')
+                ->get(['id', 'code', 'name', 'sla_minutes', 'allows_cod', 'allows_multi_stop'])
+                ->map(fn ($t) => ['id' => (int) $t->id, 'code' => $t->code, 'name' => $t->name, 'sla_minutes' => $t->sla_minutes !== null ? (int) $t->sla_minutes : null,
+                    'allows_cod' => (bool) $t->allows_cod, 'allows_multi_stop' => (bool) $t->allows_multi_stop]),
+            'cities' => DB::table('cities')->orderBy('name')
+                ->selectRaw('id, name, region, launch_status, ST_Y(centre::geometry) AS lat, ST_X(centre::geometry) AS lng')->get()
+                ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'region' => $c->region, 'launch_status' => $c->launch_status, 'lat' => (float) $c->lat, 'lng' => (float) $c->lng]),
+            'vehicle_types' => DB::table('vehicle_types')->where('active', true)->orderBy('id')->get(['id', 'code', 'name', 'max_weight_g'])
+                ->map(fn ($v) => ['id' => (int) $v->id, 'code' => $v->code, 'name' => $v->name, 'max_weight_g' => (int) $v->max_weight_g]),
+            'fee_payers' => MerchantDeliveryService::FEE_PAYERS,
+            'amount_unit' => 'kobo',
+        ]);
+    }
+
     public function store(Request $request, MerchantDeliveryService $svc)
     {
         $d = $this->validated($request) + $request->validate(['external_order_id' => 'required|string|max:80']);
@@ -128,7 +159,12 @@ class PartnerController extends Controller
     private function rules(): array
     {
         return [
-            'service_type_id' => 'required|integer', 'city_id' => 'required|integer', 'vehicle_type_id' => 'nullable|integer',
+            // city_id may be left out: it is found from the drop-off position. service_type_id too (same-day by default).
+            'service_type_id' => 'nullable|integer', 'city_id' => 'nullable|integer', 'vehicle_type_id' => 'nullable|integer',
+            // From POST /quotes/options: book with the provider the customer chose. max_price (kobo) caps a re-price after expiry.
+            'option_id' => 'nullable|string|max:40', 'max_price' => 'nullable|integer|min:0',
+            // merchant (default: paid through the merchant's settlement mode) or receiver (cash to the rider at the door).
+            'fee_payer' => 'nullable|in:'.implode(',', MerchantDeliveryService::FEE_PAYERS),
             'pickup.line1' => 'required|string|max:255', 'pickup.lat' => 'required|numeric|between:-90,90', 'pickup.lng' => 'required|numeric|between:-180,180',
             'pickup.contact_name' => 'nullable|string|max:120', 'pickup.contact_phone' => 'nullable|string|max:24',
             'dropoff.line1' => 'required|string|max:255', 'dropoff.lat' => 'required|numeric|between:-90,90', 'dropoff.lng' => 'required|numeric|between:-180,180',
