@@ -156,6 +156,66 @@ class OwnDeliveryTeamTest extends TestCase
         $this->getJson('/api/v1/partner/deliveries/GZ-4/tracking')->assertStatus(401);
     }
 
+    public function test_the_team_is_offered_at_its_own_price_and_booking_that_option_goes_to_the_team(): void
+    {
+        $this->link();
+        DB::table('pricing_plans')->insert(['public_id' => (string) Str::ulid(), 'operator_id' => $this->team, 'city_id' => $this->city, 'service_type_id' => $this->serviceTypeId(),
+            'name' => 'Standard', 'min_fee' => 90000, 'rounding_kobo' => 5000, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        [$rival] = $this->makeProvider('company', 'Budget Bikes');
+        DB::table('pricing_plans')->insert(['public_id' => (string) Str::ulid(), 'operator_id' => $rival, 'city_id' => $this->city, 'service_type_id' => $this->serviceTypeId(),
+            'name' => 'Standard', 'min_fee' => 150000, 'rounding_kobo' => 5000, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+
+        $opts = collect($this->postJson('/api/v1/partner/quotes/options', $this->body(), $this->h)->assertOk()->json('options'));
+        $mine = $opts->firstWhere('own', true);
+        $this->assertSame('GozakMart Logistics', $mine['provider']['name']);
+        $this->assertGreaterThanOrEqual(90000, $mine['price']);
+        $this->assertFalse($opts->firstWhere('provider.name', 'Budget Bikes')['own']);
+
+        // Paid by the shop: straight to the team, nothing to pay.
+        $r = $this->postJson('/api/v1/partner/deliveries', $this->body(['external_order_id' => 'GZ-5', 'option_id' => $mine['option_id']]), $this->h)->assertCreated();
+        $this->assertSame([$mine['price'], null], [$r->json('price'), $r->json('payment_url')]);
+        $this->assertSame('own_delivery', DB::table('orders')->value('payment_method'));
+        $this->assertSame($this->team, (int) DB::table('agreements')->value('provider_operator_id'));
+
+        // Paid by the customer to the rider: the team's rider collects it in cash.
+        $mine2 = collect($this->postJson('/api/v1/partner/quotes/options', $this->body(), $this->h)->json('options'))->firstWhere('own', true);
+        $r = $this->postJson('/api/v1/partner/deliveries', $this->body(['external_order_id' => 'GZ-6', 'option_id' => $mine2['option_id'], 'fee_payer' => 'receiver']), $this->h)->assertCreated();
+        $this->assertSame(['receiver', $mine2['price']], [$r->json('fee_payer'), $r->json('fee_on_delivery')]);
+        $this->assertSame('cash', DB::table('orders')->orderByDesc('id')->value('payment_method'));
+        $this->assertLedgerBalanced();
+    }
+
+    public function test_the_shop_sets_its_own_fee_unless_the_team_says_to_use_its_price_list(): void
+    {
+        $this->link();
+        DB::table('pricing_plans')->insert(['public_id' => (string) Str::ulid(), 'operator_id' => $this->team, 'city_id' => $this->city, 'service_type_id' => $this->serviceTypeId(),
+            'name' => 'Standard', 'min_fee' => 90000, 'rounding_kobo' => 5000, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        $this->assertSame('shop', $this->getJson('/api/v1/partner/me', $this->h)->json('own_provider.price_mode'));
+
+        // The shop's checkout fee (₦500) is used for its own team.
+        $mine = collect($this->postJson('/api/v1/partner/quotes/options', $this->body(['own_price' => 50000]), $this->h)->json('options'))->firstWhere('own', true);
+        $this->assertSame([50000, 'shop'], [$mine['price'], $mine['price_source']]);
+        $r = $this->postJson('/api/v1/partner/deliveries', $this->body(['external_order_id' => 'GZ-7', 'option_id' => $mine['option_id'], 'price' => 50000]), $this->h)->assertCreated();
+        $this->assertSame(50000, $r->json('price'));
+        $this->assertLedgerBalanced();
+
+        // Free delivery from the shop: the customer pays nothing, the job keeps the team's price.
+        $mine = collect($this->postJson('/api/v1/partner/quotes/options', $this->body(['own_price' => 0]), $this->h)->json('options'))->firstWhere('own', true);
+        $this->assertSame('team', $mine['price_source']);
+        $r = $this->postJson('/api/v1/partner/deliveries', $this->body(['external_order_id' => 'GZ-8', 'option_id' => $mine['option_id'], 'price' => 0]), $this->h)->assertCreated();
+        $this->assertSame($mine['price'], $r->json('price'));
+        $this->assertLedgerBalanced();
+
+        // The team switches to "always my price list": the shop's fee is ignored.
+        $this->actingAs($this->owner)->post('/merchant/api/own-team', ['operator_id' => $this->team, 'own_team_price_mode' => 'team'])->assertSessionHas('success');
+        $this->assertSame('team', $this->getJson('/api/v1/partner/me', $this->h)->json('own_provider.price_mode'));
+        $mine = collect($this->postJson('/api/v1/partner/quotes/options', $this->body(['own_price' => 50000]), $this->h)->json('options'))->firstWhere('own', true);
+        $this->assertSame('team', $mine['price_source']);
+        $this->assertGreaterThanOrEqual(90000, $mine['price']);
+        $r = $this->postJson('/api/v1/partner/deliveries', $this->body(['external_order_id' => 'GZ-9', 'option_id' => $mine['option_id'], 'price' => 50000]), $this->h)->assertCreated();
+        $this->assertSame($mine['price'], $r->json('price'));
+    }
+
     public function test_staff_can_link_the_team_from_ops(): void
     {
         $staff = \App\Models\User::factory()->create(['must_change_password' => false]);

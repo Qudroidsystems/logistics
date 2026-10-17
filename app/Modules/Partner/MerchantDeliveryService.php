@@ -38,6 +38,9 @@ class MerchantDeliveryService
     /** Operator types that can be a merchant's own delivery team. */
     public const OWN_PROVIDER_TYPES = ['company', 'franchise', 'independent_driver'];
 
+    /** Who prices the shop's own deliveries: the price the shop sends (its own checkout fee), or the team's price list. */
+    public const OWN_PRICE_MODES = ['shop' => 'My shop sets the fee (sent with each delivery)', 'team' => "Always use my team's price list here"];
+
     /** How an own-team delivery is recorded on the order: the merchant and the team are one business, so no money moves. */
     public const OWN_PAYMENT_METHOD = 'own_delivery';
 
@@ -83,17 +86,34 @@ class MerchantDeliveryService
             : DB::table('service_types')->whereIn('code', self::DEFAULT_SERVICE_CODES)->where('active', true)->get()
                 ->sortBy(fn ($t) => array_search($t->code, self::DEFAULT_SERVICE_CODES, true))->values();
 
+        // The merchant's own delivery team is always offered (priced from its own list) and flagged "own": true,
+        // so the shop can show it as its own delivery service.
+        $team = $this->ownProvider($merchant);
         $options = [];
         foreach ($types as $type) {
             if (! empty($d['cod_amount']) && ! $type->allows_cod) {
                 continue;
             }
-            foreach ($this->candidateOperators($merchant, (int) $type->id) as $operatorId) {
+            $operators = $this->candidateOperators($merchant, (int) $type->id);
+            if ($team && ! in_array((int) $team->id, $operators, true)) {
+                $operators[] = (int) $team->id;
+            }
+            foreach ($operators as $operatorId) {
                 $q = $this->priceWith($client, $merchant, ['service_type_id' => $type->id] + $d, $route, $operatorId);
                 if (! $q) {
                     continue;
                 }
-                $options[] = $this->option($q, $type, $route, $showProvider);
+                $mine = $team && (int) $team->id === $operatorId;
+                $opt = $this->option($q, $type, $route, $showProvider || $mine) + ['own' => $mine];
+                if ($mine) {
+                    // The shop's own fee, when its team lets the shop set it; otherwise the team's price list.
+                    $shopPrice = $this->shopPrice($merchant, $d['own_price'] ?? null);
+                    $opt['price_source'] = $shopPrice === null ? 'team' : 'shop';
+                    if ($shopPrice !== null) {
+                        $opt['price'] = $shopPrice;
+                    }
+                }
+                $options[] = $opt;
             }
         }
         if (! $options) {
@@ -234,6 +254,19 @@ class MerchantDeliveryService
     }
 
     /**
+     * The price the shop asked for its own delivery, when its team lets the shop set it (null: use the team's price list).
+     * A free delivery (0) from the shop is still priced from the team's list: the customer pays nothing, the job keeps its cost.
+     */
+    public function shopPrice(object $merchant, $price): ?int
+    {
+        if ($price === null || $price === '' || ! is_numeric($price) || (int) $price <= 0) {
+            return null;
+        }
+
+        return ($merchant->own_team_price_mode ?? 'shop') === 'shop' ? (int) $price : null;
+    }
+
+    /**
      * A delivery for the merchant's own team. The merchant may send the price its customer paid (kobo); without one,
      * the team's own price list is used.
      */
@@ -249,8 +282,8 @@ class MerchantDeliveryService
         }
         $d = $this->normalise($d);
         $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
-        if (isset($d['price']) && $d['price'] !== null && (int) $d['price'] > 0) {
-            return [$d, ['quote_id' => null, 'total' => (int) $d['price'], 'operator_id' => (int) $team->id, 'route' => $route]];
+        if (($p = $this->shopPrice($merchant, $d['price'] ?? null)) !== null && $p > 0) {
+            return [$d, ['quote_id' => null, 'total' => $p, 'operator_id' => (int) $team->id, 'route' => $route]];
         }
         $q = $this->priceWith($client, $merchant, $d, $route, (int) $team->id)
             ?? throw new RuntimeException('Your delivery team has no price list for this delivery. Send a price, or add a price list for the team.');
@@ -269,7 +302,9 @@ class MerchantDeliveryService
         if (! $quote || (int) ($req['merchant_id'] ?? 0) !== (int) $merchant->id) {
             throw new RuntimeException('Unknown option_id. Ask for delivery options again.');
         }
-        if (! in_array((int) $quote->operator_id, $this->candidateOperators($merchant, (int) $quote->service_type_id), true)) {
+        $team = $this->ownProvider($merchant);
+        if (! ($team && (int) $team->id === (int) $quote->operator_id)
+            && ! in_array((int) $quote->operator_id, $this->candidateOperators($merchant, (int) $quote->service_type_id), true)) {
             throw new RuntimeException('That provider is no longer available. Ask for delivery options again.');
         }
         $d['service_type_id'] = (int) $quote->service_type_id;
@@ -303,15 +338,25 @@ class MerchantDeliveryService
 
         // "provider": "own": the merchant's own delivery team (its linked provider account) takes the job.
         $own = ($d['provider'] ?? null) === 'own';
-        if ($own) {
-            [$d, $q] = $this->own($client, $merchant, $d);
-        } elseif (! empty($d['option_id'])) {
+        if (! empty($d['option_id'])) {
+            // An option priced for the merchant's own team (from /quotes/options) books that team.
+            $team = $this->ownProvider($merchant);
+            $mineOption = $team && (int) DB::table('quotes')->where('public_id', $d['option_id'])->value('operator_id') === (int) $team->id;
+            if ($mineOption && $this->shopPrice($merchant, $d['price'] ?? null) !== null) {
+                unset($d['max_price']); // the shop names the price itself
+            }
             [$d, $q] = $this->chosen($client, $merchant, $d);
+            $own = $team && (int) $team->id === (int) $q['operator_id'];
+            if ($own && ($p = $this->shopPrice($merchant, $d['price'] ?? null)) !== null) {
+                $q['total'] = $p;
+            }
+        } elseif ($own) {
+            [$d, $q] = $this->own($client, $merchant, $d);
         } else {
             $d = $this->normalise($d);
             $q = $this->quote($client, $d);
         }
-        $feePayer = ! $own && in_array($d['fee_payer'] ?? null, self::FEE_PAYERS, true) ? $d['fee_payer'] : 'merchant';
+        $feePayer = in_array($d['fee_payer'] ?? null, self::FEE_PAYERS, true) ? $d['fee_payer'] : 'merchant';
         $owner = DB::table('operator_members')->where('operator_id', $merchant->operator_id)->where('role', 'owner')->value('user_id');
         if (! $owner) {
             throw new RuntimeException('Merchant has no owner account.');
@@ -346,7 +391,7 @@ class MerchantDeliveryService
         });
 
         $agreement = DB::table('agreements')->find($agreementId);
-        if ($own) {
+        if ($own && $feePayer === 'merchant') {
             // The merchant's own team: nothing to pay. The team "holds" the fee itself, so when the job settles only the
             // platform's commission is owed (EscrowService::settleOffline), as with a cash booking.
             $made = DB::transaction(function () use ($agreementId, $owner) {

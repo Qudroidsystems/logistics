@@ -55,6 +55,7 @@ class PortalController extends Controller
             'live' => $this->liveState($m),
             'ownTeam' => app(\App\Modules\Partner\MerchantDeliveryService::class)->ownProvider($m),
             'myTeams' => $this->myTeams($request),
+            'priceModes' => \App\Modules\Partner\MerchantDeliveryService::OWN_PRICE_MODES,
             'newKey' => session('new_key'), 'newSecret' => session('new_secret'),
             'pagetitle' => 'API and webhooks',
         ]);
@@ -244,12 +245,14 @@ class PortalController extends Controller
     public function setOwnTeam(Request $request)
     {
         [$m] = $this->managing($request);
-        $d = $request->validate(['operator_id' => ['nullable', 'integer']]);
+        $d = $request->validate(['operator_id' => ['nullable', 'integer'],
+            'own_team_price_mode' => ['nullable', 'in:'.implode(',', array_keys(\App\Modules\Partner\MerchantDeliveryService::OWN_PRICE_MODES))]]);
         $id = $d['operator_id'] ?? null;
         if ($id && ! $this->myTeams($request)->contains('id', (int) $id)) {
             return back()->with('error', 'You can only link a delivery team you run as owner or admin.');
         }
-        DB::table('merchants')->where('id', $m->id)->update(['own_provider_operator_id' => $id ?: null, 'updated_at' => now()]);
+        DB::table('merchants')->where('id', $m->id)->update(['own_provider_operator_id' => $id ?: null,
+            'own_team_price_mode' => $d['own_team_price_mode'] ?? ($m->own_team_price_mode ?? 'shop'), 'updated_at' => now()]);
 
         return back()->with('success', $id
             ? 'Delivery team linked. Orders your shop sends with "provider": "own" now go straight to that team.'

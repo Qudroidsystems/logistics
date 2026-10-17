@@ -49,6 +49,9 @@
                         <option value="">Not linked</option>
                         @foreach($teams as $t)<option value="{{ $t->id }}" @selected($ownTeam && $ownTeam->id == $t->id)>{{ $t->display_name }}</option>@endforeach
                     </select>
+                    <select name="own_team_price_mode" class="form-select form-select-sm" title="Who sets the fee">
+                        @foreach($priceModes as $k => $label)<option value="{{ $k }}" @selected(($m->own_team_price_mode ?? 'shop') === $k)>{{ $k === 'shop' ? 'Shop sets fee' : 'Team price list' }}</option>@endforeach
+                    </select>
                     <button class="btn btn-sm btn-primary">Save</button>
                 </form>
                 <div class="small text-muted mt-1">The provider account that runs this merchant's own riders. Its staff see and assign these jobs in their dispatch.</div>

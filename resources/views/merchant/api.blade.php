@@ -121,6 +121,14 @@
                     @foreach($myTeams as $t)<option value="{{ $t->id }}" @selected($ownTeam && $ownTeam->id == $t->id)>{{ $t->display_name }}</option>@endforeach
                 </select></div>
                 <div class="col-md-4"><button class="btn btn-primary w-100">Save</button></div>
+                <div class="col-12">
+                    <label class="form-label small mb-1">Delivery fee for your shop's own deliveries</label>
+                    @foreach($priceModes as $k => $label)
+                    <div class="form-check"><input class="form-check-input" type="radio" name="own_team_price_mode" value="{{ $k }}" id="opm{{ $k }}" @checked(($m->own_team_price_mode ?? 'shop') === $k)>
+                        <label class="form-check-label small" for="opm{{ $k }}">{{ $label }}</label></div>
+                    @endforeach
+                    <div class="small text-muted">With "my shop sets the fee", the fee your shop charges its customer is sent with each order and used for that delivery. Otherwise your team's price list here is always used.</div>
+                </div>
             </form>
             @else
             <p class="small mb-0">You don't run a provider account yet. Register your delivery team as a provider (with the same login), then come back here to link it.</p>
@@ -159,7 +167,7 @@
             <li><b>Book the one your customer chose</b> — <code>POST {{ $base }}/deliveries</code> with your <code>external_order_id</code>, the same addresses, the <code>option_id</code>, and <code>fee_payer</code>: <code>merchant</code> (paid through your account) or <code>receiver</code> (the rider collects the fee in cash at the door). Booking later? Send <code>max_price</code>: an expired option is priced again with the same provider and refused if it went above that.</li>
             <li><b>Follow it</b> — add a webhook above (signed with <code>X-Logistics-Signature: t=…,v1=hmac_sha256(secret, "t.body")</code>), or poll <code>GET {{ $base }}/deliveries/{external_order_id}</code>.</li>
             <li><b>Show the rider live in your app</b> — <code>GET {{ $base }}/deliveries/{external_order_id}/tracking</code> gives the status, stops, the rider (first name, vehicle, position, ETA) and the drop-off code your customer gives the rider. Your customer can answer the rider with <code>POST …/reply</code> (<code>ready</code>, <code>need_time</code>, <code>call_me</code>, <code>someone_else</code>).</li>
-            <li><b>Your own riders</b> — link your delivery team above, then book with <code>"provider": "own"</code> (and the <code>price</code> your customer paid, in kobo). The job goes straight to your team's dispatch; nothing is charged except the marketplace's commission.</li>
+            <li><b>Your own riders</b> — link your delivery team above. It then shows in <code>/quotes/options</code> with <code>"own": true</code>, priced from your team's own price list. Booking that option sends the job straight to your team's dispatch (or book with <code>"provider": "own"</code> and a <code>price</code>). Nothing is charged except the marketplace's commission; with <code>fee_payer: receiver</code> your rider collects the fee in cash.</li>
         </ol>
 <pre class="small bg-light p-2 rounded mb-0" style="white-space: pre-wrap;">curl -X POST {{ $base }}/quotes/options \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \

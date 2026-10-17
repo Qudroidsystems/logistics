@@ -22,7 +22,8 @@ class PartnerController extends Controller
             'merchant_name' => $m->display_name, 'status' => $m->status, 'environment' => $c->environment,
             'marketplace' => ['name' => $b->marketplace_display_name ?? config('app.name'), 'badge_text' => $b->badge_text ?? null, 'badge_logo' => $b->badge_logo ?? null],
             // The merchant's own delivery team, when linked: deliveries sent with "provider": "own" go to it.
-            'own_provider' => ($t = app(MerchantDeliveryService::class)->ownProvider($m)) ? ['id' => $t->public_id, 'name' => $t->display_name] : null,
+            'own_provider' => ($t = app(MerchantDeliveryService::class)->ownProvider($m))
+                ? ['id' => $t->public_id, 'name' => $t->display_name, 'price_mode' => $m->own_team_price_mode ?? 'shop'] : null,
         ]);
     }
 
@@ -192,6 +193,8 @@ class PartnerController extends Controller
             'fee_payer' => 'nullable|in:'.implode(',', MerchantDeliveryService::FEE_PAYERS),
             // "own": the merchant's own delivery team takes it; price (kobo) is what its customer paid, else the team's price list.
             'provider' => 'nullable|in:own', 'price' => 'nullable|integer|min:0|max:1000000000',
+            // /quotes/options: the shop's own fee for its own team's options (used when the team lets the shop set it).
+            'own_price' => 'nullable|integer|min:0|max:1000000000',
             'pickup.line1' => 'required|string|max:255', 'pickup.lat' => 'required|numeric|between:-90,90', 'pickup.lng' => 'required|numeric|between:-180,180',
             'pickup.contact_name' => 'nullable|string|max:120', 'pickup.contact_phone' => 'nullable|string|max:24',
             'dropoff.line1' => 'required|string|max:255', 'dropoff.lat' => 'required|numeric|between:-90,90', 'dropoff.lng' => 'required|numeric|between:-180,180',

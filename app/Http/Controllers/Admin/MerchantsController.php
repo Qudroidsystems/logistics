@@ -82,6 +82,7 @@ class MerchantsController extends Controller
             'statuses' => self::STATUSES, 'settlement' => self::SETTLEMENT, 'events' => self::EVENTS,
             'newKey' => session('new_key'), 'newSecret' => session('new_secret'),
             'ownTeam' => app(\App\Modules\Partner\MerchantDeliveryService::class)->ownProvider($m),
+            'priceModes' => \App\Modules\Partner\MerchantDeliveryService::OWN_PRICE_MODES,
             'teams' => DB::table('operators')->where('status', 'active')->whereIn('type', \App\Modules\Partner\MerchantDeliveryService::OWN_PROVIDER_TYPES)
                 ->orderBy('display_name')->limit(500)->get(['id', 'display_name']),
             'pagetitle' => $m->display_name,
@@ -93,8 +94,10 @@ class MerchantsController extends Controller
     {
         $m = $this->find($merchant);
         $d = $request->validate(['operator_id' => ['nullable', 'integer', Rule::exists('operators', 'id')->where('status', 'active')
-            ->whereIn('type', \App\Modules\Partner\MerchantDeliveryService::OWN_PROVIDER_TYPES)]]);
-        DB::table('merchants')->where('id', $m->id)->update(['own_provider_operator_id' => $d['operator_id'] ?? null, 'updated_at' => now()]);
+            ->whereIn('type', \App\Modules\Partner\MerchantDeliveryService::OWN_PROVIDER_TYPES)],
+            'own_team_price_mode' => ['nullable', 'in:'.implode(',', array_keys(\App\Modules\Partner\MerchantDeliveryService::OWN_PRICE_MODES))]]);
+        DB::table('merchants')->where('id', $m->id)->update(['own_provider_operator_id' => $d['operator_id'] ?? null,
+            'own_team_price_mode' => $d['own_team_price_mode'] ?? ($m->own_team_price_mode ?? 'shop'), 'updated_at' => now()]);
 
         return back()->with('success', ! empty($d['operator_id']) ? 'Own delivery team linked.' : 'Own delivery team unlinked.');
     }
