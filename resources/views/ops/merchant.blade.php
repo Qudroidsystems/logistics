@@ -41,6 +41,20 @@
                 @endcan
             </x-cb.card>
 
+            <x-cb.card title="Own delivery team" icon="ri-team-line" class="mb-3">
+                <div class="small mb-2">@if($ownTeam)<span class="badge bg-success">Linked</span> <strong>{{ $ownTeam->display_name }}</strong>@else<span class="text-muted">Not linked. Deliveries sent with "provider": "own" are refused.</span>@endif</div>
+                @can('Update vendor')
+                <form method="POST" action="{{ route('ops.merchant.own.team', $m->id) }}" class="d-flex gap-2">@csrf
+                    <select name="operator_id" class="form-select form-select-sm">
+                        <option value="">Not linked</option>
+                        @foreach($teams as $t)<option value="{{ $t->id }}" @selected($ownTeam && $ownTeam->id == $t->id)>{{ $t->display_name }}</option>@endforeach
+                    </select>
+                    <button class="btn btn-sm btn-primary">Save</button>
+                </form>
+                <div class="small text-muted mt-1">The provider account that runs this merchant's own riders. Its staff see and assign these jobs in their dispatch.</div>
+                @endcan
+            </x-cb.card>
+
             <x-cb.card title="Recent orders" icon="ri-shopping-bag-3-line" :flush="true">
                 <table class="table mb-0"><tbody>
                 @forelse($recent as $o)

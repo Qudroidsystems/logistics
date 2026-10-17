@@ -58,7 +58,17 @@ class TrackingService
         if (! $link) {
             return null;
         }
-        $s = DB::table('shipments')->find($link->shipment_id);
+
+        return $this->snapshotFor((int) $link->shipment_id);
+    }
+
+    /** The tracking-link view of one shipment (also served to the merchant through the Partner API). */
+    public function snapshotFor(int $shipmentId): ?array
+    {
+        $s = DB::table('shipments')->find($shipmentId);
+        if (! $s) {
+            return null;
+        }
         $stops = DB::select('SELECT seq, type, line1, landmark, status, arrived_at, completed_at, ST_Y(point::geometry) AS lat, ST_X(point::geometry) AS lng FROM shipment_stops WHERE shipment_id = ? ORDER BY seq', [$s->id]);
 
         $driver = null;

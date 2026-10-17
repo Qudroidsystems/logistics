@@ -35,6 +35,12 @@ class MerchantDeliveryService
     /** Who pays the delivery fee: the merchant (its settlement mode) or the receiver, in cash to the rider at the door. */
     public const FEE_PAYERS = ['merchant', 'receiver'];
 
+    /** Operator types that can be a merchant's own delivery team. */
+    public const OWN_PROVIDER_TYPES = ['company', 'franchise', 'independent_driver'];
+
+    /** How an own-team delivery is recorded on the order: the merchant and the team are one business, so no money moves. */
+    public const OWN_PAYMENT_METHOD = 'own_delivery';
+
     /** Service types offered when the merchant does not name one: fastest first. */
     public const DEFAULT_SERVICE_CODES = ['instant', 'same_day', 'next_day'];
 
@@ -162,18 +168,16 @@ class MerchantDeliveryService
 
     private function etaLabel(int $low, int $high): string
     {
-        $fmt = function (int $m): string {
-            if ($m < 90) {
-                return "{$m} min";
-            }
-            if ($m < 1440) {
-                return round($m / 60).' h';
-            }
+        if ($high >= 1440 && $low >= 720) {
+            return 'By '.now()->addMinutes($high)->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('D j M');
+        }
+        if ($high < 120) {
+            return (int) (round($low / 5) * 5).'–'.(int) (round($high / 5) * 5).' min';
+        }
+        $l = max(1, (int) floor($low / 60));
+        $h = max($l + 1, (int) ceil($high / 60));
 
-            return round($m / 1440).' day'.(round($m / 1440) > 1 ? 's' : '');
-        };
-
-        return $high >= 1440 && $low >= 720 ? 'By '.now()->addMinutes($high)->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('D j M') : $fmt($low).' – '.$fmt($high);
+        return "{$l}–{$h} h";
     }
 
     private function fileUrl(?string $path): ?string
@@ -216,6 +220,42 @@ class MerchantDeliveryService
         $near = DB::selectOne("SELECT id FROM cities WHERE ST_DWithin(centre, {$pt}, 80000) ORDER BY ST_Distance(centre, {$pt}) LIMIT 1", [$lng, $lat, $lng, $lat]);
 
         return $near ? (int) $near->id : null;
+    }
+
+    /** The merchant's own delivery team on the marketplace, when one is linked and active. */
+    public function ownProvider(object $merchant): ?object
+    {
+        if (empty($merchant->own_provider_operator_id)) {
+            return null;
+        }
+
+        return DB::table('operators')->where('id', $merchant->own_provider_operator_id)->where('status', 'active')
+            ->whereIn('type', self::OWN_PROVIDER_TYPES)->first(['id', 'public_id', 'display_name']);
+    }
+
+    /**
+     * A delivery for the merchant's own team. The merchant may send the price its customer paid (kobo); without one,
+     * the team's own price list is used.
+     */
+    private function own(object $client, object $merchant, array $d): array
+    {
+        $team = $this->ownProvider($merchant)
+            ?? throw new RuntimeException('No own delivery team is linked to this merchant. Link your provider account on the API page first.');
+        if (empty($d['service_type_id'])) {
+            // The team's own kind of service, when it has a price list for one.
+            $d['service_type_id'] = DB::table('service_types as t')->join('pricing_plans as p', 'p.service_type_id', '=', 't.id')
+                ->where('p.operator_id', $team->id)->where('p.status', 'active')->where('t.active', true)
+                ->orderByRaw("CASE t.code WHEN 'same_day' THEN 0 WHEN 'instant' THEN 1 WHEN 'next_day' THEN 2 ELSE 3 END")->value('t.id');
+        }
+        $d = $this->normalise($d);
+        $route = $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
+        if (isset($d['price']) && $d['price'] !== null && (int) $d['price'] > 0) {
+            return [$d, ['quote_id' => null, 'total' => (int) $d['price'], 'operator_id' => (int) $team->id, 'route' => $route]];
+        }
+        $q = $this->priceWith($client, $merchant, $d, $route, (int) $team->id)
+            ?? throw new RuntimeException('Your delivery team has no price list for this delivery. Send a price, or add a price list for the team.');
+
+        return [$d, $q];
     }
 
     /**
@@ -261,32 +301,36 @@ class MerchantDeliveryService
             return $this->present($dupe, null);
         }
 
-        if (! empty($d['option_id'])) {
+        // "provider": "own": the merchant's own delivery team (its linked provider account) takes the job.
+        $own = ($d['provider'] ?? null) === 'own';
+        if ($own) {
+            [$d, $q] = $this->own($client, $merchant, $d);
+        } elseif (! empty($d['option_id'])) {
             [$d, $q] = $this->chosen($client, $merchant, $d);
         } else {
             $d = $this->normalise($d);
             $q = $this->quote($client, $d);
         }
-        $feePayer = in_array($d['fee_payer'] ?? null, self::FEE_PAYERS, true) ? $d['fee_payer'] : 'merchant';
+        $feePayer = ! $own && in_array($d['fee_payer'] ?? null, self::FEE_PAYERS, true) ? $d['fee_payer'] : 'merchant';
         $owner = DB::table('operator_members')->where('operator_id', $merchant->operator_id)->where('role', 'owner')->value('user_id');
         if (! $owner) {
             throw new RuntimeException('Merchant has no owner account.');
         }
         // A merchant on monthly invoicing with a business account at this provider books on credit.
-        $account = $feePayer === 'merchant' && $merchant->settlement_mode === 'monthly_invoice'
+        $account = ! $own && $feePayer === 'merchant' && $merchant->settlement_mode === 'monthly_invoice'
             ? DB::table('business_accounts')->where('operator_id', $q['operator_id'])->where('merchant_id', $merchant->id)->first()
             : null;
         if ($account) {
             $this->accounts->check($account, (int) $q['total']);
         }
 
-        $agreementId = DB::transaction(function () use ($d, $q, $merchant, $owner, $client, $feePayer) {
+        $agreementId = DB::transaction(function () use ($d, $q, $merchant, $owner, $client, $feePayer, $own) {
             $id = $this->agreements->propose($owner, $q['operator_id'], [
                 'terms' => [
                     'external_order_id' => $d['external_order_id'], 'pickup' => $d['pickup'], 'dropoff' => $d['dropoff'],
                     'packages' => $d['packages'] ?? [], 'vehicle_type_id' => $d['vehicle_type_id'] ?? null, 'quote_id' => $q['quote_id'],
                     'verification' => VerificationPolicy::agree($d['verification'] ?? null, app(VerificationPolicy::class)->forProvider((int) $q['operator_id'], (int) $d['service_type_id'])),
-                ] + array_filter(['return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null, 'cod_amount' => (int) ($d['cod_amount'] ?? 0) ?: null,
+                ] + array_filter(['own_delivery' => $own ?: null, 'return_of' => $d['return_of'] ?? null, 'return_reason' => $d['return_reason'] ?? null, 'cod_amount' => (int) ($d['cod_amount'] ?? 0) ?: null,
                     // The receiver pays the delivery fee to the rider at the door.
                     'fee_payer' => $feePayer === 'receiver' ? 'receiver' : null, 'fee_on_delivery' => $feePayer === 'receiver' ? (int) $q['total'] : null]),
                 'price' => $q['total'], 'distance_m' => $q['route']['distance_m'],
@@ -302,6 +346,21 @@ class MerchantDeliveryService
         });
 
         $agreement = DB::table('agreements')->find($agreementId);
+        if ($own) {
+            // The merchant's own team: nothing to pay. The team "holds" the fee itself, so when the job settles only the
+            // platform's commission is owed (EscrowService::settleOffline), as with a cash booking.
+            $made = DB::transaction(function () use ($agreementId, $owner) {
+                $this->escrow->hold($agreementId, 'offline', $owner);
+                $made = $this->orders->create($agreementId);
+                DB::table('orders')->where('id', $made['order_id'])->update(['payment_method' => self::OWN_PAYMENT_METHOD, 'updated_at' => now()]);
+                DB::table('shipments')->where('id', $made['shipment_id'])->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
+
+                return $made;
+            });
+            $this->dispatch->start($made['shipment_id']);
+
+            return $this->present(DB::table('agreements')->find($agreementId), null);
+        }
         if ($feePayer === 'receiver') {
             // Same path as a cash booking taken by provider staff: the provider holds the fee once the rider collects it,
             // and the platform's commission is set against that cash when the job settles (EscrowService::settleOffline).
@@ -405,6 +464,58 @@ class MerchantDeliveryService
         $a = DB::table('agreements')->where('merchant_id', $client->merchant_id)->whereRaw("terms->>'external_order_id' = ?", [$externalOrderId])->first();
 
         return $a ? $this->detail($a) : null;
+    }
+
+    /**
+     * Live view of one delivery for the merchant to show its customer in its own app: status, stops, the rider
+     * (first name, vehicle, position, ETA) and, while the parcel is on its way, the drop-off code the receiver
+     * gives the rider. Null when it is not the merchant's.
+     */
+    public function tracking(object $client, string $externalOrderId): ?array
+    {
+        $a = DB::table('agreements')->where('merchant_id', $client->merchant_id)->whereRaw("terms->>'external_order_id' = ?", [$externalOrderId])->first();
+        if (! $a) {
+            return null;
+        }
+        $provider = DB::table('operators')->where('id', $a->provider_operator_id ?? 0)->first(['public_id', 'display_name']);
+        $s = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('o.agreement_id', $a->id)->first(['s.id', 's.status']);
+        $out = [
+            'external_order_id' => $externalOrderId,
+            'provider' => $provider ? ['id' => $provider->public_id, 'name' => $provider->display_name] : null,
+            'delivery_status' => $s->status ?? 'awaiting_payment',
+            'tracking_code' => null, 'delivered_at' => null, 'stops' => [], 'driver' => null,
+            'delivery_code' => null, 'reply' => null, 'can_reply' => false, 'reply_options' => \App\Modules\Eta\ReceiverReplies::OPTIONS,
+            'poll_after_seconds' => 30,
+        ];
+        if (! $s) {
+            return $out;
+        }
+        $snap = app(\App\Modules\Tracking\TrackingService::class)->snapshotFor((int) $s->id) ?? [];
+        $out = array_merge($out, \Illuminate\Support\Arr::only($snap, ['tracking_code', 'delivered_at', 'stops', 'driver', 'reply', 'can_reply', 'reply_options', 'poll_after_seconds']));
+        $out['delivery_status'] = $s->status;
+        if ($out['delivered_at']) {
+            $out['delivered_at'] = \Carbon\CarbonImmutable::parse($out['delivered_at'])->toIso8601String();
+        }
+        // The merchant is the job giver, so it may hand the code to its own logged-in customer.
+        $open = ! in_array($s->status, ['delivered', 'cancelled', 'returned', 'failed'], true);
+        if ($open && in_array('code', app(\App\Modules\Verification\VerificationPolicy::class)->forShipment((int) $s->id)['dropoff'], true)) {
+            $out['delivery_code'] = app(\App\Modules\Verification\DeliveryCodes::class)->current((int) $s->id)['code'] ?? null;
+        }
+
+        return $out;
+    }
+
+    /** The receiver's answer to the rider ("I'm ready", "Call me when you arrive"…), sent from the merchant's app. */
+    public function reply(object $client, string $externalOrderId, string $reply, ?string $note): bool
+    {
+        $a = DB::table('agreements')->where('merchant_id', $client->merchant_id)->whereRaw("terms->>'external_order_id' = ?", [$externalOrderId])->first();
+        $id = $a ? DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('o.agreement_id', $a->id)->value('s.id') : null;
+        if (! $id) {
+            return false;
+        }
+        app(\App\Modules\Eta\ReceiverReplies::class)->reply((int) $id, $reply, $note);
+
+        return true;
     }
 
     /** The merchant's deliveries, newest first, optionally only those in a state or changed since a time. */

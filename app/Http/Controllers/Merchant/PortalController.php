@@ -53,6 +53,8 @@ class PortalController extends Controller
             'log' => DB::table('webhook_deliveries as d')->join('webhook_endpoints as e', 'e.id', '=', 'd.endpoint_id')->where('e.operator_id', $m->operator_id)
                 ->orderByDesc('d.id')->limit(20)->get(['d.event', 'd.attempt', 'd.response_status', 'd.delivered_at', 'd.next_retry_at', 'd.created_at', 'e.url']),
             'live' => $this->liveState($m),
+            'ownTeam' => app(\App\Modules\Partner\MerchantDeliveryService::class)->ownProvider($m),
+            'myTeams' => $this->myTeams($request),
             'newKey' => session('new_key'), 'newSecret' => session('new_secret'),
             'pagetitle' => 'API and webhooks',
         ]);
@@ -226,6 +228,34 @@ class PortalController extends Controller
     }
 
     /** @return array{0:object,1:string} the merchant and the signed-in user's role in its team */
+    /** Provider accounts this person runs (owner or admin), which can be the merchant's own delivery team. */
+    private function myTeams(Request $request)
+    {
+        return DB::table('operator_members as om')->join('operators as o', 'o.id', '=', 'om.operator_id')
+            ->where('om.user_id', $request->user()->id)->where('om.status', 'active')->whereIn('om.role', ['owner', 'admin'])
+            ->where('o.status', 'active')->whereIn('o.type', \App\Modules\Partner\MerchantDeliveryService::OWN_PROVIDER_TYPES)
+            ->orderBy('o.display_name')->get(['o.id', 'o.display_name']);
+    }
+
+    /**
+     * Link (or unlink) the merchant's own delivery team: a provider account the same person runs. Orders the shop
+     * sends with "provider": "own" then go straight to that team's dispatch, where its staff assign their riders.
+     */
+    public function setOwnTeam(Request $request)
+    {
+        [$m] = $this->managing($request);
+        $d = $request->validate(['operator_id' => ['nullable', 'integer']]);
+        $id = $d['operator_id'] ?? null;
+        if ($id && ! $this->myTeams($request)->contains('id', (int) $id)) {
+            return back()->with('error', 'You can only link a delivery team you run as owner or admin.');
+        }
+        DB::table('merchants')->where('id', $m->id)->update(['own_provider_operator_id' => $id ?: null, 'updated_at' => now()]);
+
+        return back()->with('success', $id
+            ? 'Delivery team linked. Orders your shop sends with "provider": "own" now go straight to that team.'
+            : 'Delivery team unlinked.');
+    }
+
     private function ctx(Request $request): array
     {
         $row = DB::table('operator_members as om')->join('merchants as m', 'm.operator_id', '=', 'om.operator_id')

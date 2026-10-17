@@ -21,6 +21,8 @@ class PartnerController extends Controller
             'merchant_code' => ($b->show_merchant_code ?? true) ? $m->merchant_code : null,
             'merchant_name' => $m->display_name, 'status' => $m->status, 'environment' => $c->environment,
             'marketplace' => ['name' => $b->marketplace_display_name ?? config('app.name'), 'badge_text' => $b->badge_text ?? null, 'badge_logo' => $b->badge_logo ?? null],
+            // The merchant's own delivery team, when linked: deliveries sent with "provider": "own" go to it.
+            'own_provider' => ($t = app(MerchantDeliveryService::class)->ownProvider($m)) ? ['id' => $t->public_id, 'name' => $t->display_name] : null,
         ]);
     }
 
@@ -108,6 +110,29 @@ class PartnerController extends Controller
         return response()->json($d);
     }
 
+    /** GET /deliveries/{externalOrderId}/tracking: live rider, stops, ETA and drop-off code, for the merchant's own app. */
+    public function tracking(Request $request, string $externalOrderId, MerchantDeliveryService $svc)
+    {
+        $d = $svc->tracking($request->attributes->get('api_client'), $externalOrderId);
+        abort_unless($d, 404);
+
+        return response()->json($d);
+    }
+
+    /** POST /deliveries/{externalOrderId}/reply: the receiver tells the rider they are ready, need time, etc. */
+    public function reply(Request $request, string $externalOrderId, MerchantDeliveryService $svc)
+    {
+        $d = $request->validate(['reply' => 'required|string|in:'.implode(',', array_keys(\App\Modules\Eta\ReceiverReplies::OPTIONS)), 'note' => 'nullable|string|max:140']);
+        try {
+            $ok = $svc->reply($request->attributes->get('api_client'), $externalOrderId, $d['reply'], $d['note'] ?? null);
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => 'cannot_reply', 'message' => $e->getMessage()], 422);
+        }
+        abort_unless($ok, 404);
+
+        return response()->json(['message' => 'The rider has been told.']);
+    }
+
     public function index(Request $request, MerchantDeliveryService $svc)
     {
         $d = $request->validate(['status' => 'nullable|string|max:24', 'since' => 'nullable|date', 'page' => 'nullable|integer|min:1|max:10000']);
@@ -165,6 +190,8 @@ class PartnerController extends Controller
             'option_id' => 'nullable|string|max:40', 'max_price' => 'nullable|integer|min:0',
             // merchant (default: paid through the merchant's settlement mode) or receiver (cash to the rider at the door).
             'fee_payer' => 'nullable|in:'.implode(',', MerchantDeliveryService::FEE_PAYERS),
+            // "own": the merchant's own delivery team takes it; price (kobo) is what its customer paid, else the team's price list.
+            'provider' => 'nullable|in:own', 'price' => 'nullable|integer|min:0|max:1000000000',
             'pickup.line1' => 'required|string|max:255', 'pickup.lat' => 'required|numeric|between:-90,90', 'pickup.lng' => 'required|numeric|between:-180,180',
             'pickup.contact_name' => 'nullable|string|max:120', 'pickup.contact_phone' => 'nullable|string|max:24',
             'dropoff.line1' => 'required|string|max:255', 'dropoff.lat' => 'required|numeric|between:-90,90', 'dropoff.lng' => 'required|numeric|between:-180,180',

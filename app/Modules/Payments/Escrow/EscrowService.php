@@ -18,7 +18,7 @@ use RuntimeException;
 class EscrowService
 {
     /** Order payment methods where the provider took the customer's money itself (manual bookings). */
-    public const OFFLINE_METHODS = ['cash', 'bank_transfer'];
+    public const OFFLINE_METHODS = ['cash', 'bank_transfer', 'own_delivery']; // own_delivery: a merchant's own team (MerchantDeliveryService)
 
     public function __construct(
         private LedgerPoster $ledger,

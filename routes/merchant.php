@@ -12,6 +12,7 @@ Route::middleware('auth')->prefix('merchant')->name('merchant.')->group(function
     Route::post('/api/live-request', [P::class, 'requestLive'])->middleware('throttle:5,1')->name('live.request');
     Route::post('/api/live-key', [P::class, 'createLiveKey'])->middleware('throttle:5,1')->name('live.key');
     Route::post('/api/webhooks', [P::class, 'addHook'])->middleware('throttle:10,1')->name('hook.add');
+    Route::post('/api/own-team', [P::class, 'setOwnTeam'])->middleware('throttle:10,1')->name('own.team');
     Route::post('/api/webhooks/{hook}/toggle', [P::class, 'toggleHook'])->whereNumber('hook')->name('hook.toggle');
     Route::post('/api/webhooks/{hook}/secret', [P::class, 'rotateHookSecret'])->whereNumber('hook')->middleware('throttle:10,1')->name('hook.secret');
     Route::post('/api/webhooks/{hook}/test', [P::class, 'testHook'])->whereNumber('hook')->middleware('throttle:10,1')->name('hook.test');

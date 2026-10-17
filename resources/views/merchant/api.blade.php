@@ -108,6 +108,26 @@
         @endif
     </x-cb.card>
 
+    <x-cb.card title="Your own delivery team" icon="ri-team-line" class="mt-3">
+        <p class="small text-muted">Run your own riders on {{ config('app.name') }}? Link your provider account here. Orders your shop sends with <code>"provider": "own"</code> then go straight to that team's dispatch, where your staff assign a rider. Your customers can follow the rider live, like any other delivery.</p>
+        @if($ownTeam)
+            <p class="mb-2"><span class="badge bg-success">Linked</span> <strong>{{ $ownTeam->display_name }}</strong></p>
+        @endif
+        @if($canEdit)
+            @if(count($myTeams))
+            <form method="POST" action="{{ route('merchant.own.team') }}" class="row g-2">@csrf
+                <div class="col-md-8"><select name="operator_id" class="form-select">
+                    <option value="">Not linked</option>
+                    @foreach($myTeams as $t)<option value="{{ $t->id }}" @selected($ownTeam && $ownTeam->id == $t->id)>{{ $t->display_name }}</option>@endforeach
+                </select></div>
+                <div class="col-md-4"><button class="btn btn-primary w-100">Save</button></div>
+            </form>
+            @else
+            <p class="small mb-0">You don't run a provider account yet. Register your delivery team as a provider (with the same login), then come back here to link it.</p>
+            @endif
+        @endif
+    </x-cb.card>
+
     <x-cb.card title="Recent webhook deliveries" icon="ri-history-line" :count="count($log)" :flush="true" class="mt-3">
         <div class="table-responsive"><table class="table align-middle mb-0">
             <thead><tr><th>Event</th><th>Address</th><th>Result</th><th>When</th></tr></thead>
@@ -138,6 +158,8 @@
             <li><b>Show delivery choices at checkout</b> — <code>POST {{ $base }}/quotes/options</code> with <code>pickup</code> and <code>dropoff</code> (<code>line1</code>, <code>lat</code>, <code>lng</code>, contact). The city and service are worked out for you; you get every provider and speed with its price, ETA, rating and an <code>option_id</code> (valid {{ \App\Modules\Pricing\QuoteService::QUOTE_TTL_MINUTES }} minutes).</li>
             <li><b>Book the one your customer chose</b> — <code>POST {{ $base }}/deliveries</code> with your <code>external_order_id</code>, the same addresses, the <code>option_id</code>, and <code>fee_payer</code>: <code>merchant</code> (paid through your account) or <code>receiver</code> (the rider collects the fee in cash at the door). Booking later? Send <code>max_price</code>: an expired option is priced again with the same provider and refused if it went above that.</li>
             <li><b>Follow it</b> — add a webhook above (signed with <code>X-Logistics-Signature: t=…,v1=hmac_sha256(secret, "t.body")</code>), or poll <code>GET {{ $base }}/deliveries/{external_order_id}</code>.</li>
+            <li><b>Show the rider live in your app</b> — <code>GET {{ $base }}/deliveries/{external_order_id}/tracking</code> gives the status, stops, the rider (first name, vehicle, position, ETA) and the drop-off code your customer gives the rider. Your customer can answer the rider with <code>POST …/reply</code> (<code>ready</code>, <code>need_time</code>, <code>call_me</code>, <code>someone_else</code>).</li>
+            <li><b>Your own riders</b> — link your delivery team above, then book with <code>"provider": "own"</code> (and the <code>price</code> your customer paid, in kobo). The job goes straight to your team's dispatch; nothing is charged except the marketplace's commission.</li>
         </ol>
 <pre class="small bg-light p-2 rounded mb-0" style="white-space: pre-wrap;">curl -X POST {{ $base }}/quotes/options \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \

@@ -81,8 +81,22 @@ class MerchantsController extends Controller
             'recent' => DB::table('orders')->where('merchant_id', $m->id)->orderByDesc('id')->limit(10)->get(['order_number', 'external_order_id', 'total', 'payment_status', 'created_at']),
             'statuses' => self::STATUSES, 'settlement' => self::SETTLEMENT, 'events' => self::EVENTS,
             'newKey' => session('new_key'), 'newSecret' => session('new_secret'),
+            'ownTeam' => app(\App\Modules\Partner\MerchantDeliveryService::class)->ownProvider($m),
+            'teams' => DB::table('operators')->where('status', 'active')->whereIn('type', \App\Modules\Partner\MerchantDeliveryService::OWN_PROVIDER_TYPES)
+                ->orderBy('display_name')->limit(500)->get(['id', 'display_name']),
             'pagetitle' => $m->display_name,
         ]);
+    }
+
+    /** Staff link the merchant's own delivery team (a provider account): "provider": "own" deliveries go to it. */
+    public function setOwnTeam(Request $request, int $merchant)
+    {
+        $m = $this->find($merchant);
+        $d = $request->validate(['operator_id' => ['nullable', 'integer', Rule::exists('operators', 'id')->where('status', 'active')
+            ->whereIn('type', \App\Modules\Partner\MerchantDeliveryService::OWN_PROVIDER_TYPES)]]);
+        DB::table('merchants')->where('id', $m->id)->update(['own_provider_operator_id' => $d['operator_id'] ?? null, 'updated_at' => now()]);
+
+        return back()->with('success', ! empty($d['operator_id']) ? 'Own delivery team linked.' : 'Own delivery team unlinked.');
     }
 
     public function update(Request $request, int $merchant)

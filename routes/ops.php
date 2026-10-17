@@ -90,6 +90,7 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/merchants/{merchant}', [Mc::class, 'show'])->middleware('can:View vendor')->whereNumber('merchant')->name('merchant');
     Route::put('/merchants/{merchant}', [Mc::class, 'update'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.update');
     Route::post('/merchants/{merchant}/owner', [Mc::class, 'setOwner'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.owner');
+    Route::post('/merchants/{merchant}/own-team', [Mc::class, 'setOwnTeam'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.own.team');
     Route::post('/merchants/{merchant}/live-requests/{req}', [Mc::class, 'decideLive'])->middleware('can:Update vendor')->whereNumber(['merchant', 'req'])->name('merchant.live.decide');
     Route::post('/merchants/{merchant}/keys', [Mc::class, 'issueKey'])->middleware('can:Update vendor')->whereNumber('merchant')->name('merchant.key.issue');
     Route::delete('/merchants/{merchant}/keys/{client}', [Mc::class, 'revokeKey'])->middleware('can:Update vendor')->whereNumber(['merchant', 'client'])->name('merchant.key.revoke');
