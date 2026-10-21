@@ -18,7 +18,7 @@ class LoyaltyService
 
     public const DEFAULTS = [
         'enabled' => false,
-        // Points earned for each ₦100 of delivery price the customer paid.
+        // Points earned for each 100 (₦100, $100) of delivery price the customer paid.
         'earn_per_100' => 1,
         // What one point is worth when spent, in kobo.
         'point_value' => 100,
@@ -133,14 +133,14 @@ class LoyaltyService
     {
         $s = self::settings();
         $balance = $this->balance($userId);
-        $naira = fn ($k) => '₦'.number_format(((int) $k) / 100);
+        $naira = fn ($k) => \App\Support\Money::symbol().number_format(((int) $k) / 100);
         $history = DB::table('loyalty_points')->where('user_id', $userId)->orderByDesc('id')->limit(50)->get(['points', 'kind', 'note', 'created_at']);
 
         return [
             'enabled' => (bool) $s['enabled'], 'balance' => $balance, 'worth' => $balance * (int) $s['point_value'],
             'min_redeem' => (int) $s['min_redeem'], 'can_spend' => $s['enabled'] && $balance >= (int) $s['min_redeem'],
             'how' => $s['enabled']
-                ? "You earn {$s['earn_per_100']} point for every ₦100 you pay for deliveries. Each point is worth {$naira($s['point_value'])} off a delivery once you have ".number_format($s['min_redeem']).' points.'
+                ? "You earn {$s['earn_per_100']} point for every ".\App\Support\Money::whole(10_000)." you pay for deliveries. Each point is worth {$naira($s['point_value'])} off a delivery once you have ".number_format($s['min_redeem']).' points.'
                 : 'Loyalty points are not running right now.',
             'history' => $history->map(fn ($r) => ['points' => (int) $r->points, 'kind' => $r->kind, 'label' => $r->note ?? ucfirst($r->kind), 'at' => $r->created_at])->all(),
         ];

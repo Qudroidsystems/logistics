@@ -35,10 +35,12 @@ return [
         ],
     ],
 
+    // SMS through Twilio: set SMS_DRIVER=twilio. Use a Messaging Service SID (MG...) or a Twilio phone number (+1...).
     'twilio' => [
-    'sid' => env('TWILIO_SID'),
-    'auth_token' => env('TWILIO_AUTH_TOKEN'),
-    'phone_number' => env('TWILIO_PHONE_NUMBER'),
+        'sid' => env('TWILIO_SID'),
+        'auth_token' => env('TWILIO_AUTH_TOKEN', env('TWILIO_TOKEN')),
+        'phone_number' => env('TWILIO_PHONE_NUMBER'),
+        'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
     ],
     'device' => [
         'key' => env('DEVICE_API_KEY'),
@@ -66,7 +68,7 @@ return [
     ],
 
     'sms' => [
-        // log (default, nothing is sent) | termii
+        // log (default, nothing is sent) | termii (Nigeria) | twilio (Canada, US and most other countries)
         'driver' => env('SMS_DRIVER', 'log'),
         // WhatsApp for the same messages, once WhatsApp is switched on and filled in under Notification Settings:
         //   instead (default)  WhatsApp first; a message WhatsApp cannot deliver goes out as a text

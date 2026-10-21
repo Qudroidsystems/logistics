@@ -28,7 +28,7 @@ class CodService
 
     public static function naira(int $kobo): string
     {
-        return '₦'.number_format($kobo / 100, $kobo % 100 ? 2 : 0);
+        return \App\Support\Money::symbol().number_format($kobo / 100, $kobo % 100 ? 2 : 0);
     }
 
     /** At the final drop-off. Safe to call twice for the same shipment. */
@@ -213,7 +213,7 @@ class CodService
         if ($naira === null || $naira === '') {
             return null;
         }
-        $v = (float) str_replace([',', '₦', ' '], '', (string) $naira);
+        $v = (float) str_replace([',', '₦', '$', \App\Support\Money::symbol(), ' '], '', (string) $naira);
 
         return $v > 0 ? (int) round($v * 100) : null;
     }

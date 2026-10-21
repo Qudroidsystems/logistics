@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100);
     $d = $x['dispute'];
     $isOpen = in_array($d['status'], ['open', 'evidence']);
 @endphp
@@ -51,7 +51,7 @@
                             </div>
                         @endforeach
                         <div id="shareBox" class="mb-3 {{ old('decision') === 'partial' ? '' : 'd-none' }}">
-                            <label class="form-label small">Provider receives (₦)</label>
+                            <label class="form-label small">Provider receives ({{ Money::symbol() }})</label>
                             <input type="number" step="0.01" min="0" name="provider_share_naira" class="form-control" value="{{ old('provider_share_naira') }}">
                             <div class="form-text">The customer gets the rest.</div>
                         </div>

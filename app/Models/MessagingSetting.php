@@ -27,7 +27,14 @@ class MessagingSetting extends Model
                 'sender_id' => ['label' => 'Sender ID (approved by Termii)', 'secret' => false, 'required' => true, 'max' => 11],
                 'route'     => ['label' => 'Route', 'secret' => false, 'required' => true, 'options' => ['generic' => 'Generic', 'dnd' => 'DND (delivers to DND numbers; sender ID must be approved for DND)']],
                 'base_url'  => ['label' => 'API base URL', 'secret' => false, 'required' => false, 'default' => 'https://api.ng.termii.com'],
-                'unit_cost' => ['label' => 'Your cost per SMS page in ₦ (for estimates)', 'secret' => false, 'required' => false],
+                'unit_cost' => ['label' => 'Your cost per SMS page, in your currency (for estimates)', 'secret' => false, 'required' => false],
+            ]],
+            'twilio' => ['label' => 'Twilio', 'fields' => [
+                'account_sid' => ['label' => 'Account SID (AC...)', 'secret' => false, 'required' => true],
+                'auth_token' => ['label' => 'Auth token', 'secret' => true, 'required' => true],
+                'messaging_service_sid' => ['label' => 'Messaging Service SID (MG..., recommended) or leave empty and fill the number below', 'secret' => false, 'required' => false],
+                'from' => ['label' => 'Twilio phone number (+1...), if no Messaging Service', 'secret' => false, 'required' => false],
+                'unit_cost' => ['label' => 'Your cost per SMS segment, in your currency (for estimates)', 'secret' => false, 'required' => false],
             ]],
         ],
         'whatsapp' => [

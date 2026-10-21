@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="'Order '.$order->order_number" icon="ri-route-line" :subtitle="'Tracking '.$s->tracking_code" :back="route('provider.jobs')" back-label="Jobs">
         <x-slot:pills>

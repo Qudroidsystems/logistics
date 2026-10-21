@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="'Order '.$o['order']['order_number']" icon="ri-shopping-bag-3-line" :subtitle="($o['order']['customer']['name'] ?? '').' · '.($o['order']['customer']['email'] ?? '')" :back="route('ops.orders')" back-label="Orders">
         <x-slot:pills>
@@ -48,7 +48,7 @@
                 @empty <span class="text-muted">None.</span> @endforelse
                 @if(auth()->user()->can('Refund payment') && in_array($o['order']['payment_status'], ['refunded', 'partially_refunded']))
                 <form method="POST" action="{{ route('ops.order.refund', $o['order']['public_id']) }}" class="mt-2 d-flex gap-2" onsubmit="return confirm('Send this amount from the customer\'s wallet back to the card or account they paid with?')">@csrf
-                    <div class="input-group input-group-sm"><span class="input-group-text">₦</span><input type="number" step="0.01" min="1" name="amount_naira" class="form-control" placeholder="Amount" required></div>
+                    <div class="input-group input-group-sm"><span class="input-group-text">{{ Money::symbol() }}</span><input type="number" step="0.01" min="1" name="amount_naira" class="form-control" placeholder="Amount" required></div>
                     <button class="btn btn-sm btn-outline-primary text-nowrap">Send to card</button>
                 </form>
                 <div class="form-text">Cancelled orders are refunded to the customer's wallet first. Use this when they want the money back on their card.</div>

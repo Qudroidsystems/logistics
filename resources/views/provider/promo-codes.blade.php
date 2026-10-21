@@ -1,6 +1,6 @@
 @extends('layouts.master')
 
-@php $naira = fn ($k) => $k === null ? '—' : '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => $k === null ? '—' : Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 
 @section('content')
 <div class="main-content"><div class="page-content"><div class="container-fluid">
@@ -34,10 +34,10 @@
                 <form method="POST" action="{{ route('provider.promos.store') }}" class="row g-2">@csrf
                     <div class="col-12"><label class="form-label small">Code</label><input name="code" class="form-control text-uppercase" maxlength="32" required value="{{ old('code') }}" placeholder="SAVE500"></div>
                     <div class="col-12"><label class="form-label small">Kind</label><select name="type" class="form-select">@foreach($types as $k => $v)<option value="{{ $k }}" @selected(old('type') === $k)>{{ $v }}</option>@endforeach</select></div>
-                    <div class="col-6"><label class="form-label small">Percent or ₦ amount</label><input name="value" type="number" step="0.01" min="0" class="form-control" value="{{ old('value') }}"></div>
-                    <div class="col-6"><label class="form-label small">Most off one job (₦)</label><input name="cap_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('cap_naira') }}"></div>
-                    <div class="col-6"><label class="form-label small">Minimum price (₦)</label><input name="min_order_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('min_order_naira') }}"></div>
-                    <div class="col-6"><label class="form-label small">Budget (₦)</label><input name="budget_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('budget_naira') }}"></div>
+                    <div class="col-6"><label class="form-label small">Percent or {{ Money::symbol() }} amount</label><input name="value" type="number" step="0.01" min="0" class="form-control" value="{{ old('value') }}"></div>
+                    <div class="col-6"><label class="form-label small">Most off one job ({{ Money::symbol() }})</label><input name="cap_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('cap_naira') }}"></div>
+                    <div class="col-6"><label class="form-label small">Minimum price ({{ Money::symbol() }})</label><input name="min_order_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('min_order_naira') }}"></div>
+                    <div class="col-6"><label class="form-label small">Budget ({{ Money::symbol() }})</label><input name="budget_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('budget_naira') }}"></div>
                     <div class="col-6"><label class="form-label small">Uses per customer</label><input name="per_user_limit" type="number" min="1" class="form-control" value="{{ old('per_user_limit', 1) }}"></div>
                     <div class="col-6"><label class="form-label small">Total uses</label><input name="usage_limit" type="number" min="1" class="form-control" value="{{ old('usage_limit') }}"></div>
                     <div class="col-6"><label class="form-label small">Starts</label><input name="valid_from" type="datetime-local" class="form-control" value="{{ old('valid_from') }}"></div>

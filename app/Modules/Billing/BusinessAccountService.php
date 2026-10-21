@@ -138,6 +138,6 @@ class BusinessAccountService
 
     public static function naira(int $kobo): string
     {
-        return '₦'.number_format($kobo / 100, 2);
+        return \App\Support\Money::symbol().number_format($kobo / 100, 2);
     }
 }

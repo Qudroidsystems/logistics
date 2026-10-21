@@ -44,7 +44,7 @@
     if (typeof L === 'undefined') return;
     var c = @json($cities->first());
     var la = document.getElementById('aLat'), ln = document.getElementById('aLng');
-    var map = L.map('amap').setView([parseFloat(la.value) || (c ? c.lat : 9.08), parseFloat(ln.value) || (c ? c.lng : 8.67)], c ? 13 : 6);
+    var map = L.map('amap').setView([parseFloat(la.value) || (c ? c.lat : {{ (float) config('region.map.lat') }}), parseFloat(ln.value) || (c ? c.lng : {{ (float) config('region.map.lng') }})], c ? 13 : {{ (int) config('region.map.zoom') }});
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
     var pin = null;
     map.on('click', function (e) {

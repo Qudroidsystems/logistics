@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Wallet and payouts" icon="ri-wallet-3-line" subtitle="Your earnings land here after the customer confirms delivery." :back="route('provider.dashboard')" back-label="Dashboard" />
     @include('provider._flash')
@@ -16,7 +16,7 @@
             <x-cb.card title="Withdraw" icon="ri-bank-line">
                 @if(count($banks))
                 <form method="POST" action="{{ route('provider.payout') }}">@csrf
-                    <label class="form-label small">Amount (₦)</label>
+                    <label class="form-label small">Amount ({{ Money::symbol() }})</label>
                     <input type="number" step="0.01" min="1" name="amount_naira" class="form-control mb-2" value="{{ old('amount_naira') }}" required>
                     <label class="form-label small">Pay into</label>
                     <select name="bank_account_id" class="form-select mb-3" required>

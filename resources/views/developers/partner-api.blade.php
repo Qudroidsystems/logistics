@@ -16,7 +16,7 @@
 <p>Every request carries your API key as a bearer token. Keys are issued to verified merchants by {{ config('app.name') }} staff and look like <code>lgk_live_ab12cd34.&lt;secret&gt;</code>. The secret part is shown once, so store it safely; if it leaks, ask us to revoke it and issue another.</p>
 <pre><code>Authorization: Bearer YOUR_API_KEY</code></pre>
 <p>Test keys and live keys are separate. A test key creates test deliveries that never move real money and send webhooks only to your test endpoints. Each key has scopes (<code>quotes</code>, <code>deliveries</code>, <code>webhooks</code>) and a per-minute request limit; going over it returns <code>429</code> with a <code>Retry-After</code> header.</p>
-<p>Base URL: <code>{{ $base }}</code>. Amounts are whole kobo (₦1 = 100). All bodies are JSON.</p>
+<p>Base URL: <code>{{ $base }}</code>. Amounts are whole minor units, kobo or cents ({{ Money::symbol() }}1 = 100). All bodies are JSON.</p>
 
 <h2 id="me">Who am I</h2>
 <p><span class="tag">GET</span><code>/me</code></p>

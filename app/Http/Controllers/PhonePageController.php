@@ -20,7 +20,7 @@ class PhonePageController extends Controller
             'u' => $u, 'area' => $area, 'pagetitle' => 'Phone number',
             'verified' => (bool) $u->phone_verified_at,
             'back' => route($area === 'driver' ? 'driver.home' : 'account.dashboard'),
-            'smsLive' => config('services.sms.driver') === 'termii',
+            'smsLive' => config('services.sms.driver', 'log') !== 'log',
         ]);
     }
 

@@ -13,7 +13,7 @@
             @forelse($cities as $c)
                 <tr>
                     <td>{{ $c->name }}</td>
-                    <td class="text-muted">{{ $c->region ?: '—' }}</td>
+                    <td class="text-muted">{{ $c->region ?: '—' }}<div class="small">Tax {{ rtrim(rtrim(number_format(((int) $c->tax_rate_bp) / 100, 2), '0'), '.') }}%</div></td>
                     <td><span class="badge bg-light text-dark">{{ $c->launch_status }}</span></td>
                     <td class="text-end">{{ $c->active_zones }} / {{ $c->zone_count }}</td>
                     <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ route('ops.city', $c->id) }}">Open</a></td>
@@ -30,7 +30,9 @@
         <form method="POST" action="{{ route('ops.city.store') }}" class="row g-3">
             @csrf
             <div class="col-md-4"><label class="form-label">City name</label><input name="name" class="form-control" value="{{ old('name') }}" required></div>
-            <div class="col-md-4"><label class="form-label">State or region</label><input name="region" class="form-control" value="{{ old('region') }}"></div>
+            <div class="col-md-4"><label class="form-label">{{ config('region.subdivision_label') }}</label><input name="region" class="form-control" list="subdivisions" value="{{ old('region') }}"></div>
+            <datalist id="subdivisions">@foreach(\App\Support\Region::subdivisions() as $code => $name)<option value="{{ $name }}">@endforeach</datalist>
+            <div class="col-md-4"><label class="form-label">Sales tax (%)</label><input name="tax_percent" type="number" step="0.001" min="0" max="50" class="form-control" value="{{ old('tax_percent') }}" placeholder="Default for the {{ strtolower(config('region.subdivision_label')) }}"><div class="form-text">Left empty: {{ config('region.tax.name') }} for the {{ strtolower(config('region.subdivision_label')) }} you pick ({{ rtrim(rtrim(number_format(config('region.tax.rate_bp') / 100, 2), '0'), '.') }}% if none).</div></div>
             <div class="col-md-4"><label class="form-label">Status</label>
                 <select name="launch_status" class="form-select">@foreach($statuses as $s)<option value="{{ $s }}" @selected(old('launch_status', 'live') === $s)>{{ ucfirst($s) }}</option>@endforeach</select>
             </div>
@@ -49,7 +51,7 @@
 (function () {
     if (typeof L === 'undefined') return;
     var la = document.getElementById('lat'), ln = document.getElementById('lng');
-    var start = [parseFloat(la.value) || 9.08, parseFloat(ln.value) || 8.67];
+    var start = [parseFloat(la.value) || {{ (float) config('region.map.lat') }}, parseFloat(ln.value) || {{ (float) config('region.map.lng') }}];
     var map = L.map('city-map').setView(start, la.value ? 11 : 6);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
     var pin = la.value ? L.marker(start).addTo(map) : null;

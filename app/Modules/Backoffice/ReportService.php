@@ -523,7 +523,7 @@ class ReportService
         }
 
         return match ($format) {
-            'money' => '₦'.number_format((float) $v, ((float) $v == floor((float) $v)) ? 0 : 2),
+            'money' => \App\Support\Money::symbol().number_format((float) $v, ((float) $v == floor((float) $v)) ? 0 : 2),
             'int' => number_format((int) $v),
             'pct' => rtrim(rtrim(number_format((float) $v, 1), '0'), '.').'%',
             'minutes' => (int) $v >= 120 ? intdiv((int) $v, 60).' h '.((int) $v % 60).' min' : ((int) $v).' min',

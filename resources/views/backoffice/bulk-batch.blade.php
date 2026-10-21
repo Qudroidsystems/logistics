@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
     $badge = ['ready' => ['Ready', 'bg-success-subtle text-success'], 'invalid' => ['Needs fixing', 'bg-danger-subtle text-danger'],
               'booked' => ['Booked', 'bg-success'], 'failed' => ['Not booked', 'bg-danger']];
     $bad = $b->row_count - $b->ok_count;

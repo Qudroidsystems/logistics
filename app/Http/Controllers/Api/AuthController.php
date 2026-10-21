@@ -185,9 +185,16 @@ class AuthController extends Controller
         ];
     }
 
-    /** Nigerian numbers are stored in local form: +2348012345678, 2348012345678 and 08012345678 are the same person. */
+    /**
+     * The stored form of a phone number (see App\Support\Phone::store): Nigerian installs keep "08012345678" for
+     * +2348012345678, 2348012345678 and 08012345678; other countries keep "+12263398404". Something that is not a
+     * phone number is kept as its digits, as before, so a login lookup simply finds nobody.
+     */
     public static function normalizePhone(string $raw): string
     {
+        if (($stored = \App\Support\Phone::store($raw)) !== null) {
+            return $stored;
+        }
         $p = preg_replace('/[^\d+]/', '', trim($raw));
         if (str_starts_with($p, '+234')) {
             $p = '0'.substr($p, 4);

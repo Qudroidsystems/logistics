@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Statements" icon="ri-file-list-2-line" subtitle="What you sold, what the platform kept, and what was paid into your wallet." :back="route('provider.dashboard')" back-label="Dashboard" />
     @include('provider._flash')

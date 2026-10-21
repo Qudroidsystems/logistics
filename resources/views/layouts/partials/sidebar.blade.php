@@ -84,7 +84,7 @@
                 @endif
 
                 {{-- ===== Platform ===== --}}
-                @if(auth()->user()->canAny(['Manage feature flags', 'Manage payment gateways', 'Manage maintenance mode', 'Manage backups', 'View activity log', 'View audit log', 'Manage security settings', 'Reset two-factor']))
+                @if(auth()->user()->canAny(['Manage feature flags', 'Manage payment gateways', 'Manage notifications settings', 'Manage maintenance mode', 'Manage backups', 'View activity log', 'View audit log', 'Manage security settings', 'Reset two-factor']))
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>PLATFORM</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link" href="#sidebarPlatform" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPlatform">
@@ -95,6 +95,7 @@
                             @can('Manage feature flags')<li class="nav-item"><a href="{{ route('feature-flags.index') }}" class="nav-link">Module Access</a></li>@endcan
                             @role('Super Admin')<li class="nav-item"><a href="{{ route('branding.index') }}" class="nav-link">App Branding</a></li>@endrole
                             @can('Manage payment gateways')<li class="nav-item"><a href="{{ route('admin.payment-gateways.index') }}" class="nav-link">Payment Gateways</a></li>@endcan
+                            @can('Manage notifications settings')<li class="nav-item"><a href="{{ route('admin.messaging.index') }}" class="nav-link">Messaging (SMS, WhatsApp, email)</a></li>@endcan
                             @can('Manage maintenance mode')<li class="nav-item"><a href="{{ route('maintenance.settings') }}" class="nav-link">Maintenance Mode</a></li>@endcan
                             @can('Manage backups')<li class="nav-item"><a href="{{ route('admin.backups.index') }}" class="nav-link">Backups</a></li>@endcan
                             @can('View activity log')<li class="nav-item"><a href="{{ route('activity.index') }}" class="nav-link">Activity Log</a></li>@endcan

@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Requests" icon="ri-inbox-line" subtitle="Customers asking for a quote, and the offers you have made." />
     @include('provider._flash')

@@ -170,7 +170,7 @@ class ManualBookingService
             $price = $this->price($operatorId, $d);
         }
         if ($price['total'] < 100) {
-            throw new RuntimeException('The price must be at least ₦1.');
+            throw new RuntimeException('The price must be at least '.\App\Support\Money::whole(100).'.');
         }
         if (isset($acc)) {
             // Checked again, locked, when the order is made; this stops a booking the account cannot take before anything is saved.

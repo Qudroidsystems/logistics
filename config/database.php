@@ -98,7 +98,7 @@ return [
             'sslmode' => 'prefer',
             // The database session runs on the app's clock (config/app.php), so a time Laravel writes without an
             // offset means what it says, SQL now() matches PHP now(), and times read back carry the +01:00 offset.
-            'timezone' => env('DB_TIMEZONE', 'Africa/Lagos'),
+            'timezone' => env('DB_TIMEZONE') ?: (env('REGION_TIMEZONE') ?: ((require __DIR__.'/region-presets.php')[strtoupper((string) env('REGION', 'NG'))]['timezone'] ?? 'Africa/Lagos')),
         ],
 
         'sqlsrv' => [

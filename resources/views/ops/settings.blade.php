@@ -13,7 +13,7 @@
                     <label class="form-label">Percentage of the delivery price</label>
                     <div class="input-group mb-2"><input type="number" step="0.01" min="0" max="50" name="percent" class="form-control" value="{{ old('percent', $feePercent) }}" required @disabled(!$canFee)><span class="input-group-text">%</span></div>
                     <label class="form-label">Minimum fee per job</label>
-                    <div class="input-group mb-3"><span class="input-group-text">₦</span><input type="number" step="0.01" min="0" name="min_naira" class="form-control" value="{{ old('min_naira', $feeMin) }}" required @disabled(!$canFee)></div>
+                    <div class="input-group mb-3"><span class="input-group-text">{{ Money::symbol() }}</span><input type="number" step="0.01" min="0" name="min_naira" class="form-control" value="{{ old('min_naira', $feeMin) }}" required @disabled(!$canFee)></div>
                     @if($canFee)<button class="btn btn-primary">Save fee</button>@else<span class="text-muted small">You can view this but not change it.</span>@endif
                 </form>
                 <hr>
@@ -27,7 +27,7 @@
                             <strong>{{ $r->provider ?? ($r->operator_type ? 'Every '.str_replace('_', ' ', $r->operator_type) : 'Any provider') }}</strong>
                             <div>{{ collect([$r->city ? 'in '.$r->city : null, $r->service ? $r->service : null])->filter()->implode(' · ') ?: 'everywhere, every service' }}</div>
                         </td>
-                        <td class="small text-end">{{ $r->basis === 'percent_of_delivery_fee' ? rtrim(rtrim(number_format($r->rate_bp / 100, 2), '0'), '.').'%' : str_replace('_', ' ', $r->basis) }}@if($r->min_fee)<div>min ₦{{ number_format($r->min_fee / 100) }}</div>@endif</td>
+                        <td class="small text-end">{{ $r->basis === 'percent_of_delivery_fee' ? rtrim(rtrim(number_format($r->rate_bp / 100, 2), '0'), '.').'%' : str_replace('_', ' ', $r->basis) }}@if($r->min_fee)<div>min {{ Money::symbol() }}{{ number_format($r->min_fee / 100) }}</div>@endif</td>
                         <td class="text-end">
                             @if($canFee)<form method="POST" action="{{ route('ops.settings.commission.toggle', $r->id) }}" class="d-inline">@csrf<button class="btn btn-sm btn-outline-{{ $r->active ? 'secondary' : 'success' }}">{{ $r->active ? 'Switch off' : 'Switch on' }}</button></form>@else<span class="badge bg-{{ $r->active ? 'success' : 'secondary' }}">{{ $r->active ? 'on' : 'off' }}</span>@endif
                         </td>
@@ -47,7 +47,7 @@
                     <div class="col-6"><select name="city_id" class="form-select form-select-sm"><option value="">Every city</option>@foreach($ruleCities as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>
                     <div class="col-6"><select name="service_type_id" class="form-select form-select-sm"><option value="">Every service</option>@foreach($ruleServices as $t)<option value="{{ $t->id }}">{{ $t->name }}</option>@endforeach</select></div>
                     <div class="col-6"><div class="input-group input-group-sm"><input type="number" step="0.01" min="0" max="50" name="percent" class="form-control" placeholder="Fee" required><span class="input-group-text">%</span></div></div>
-                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">min ₦</span><input type="number" step="0.01" min="0" name="min_naira" class="form-control" placeholder="0"></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">min {{ Money::symbol() }}</span><input type="number" step="0.01" min="0" name="min_naira" class="form-control" placeholder="0"></div></div>
                     <div class="col-12"><button class="btn btn-sm btn-primary">Save special fee</button> <span class="form-text">Saving the same provider/kind, city and service again replaces its fee.</span></div>
                 </form>
                 @endif

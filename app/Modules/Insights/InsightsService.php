@@ -159,12 +159,14 @@ class InsightsService
     public function fleet(?int $opId, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $range = [$from->toDateTimeString(), $to->toDateTimeString()];
+        // The install's time zone (validated, so it is safe inside the SQL text).
+        $tz = in_array(config('app.timezone'), timezone_identifiers_list(), true) ? config('app.timezone') : 'UTC';
         $use = DB::table('assignments as a')->join('shipments as s', 's.id', '=', 'a.shipment_id')->join('orders as o', 'o.id', '=', 's.order_id')
             ->leftJoin('agreements as ag', 'ag.id', '=', 'o.agreement_id')
             ->when($opId, fn ($q) => $q->where('a.operator_id', $opId))->where('o.is_test', false)->where('a.status', 'completed')->whereNotNull('a.vehicle_id')->whereBetween('a.completed_at', $range)
             ->groupBy('a.vehicle_id')
             ->selectRaw("a.vehicle_id, COUNT(*) AS jobs, COALESCE(SUM(COALESCE(s.distance_m, ag.distance_m, 0)), 0) AS distance_m,
-                COUNT(DISTINCT (a.completed_at AT TIME ZONE 'Africa/Lagos')::date) AS days,
+                COUNT(DISTINCT (a.completed_at AT TIME ZONE '{$tz}')::date) AS days,
                 COALESCE(SUM(CASE WHEN s.status = 'delivered' THEN CASE WHEN o.agreement_id IS NOT NULL THEN ag.provider_net ELSE o.delivery_fee + o.service_fee END ELSE 0 END), 0) AS earned,
                 MAX(a.completed_at) AS last_job_at")
             ->get()->keyBy('vehicle_id');

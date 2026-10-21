@@ -3,7 +3,7 @@
 {{-- The platform owner's dashboard. Providers see their own business at /provider. --}}
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100);
     $u = auth()->user();
     $link = fn ($name, ...$p) => Route::has($name) ? route($name, ...$p) : null;
     $attention = array_values(array_filter([

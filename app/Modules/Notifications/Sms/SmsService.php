@@ -18,8 +18,17 @@ use Throwable;
  */
 class SmsService
 {
-    /** Pure: any Nigerian number format to international digits without "+" ("0803 123 4567" => "2348031234567"); null when it can't be one. */
+    /**
+     * Any local or international form to digits with the country code and no "+" ("0803 123 4567" => "2348031234567"
+     * on a Nigerian install, "(226) 339-8404" => "12263398404" on a Canadian one); null when it can't be a number.
+     */
     public static function normalize(?string $phone): ?string
+    {
+        return \App\Support\Phone::international($phone);
+    }
+
+    /** The original Nigeria-only rule, kept for reference by older callers. */
+    public static function normalizeNigerian(?string $phone): ?string
     {
         $d = preg_replace('/\D+/', '', (string) $phone);
         if ($d === '') {
@@ -42,6 +51,7 @@ class SmsService
     {
         return match (config('services.sms.driver', 'log')) {
             'termii' => new TermiiGateway,
+            'twilio' => new TwilioGateway,
             default => new LogGateway,
         };
     }

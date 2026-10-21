@@ -49,7 +49,7 @@
                     <textarea name="items" rows="3" class="form-control mb-2" maxlength="2000" placeholder="Box of shoes&#10;Envelope">{{ old('items') }}</textarea>
                     <label class="form-label small">Total weight in kg <span class="text-muted">(optional)</span></label>
                     <input type="number" step="0.1" min="0" name="weight_kg" class="form-control mb-2" value="{{ old('weight_kg') }}">
-                    <label class="form-label small">Cash on delivery (₦) <span class="text-muted">(optional)</span></label>
+                    <label class="form-label small">Cash on delivery ({{ Money::symbol() }}) <span class="text-muted">(optional)</span></label>
                     <input type="number" step="0.01" min="0" name="cod_naira" class="form-control mb-1" value="{{ old('cod_naira') }}" placeholder="Goods money to collect from the receiver">
                     <div class="form-text mb-2">The rider collects this at the door and hands it in at your office; you pay it to the sender.</div>
                     <label class="form-label small">Note for the team <span class="text-muted">(optional)</span></label>
@@ -57,7 +57,7 @@
                 </x-cb.card>
 
                 <x-cb.card title="Price and payment" icon="ri-money-dollar-circle-line">
-                    <label class="form-label small">Price (₦)</label>
+                    <label class="form-label small">Price ({{ Money::symbol() }})</label>
                     <div class="input-group mb-1">
                         <input type="number" step="0.01" min="1" name="price_naira" id="priceIn" class="form-control" value="{{ old('price_naira') }}" placeholder="Leave empty to use the price list">
                         <button type="button" class="btn btn-outline-primary" id="priceBtn">Work out price</button>
@@ -125,7 +125,7 @@
 (function () {
     var $ = function (id) { return document.getElementById(id); };
     var city = $('citySel').selectedOptions[0] || {dataset: {}};
-    var map = L.map('map').setView([parseFloat(city.dataset.lat) || 9.082, parseFloat(city.dataset.lng) || 8.6753], city.dataset.lat ? 13 : 6);
+    var map = L.map('map').setView([parseFloat(city.dataset.lat) || {{ (float) config('region.map.lat') }}, parseFloat(city.dataset.lng) || {{ (float) config('region.map.lng') }}], city.dataset.lat ? 13 : {{ (int) config('region.map.zoom') }});
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
     var pins = {}, mode = null;
     function pin(k, lat, lng) {

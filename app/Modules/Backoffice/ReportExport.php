@@ -26,7 +26,7 @@ class ReportExport implements FromArray, WithHeadings, WithColumnFormatting, Sho
     {
         return array_map(function ($h, $f) {
             return match ($f) {
-                'money' => "{$h} (₦)", 'pct' => "{$h} (%)", 'minutes' => "{$h} (min)", 'km' => "{$h} (km)", default => $h,
+                'money' => "{$h} (".\App\Support\Money::symbol().")", 'pct' => "{$h} (%)", 'minutes' => "{$h} (min)", 'km' => "{$h} (km)", default => $h,
             };
         }, $this->table['headings'], $this->table['formats']);
     }

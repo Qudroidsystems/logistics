@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
     $date = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('j M Y') : '—';
     $dueCount = collect($vehicles)->filter(fn ($v) => count($v['due']))->count();
 @endphp
@@ -69,7 +69,7 @@
                             <form method="POST" action="{{ route('provider.vehicles.service', $v['id']) }}" class="row g-2">@csrf
                                 <div class="col-12"><input type="date" name="serviced_on" class="form-control form-control-sm" value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" required></div>
                                 <div class="col-6"><input type="number" name="odometer_km" min="0" class="form-control form-control-sm" placeholder="Odometer km"></div>
-                                <div class="col-6"><input type="number" name="cost_naira" min="0" step="0.01" class="form-control form-control-sm" placeholder="Cost ₦"></div>
+                                <div class="col-6"><input type="number" name="cost_naira" min="0" step="0.01" class="form-control form-control-sm" placeholder="Cost {{ Money::symbol() }}"></div>
                                 <div class="col-12"><input name="description" maxlength="300" class="form-control form-control-sm" placeholder="What was done (optional)"></div>
                                 <div class="col-12"><button class="btn btn-sm btn-outline-primary">Record service</button></div>
                             </form>
@@ -79,7 +79,7 @@
                             <form method="POST" action="{{ route('provider.vehicles.fuel', $v['id']) }}" class="row g-2">@csrf
                                 <div class="col-6"><input type="date" name="filled_on" class="form-control form-control-sm" value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" required></div>
                                 <div class="col-6"><input type="number" name="litres" min="0.1" step="0.01" class="form-control form-control-sm" placeholder="Litres" required></div>
-                                <div class="col-6"><input type="number" name="cost_naira" min="1" step="0.01" class="form-control form-control-sm" placeholder="Cost ₦" required></div>
+                                <div class="col-6"><input type="number" name="cost_naira" min="1" step="0.01" class="form-control form-control-sm" placeholder="Cost {{ Money::symbol() }}" required></div>
                                 <div class="col-6"><input type="number" name="odometer_km" min="0" class="form-control form-control-sm" placeholder="Odometer km"></div>
                                 <div class="col-12"><input name="note" maxlength="200" class="form-control form-control-sm" placeholder="Note (optional)"></div>
                                 <div class="col-12"><button class="btn btn-sm btn-outline-primary">Record fuel</button></div>

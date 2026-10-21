@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => $k === null ? '—' : '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $market = \App\Support\Platform::marketplace(); @endphp
+@php $naira = fn ($k) => $k === null ? '—' : Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $market = \App\Support\Platform::marketplace(); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Price lists" icon="ri-price-tag-3-line" subtitle="The fixed prices behind instant quotes for business customers: base fee, per km, weight, extra stops, and weekend, rush and fuel surcharges." :back="route('ops.dashboard')" back-label="Operations" />
     @include('ops._flash')
@@ -26,9 +26,9 @@
             <div class="col-md-4"><label class="form-label small">Service</label><select name="service_type_id" class="form-select">@foreach($services as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach</select></div>
             <div class="col-md-3"><label class="form-label small">City</label><select name="city_id" class="form-select"><option value="">All cities</option>@foreach($cities as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>
             <div class="col-md-3"><label class="form-label small">Vehicle</label><select name="vehicle_type_id" class="form-select"><option value="">Any vehicle</option>@foreach($vehicles as $v)<option value="{{ $v->id }}">{{ $v->name }}</option>@endforeach</select></div>
-            <div class="col-md-2"><label class="form-label small">Minimum (₦)</label><input name="min_fee_naira" type="number" step="0.01" min="0" class="form-control" required value="1000"></div>
-            <div class="col-md-2"><label class="form-label small">Maximum (₦)</label><input name="max_fee_naira" type="number" step="0.01" min="0" class="form-control"></div>
-            <div class="col-md-2"><label class="form-label small">Round up to (₦)</label><input name="rounding_naira" type="number" step="0.01" min="0.01" class="form-control" value="50"></div>
+            <div class="col-md-2"><label class="form-label small">Minimum ({{ Money::symbol() }})</label><input name="min_fee_naira" type="number" step="0.01" min="0" class="form-control" required value="1000"></div>
+            <div class="col-md-2"><label class="form-label small">Maximum ({{ Money::symbol() }})</label><input name="max_fee_naira" type="number" step="0.01" min="0" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label small">Round up to ({{ Money::symbol() }})</label><input name="rounding_naira" type="number" step="0.01" min="0.01" class="form-control" value="50"></div>
             <div class="col-12"><button class="btn btn-primary">Create draft</button></div>
         </form>
     </x-cb.card>

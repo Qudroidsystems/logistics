@@ -43,7 +43,7 @@
         <select name="payment" class="form-select form-select-sm mb-1" required>
             @foreach(\App\Modules\Backoffice\ManualBookingService::PAYMENTS as $k => $v)<option value="{{ $k }}" @selected(old('payment', 'cash') === $k)>{{ $v }}</option>@endforeach
         </select>
-        <div class="input-group input-group-sm mb-1"><span class="input-group-text">₦</span><input name="price_naira" class="form-control" inputmode="decimal" placeholder="Price (blank: your price list)" value="{{ old('price_naira') }}"></div>
+        <div class="input-group input-group-sm mb-1"><span class="input-group-text">{{ Money::symbol() }}</span><input name="price_naira" class="form-control" inputmode="decimal" placeholder="Price (blank: your price list)" value="{{ old('price_naira') }}"></div>
         <input name="note" class="form-control form-control-sm mb-2" maxlength="300" placeholder="Note for the driver (optional)">
         <button class="btn btn-sm btn-outline-primary w-100">Book the return</button>
     </form>

@@ -69,7 +69,7 @@
         picked_up: 'Picked up', in_transit: 'On the way to you', at_dropoff: 'Rider has arrived',
         delivered: 'Delivered', confirmed: 'Delivered', completed: 'Delivered', cancelled: 'Cancelled'
     };
-    var map = L.map('map', {zoomControl: true}).setView([9.08, 8.67], 6);
+    var map = L.map('map', {zoomControl: true}).setView([{{ (float) config('region.map.lat') }}, {{ (float) config('region.map.lng') }}], {{ (int) config('region.map.zoom') }});
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
     var stopMarkers = [], rider = null, fitted = false, timer = null;
 

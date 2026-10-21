@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
     $nice = fn ($t) => ucfirst(str_replace('_', ' ', $t));
     $list = fn ($v) => implode(', ', is_array($v) ? $v : (array) json_decode($v ?? '[]', true));
     $isRider = $op->type !== 'company';
@@ -51,7 +51,7 @@
                     <textarea name="about" rows="3" class="form-control mb-2" maxlength="3000">{{ old('about', $profile->about ?? '') }}</textarea>
                     <div class="row g-2">
                         <div class="col-6"><label class="form-label small">Years operating</label><input type="number" min="0" max="100" name="years_operating" class="form-control" value="{{ old('years_operating', $profile->years_operating ?? '') }}"></div>
-                        <div class="col-6"><label class="form-label small">Smallest job (₦)</label><input type="number" step="0.01" min="0" name="min_job_value_naira" class="form-control" value="{{ old('min_job_value_naira', isset($profile->min_job_value) ? $profile->min_job_value / 100 : '') }}"></div>
+                        <div class="col-6"><label class="form-label small">Smallest job ({{ Money::symbol() }})</label><input type="number" step="0.01" min="0" name="min_job_value_naira" class="form-control" value="{{ old('min_job_value_naira', isset($profile->min_job_value) ? $profile->min_job_value / 100 : '') }}"></div>
                     </div>
                     <label class="form-label small mt-2">Languages <span class="text-muted">(comma separated)</span></label>
                     <input name="languages" class="form-control mb-2" value="{{ old('languages', $list($profile->languages ?? null)) }}">
@@ -143,11 +143,11 @@
                         @foreach($serviceTypes as $t)<option value="{{ $t['id'] }}">{{ $t['name'] }}</option>@endforeach
                     </select>
                     <div class="row g-2 mb-2">
-                        <div class="col-4"><input type="number" step="0.01" min="0" name="base_naira" class="form-control" placeholder="Base ₦" required></div>
-                        <div class="col-4"><input type="number" step="0.01" min="0" name="per_km_naira" class="form-control" placeholder="Per km ₦" required></div>
-                        <div class="col-4"><input type="number" step="0.01" min="0" name="per_kg_naira" class="form-control" placeholder="Per kg ₦"></div>
+                        <div class="col-4"><input type="number" step="0.01" min="0" name="base_naira" class="form-control" placeholder="Base {{ Money::symbol() }}" required></div>
+                        <div class="col-4"><input type="number" step="0.01" min="0" name="per_km_naira" class="form-control" placeholder="Per km {{ Money::symbol() }}" required></div>
+                        <div class="col-4"><input type="number" step="0.01" min="0" name="per_kg_naira" class="form-control" placeholder="Per kg {{ Money::symbol() }}"></div>
                     </div>
-                    <input type="number" step="0.01" min="0" name="min_fee_naira" class="form-control mb-2" placeholder="Smallest charge ₦ (optional)">
+                    <input type="number" step="0.01" min="0" name="min_fee_naira" class="form-control mb-2" placeholder="Smallest charge {{ Money::symbol() }} (optional)">
                     <div class="form-check"><input class="form-check-input" type="checkbox" name="negotiable" value="1" id="neg" checked><label class="form-check-label" for="neg">Customers can negotiate this price</label></div>
                     <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="instant_book" value="1" id="inst"><label class="form-check-label" for="inst">Customers can book instantly at this price</label></div>
                     <button class="btn btn-outline-primary w-100">Add price</button>

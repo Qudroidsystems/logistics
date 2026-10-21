@@ -10,7 +10,9 @@
         <form method="POST" action="{{ route('ops.city.update', $city->id) }}" class="row g-3">
             @csrf @method('PUT')
             <div class="col-md-4"><label class="form-label">Name</label><input name="name" class="form-control" value="{{ old('name', $city->name) }}" required></div>
-            <div class="col-md-4"><label class="form-label">State or region</label><input name="region" class="form-control" value="{{ old('region', $city->region) }}"></div>
+            <div class="col-md-4"><label class="form-label">{{ config('region.subdivision_label') }}</label><input name="region" class="form-control" list="subdivisions" value="{{ old('region', $city->region) }}"></div>
+            <datalist id="subdivisions">@foreach(\App\Support\Region::subdivisions() as $code => $name)<option value="{{ $name }}">@endforeach</datalist>
+            <div class="col-md-4"><label class="form-label">Sales tax (%)</label><input name="tax_percent" type="number" step="0.001" min="0" max="50" class="form-control" value="{{ old('tax_percent', rtrim(rtrim(number_format(((int) $city->tax_rate_bp) / 100, 3, '.', ''), '0'), '.')) }}"></div>
             <div class="col-md-4"><label class="form-label">Status</label>
                 <select name="launch_status" class="form-select">@foreach($statuses as $s)<option value="{{ $s }}" @selected(old('launch_status', $city->launch_status) === $s)>{{ ucfirst($s) }}</option>@endforeach</select>
             </div>

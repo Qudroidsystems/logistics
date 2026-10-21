@@ -2,7 +2,7 @@
 <script>
 window.qEstimate = (function () {
     var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
-    var naira = function (k) { return '₦' + Math.round((k || 0) / 100).toLocaleString('en-NG'); };
+    var naira = function (k) { return '{{ Money::symbol() }}' + Math.round((k || 0) / 100).toLocaleString('{{ config('region.locale') }}'); };
     var label = {fuel: 'Fuel', maintenance: 'Maintenance', labour: 'Labour', other: 'Other per-job costs', job_expenses: 'Tolls and parking', return_trip: 'Empty return trip',
         loading: 'Loading', waiting: 'Waiting time', fragile: 'Fragile handling', insurance: 'Insurance'};
     var methodName = {per_km: 'Per-kilometre rate', cost_plus: 'Cost plus markup', higher_of: 'Higher of rate and cost plus markup'};

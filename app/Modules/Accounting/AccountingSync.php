@@ -137,7 +137,7 @@ class AccountingSync
         if (! $wallet) {
             return [];
         }
-        $start = CarbonImmutable::parse($day, 'Africa/Lagos')->startOfDay();
+        $start = CarbonImmutable::parse($day, config('app.timezone'))->startOfDay();
         $moves = DB::table('ledger_entries as e')->join('ledger_transactions as t', 't.id', '=', 'e.transaction_id')
             ->where('e.account_id', $wallet)->where('t.is_test', false)
             ->where('t.posted_at', '>=', $start)->where('t.posted_at', '<', $start->addDay())
@@ -182,7 +182,7 @@ class AccountingSync
             return 0;
         }
         $day = CarbonImmutable::parse($c->synced_through ? CarbonImmutable::parse($c->synced_through)->addDay() : $c->sync_from);
-        $last = CarbonImmutable::now('Africa/Lagos')->subDay()->startOfDay();
+        $last = CarbonImmutable::now(config('app.timezone'))->subDay()->startOfDay();
         $sent = 0;
         for ($n = 0; $day->lte($last) && $n < self::MAX_DAYS; $n++, $day = $day->addDay()) {
             $date = $day->toDateString();

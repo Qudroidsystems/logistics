@@ -114,6 +114,9 @@ Route::middleware('auth')->group(function () {
         });
     });
 
+    Route::get('/admin/messaging', [\App\Http\Controllers\Admin\MessagingSettingsController::class, 'index'])->name('admin.messaging.index');
+    Route::post('/admin/messaging/{channel}', [\App\Http\Controllers\Admin\MessagingSettingsController::class, 'save'])->whereIn('channel', ['sms', 'whatsapp', 'email'])->name('admin.messaging.save');
+    Route::post('/admin/messaging/{channel}/test', [\App\Http\Controllers\Admin\MessagingSettingsController::class, 'test'])->whereIn('channel', ['sms', 'whatsapp', 'email'])->middleware('throttle:10,1')->name('admin.messaging.test');
     Route::get('/admin/branding', [\App\Http\Controllers\Admin\BrandingController::class, 'index'])->name('branding.index');
     Route::post('/admin/branding/{app}', [\App\Http\Controllers\Admin\BrandingController::class, 'save'])->name('branding.save');
 

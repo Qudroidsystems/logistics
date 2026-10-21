@@ -2,7 +2,7 @@
 
 @php
     use App\Modules\Accounting\AccountingSync;
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, 2);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, 2);
     $linked = $conn && $conn->status !== 'disconnected';
 @endphp
 

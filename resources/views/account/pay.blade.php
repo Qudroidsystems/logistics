@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $enough = $balance >= $total; @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $enough = $balance >= $total; @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Pay to start the job" icon="ri-bank-card-line" :subtitle="$a->provider.' · agreement '.$a->number" :back="route('account.dashboard')" back-label="Home" />
     @include('account._flash')

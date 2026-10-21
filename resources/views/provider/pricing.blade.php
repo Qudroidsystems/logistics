@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0);
     $methodNames = ['higher_of' => 'Higher of rate and cost plus markup', 'per_km' => 'Per-kilometre rate', 'cost_plus' => 'Cost plus markup'];
     $e = $editing;
     $nv = fn ($f, $default = '') => old($f, $e ? rtrim(rtrim(number_format($e->{$f} / 100, 2, '.', ''), '0'), '.') : $default);
@@ -37,8 +37,8 @@
                 </div>
                 <div class="row g-2 mt-1">
                     <div class="col-sm-4"><label class="form-label small">Waiting (min)</label><input id="cWait" type="number" min="0" class="form-control" value="0"></div>
-                    <div class="col-sm-4"><label class="form-label small">Tolls and parking (₦)</label><input id="cExp" type="number" min="0" class="form-control" value="0"></div>
-                    <div class="col-sm-4"><label class="form-label small">Declared value (₦)</label><input id="cVal" type="number" min="0" class="form-control" value="0"></div>
+                    <div class="col-sm-4"><label class="form-label small">Tolls and parking ({{ Money::symbol() }})</label><input id="cExp" type="number" min="0" class="form-control" value="0"></div>
+                    <div class="col-sm-4"><label class="form-label small">Declared value ({{ Money::symbol() }})</label><input id="cVal" type="number" min="0" class="form-control" value="0"></div>
                 </div>
                 <div class="d-flex flex-wrap gap-3 my-2">
                     <label class="form-check"><input class="form-check-input" type="checkbox" id="cRound"> <span class="form-check-label">Return to the pickup</span></label>
@@ -88,26 +88,26 @@
                         <div class="col-12"><label class="form-label small">How to price</label><select name="pricing_method" class="form-select">@foreach($methods as $m)<option value="{{ $m }}" @selected(old('pricing_method', $e->pricing_method ?? 'higher_of') === $m)>{{ $methodNames[$m] }}</option>@endforeach</select></div>
 
                         <div class="col-12 fw-semibold small mt-2">Your rate card</div>
-                        <div class="col-4"><label class="form-label small">Base fee (₦)</label><input name="base_fee" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('base_fee') }}"></div>
-                        <div class="col-4"><label class="form-label small">Per km (₦)</label><input name="rate_per_km" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('rate_per_km') }}"></div>
-                        <div class="col-4"><label class="form-label small">Minimum (₦)</label><input name="min_fee" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('min_fee') }}"></div>
+                        <div class="col-4"><label class="form-label small">Base fee ({{ Money::symbol() }})</label><input name="base_fee" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('base_fee') }}"></div>
+                        <div class="col-4"><label class="form-label small">Per km ({{ Money::symbol() }})</label><input name="rate_per_km" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('rate_per_km') }}"></div>
+                        <div class="col-4"><label class="form-label small">Minimum ({{ Money::symbol() }})</label><input name="min_fee" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('min_fee') }}"></div>
 
                         <div class="col-12 fw-semibold small mt-2">Running costs</div>
-                        <div class="col-6"><label class="form-label small">Fuel price (₦/litre)</label><input name="fuel_price_per_litre" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('fuel_price_per_litre') }}"></div>
+                        <div class="col-6"><label class="form-label small">Fuel price ({{ Money::symbol() }}/litre)</label><input name="fuel_price_per_litre" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('fuel_price_per_litre') }}"></div>
                         <div class="col-6"><label class="form-label small">Fuel use (litres/100 km)</label><input name="fuel_l_per_100km" type="number" step="0.01" min="0" class="form-control" value="{{ old('fuel_l_per_100km', $e ? (float) $e->fuel_l_per_100km : '') }}"></div>
-                        <div class="col-6"><label class="form-label small">Labour per job (₦)</label><input name="labour_per_job" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('labour_per_job') }}"></div>
-                        <div class="col-6"><label class="form-label small">Labour per hour (₦)</label><input name="labour_per_hour" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('labour_per_hour') }}"></div>
-                        <div class="col-6"><label class="form-label small">Maintenance per km (₦)</label><input name="maintenance_per_km" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('maintenance_per_km') }}"></div>
-                        <div class="col-6"><label class="form-label small">Other per job (₦)</label><input name="other_per_job" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('other_per_job') }}"></div>
+                        <div class="col-6"><label class="form-label small">Labour per job ({{ Money::symbol() }})</label><input name="labour_per_job" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('labour_per_job') }}"></div>
+                        <div class="col-6"><label class="form-label small">Labour per hour ({{ Money::symbol() }})</label><input name="labour_per_hour" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('labour_per_hour') }}"></div>
+                        <div class="col-6"><label class="form-label small">Maintenance per km ({{ Money::symbol() }})</label><input name="maintenance_per_km" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('maintenance_per_km') }}"></div>
+                        <div class="col-6"><label class="form-label small">Other per job ({{ Money::symbol() }})</label><input name="other_per_job" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('other_per_job') }}"></div>
                         <div class="col-6"><label class="form-label small">Empty return (% of trip)</label><input name="return_trip_bp" type="number" step="0.01" min="0" max="100" class="form-control" value="{{ old('return_trip_bp', $e ? $e->return_trip_bp / 100 : '') }}"></div>
                         <div class="col-6"><label class="form-label small">Markup (%)</label><input name="markup_bp" type="number" step="0.01" min="0" class="form-control" value="{{ old('markup_bp', $e ? $e->markup_bp / 100 : '') }}"></div>
 
                         <div class="col-12 fw-semibold small mt-2">Extra charges to the customer</div>
-                        <div class="col-6"><label class="form-label small">Loading (₦)</label><input name="loading_fee" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('loading_fee') }}"></div>
-                        <div class="col-6"><label class="form-label small">Waiting per minute (₦)</label><input name="waiting_per_minute" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('waiting_per_minute') }}"></div>
-                        <div class="col-6"><label class="form-label small">Fragile (₦)</label><input name="fragile_surcharge" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('fragile_surcharge') }}"></div>
+                        <div class="col-6"><label class="form-label small">Loading ({{ Money::symbol() }})</label><input name="loading_fee" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('loading_fee') }}"></div>
+                        <div class="col-6"><label class="form-label small">Waiting per minute ({{ Money::symbol() }})</label><input name="waiting_per_minute" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('waiting_per_minute') }}"></div>
+                        <div class="col-6"><label class="form-label small">Fragile ({{ Money::symbol() }})</label><input name="fragile_surcharge" type="number" step="0.01" min="0" class="form-control" value="{{ $nv('fragile_surcharge') }}"></div>
                         <div class="col-6"><label class="form-label small">Insurance (% of value)</label><input name="insurance_bp" type="number" step="0.01" min="0" class="form-control" value="{{ old('insurance_bp', $e ? $e->insurance_bp / 100 : '') }}"></div>
-                        <div class="col-6"><label class="form-label small">Round prices up to (₦)</label><input name="rounding_kobo" type="number" step="0.01" min="0.01" class="form-control" value="{{ $nv('rounding_kobo', '50') }}"></div>
+                        <div class="col-6"><label class="form-label small">Round prices up to ({{ Money::symbol() }})</label><input name="rounding_kobo" type="number" step="0.01" min="0.01" class="form-control" value="{{ $nv('rounding_kobo', '50') }}"></div>
                         <div class="col-6 d-flex align-items-end"><label class="form-check"><input class="form-check-input" type="checkbox" name="is_default" value="1" @checked(old('is_default', $e->is_default ?? false))> <span class="form-check-label">Use by default</span></label></div>
                     </div>
                     <div class="form-text my-2">Tax and the platform fee are worked out separately. Saving a change creates a new version; estimates already made keep the figures they used.</div>
@@ -126,7 +126,7 @@
 <script>
 (function () {
     var $ = function (id) { return document.getElementById(id); };
-    var start = [{{ $centre->lat ?? 9.082 }}, {{ $centre->lng ?? 8.6753 }}];
+    var start = [{{ $centre->lat ?? (float) config('region.map.lat') }}, {{ $centre->lng ?? (float) config('region.map.lng') }}];
     var map = L.map('map').setView(start, {{ $centre ? 13 : 6 }});
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
     var stops = [], marks = [], line = null;

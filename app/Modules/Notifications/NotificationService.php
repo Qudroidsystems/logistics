@@ -174,9 +174,9 @@ class NotificationService
         return trim(preg_replace('/\s{2,}/', ' ', $out));
     }
 
-    /** Kobo to a display amount: 1250000 => "₦12,500", 1250050 => "₦12,500.50". */
+    /** Minor units to a display amount in the install currency: 1250000 => "₦12,500" / "$12,500", 1250050 => "₦12,500.50". */
     public static function naira(int $kobo): string
     {
-        return '₦'.number_format($kobo / 100, $kobo % 100 === 0 ? 0 : 2);
+        return \App\Support\Money::symbol().number_format($kobo / 100, $kobo % 100 === 0 ? 0 : 2);
     }
 }

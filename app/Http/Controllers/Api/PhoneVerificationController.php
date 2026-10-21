@@ -24,10 +24,10 @@ class PhoneVerificationController extends Controller
         $d = $request->validate(['phone' => 'required|string|max:24']);
         $phone = SmsService::normalize($d['phone']);
         if (! $phone) {
-            return response()->json(['error' => 'invalid_phone', 'message' => 'Enter a valid Nigerian mobile number.'], 422);
+            return response()->json(['error' => 'invalid_phone', 'message' => 'Enter a valid mobile number, for example '.config('region.phone_example').'.'], 422);
         }
         $user = $request->user();
-        $local = '0'.substr($phone, 3);
+        $local = \App\Support\Phone::store($d['phone']);
         $taken = DB::table('users')->where('id', '!=', $user->id)->where('phone_number', $local)->exists();
         if ($taken) {
             return response()->json(['error' => 'phone_taken', 'message' => 'That number is already used by another account.'], 422);

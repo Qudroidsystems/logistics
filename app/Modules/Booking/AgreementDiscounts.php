@@ -45,7 +45,7 @@ class AgreementDiscounts
             $promo = $this->discounts->promo($code, $customerId, (int) $a->provider_operator_id);
             if ($this->discounts->promoAmount($promo, (int) $a->price) === 0) {
                 throw new RuntimeException($promo->min_order !== null && (int) $a->price < (int) $promo->min_order
-                    ? 'This promo code needs a delivery price of at least ₦'.number_format($promo->min_order / 100).'.'
+                    ? 'This promo code needs a delivery price of at least '.\App\Support\Money::whole($promo->min_order).'.'
                     : 'That promo code takes nothing off this delivery.');
             }
             $this->settle($a, $promo);

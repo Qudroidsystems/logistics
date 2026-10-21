@@ -52,7 +52,7 @@
         offline: {label: 'Offline', color: '#ced4da'}
     };
     var hidden = {offline: true};
-    var map = L.map('fleetMap', {zoomControl: true}).setView([6.5244, 3.3792], 11);
+    var map = L.map('fleetMap', {zoomControl: true}).setView([{{ (float) config('region.map.lat') }}, {{ (float) config('region.map.lng') }}], {{ (int) config('region.map.zoom') }});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
     var markers = {}, drivers = [], selected = null, trail = null, fitted = false, timer = null, busy = false;
 

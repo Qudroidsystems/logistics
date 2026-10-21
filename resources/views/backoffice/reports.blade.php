@@ -79,7 +79,7 @@
     var c = @json($table['chart']);
     var fmt = function (v) {
         if (v === null || v === undefined) { return '—'; }
-        if (c.format === 'money') { return '₦' + Number(v).toLocaleString(undefined, {maximumFractionDigits: 0}); }
+        if (c.format === 'money') { return '{{ Money::symbol() }}' + Number(v).toLocaleString(undefined, {maximumFractionDigits: 0}); }
         if (c.format === 'pct') { return v + '%'; }
         if (c.format === 'minutes') { return v + ' min'; }
         return Number(v).toLocaleString();

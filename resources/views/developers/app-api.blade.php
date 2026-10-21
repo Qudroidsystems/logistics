@@ -16,7 +16,7 @@
 <p>Base URL: <code>{{ $base }}</code>. Send and expect JSON, and add <code>Accept: application/json</code> so errors come back as JSON. After signing in, send the token on every call:</p>
 <pre><code>Authorization: Bearer YOUR_TOKEN</code></pre>
 <ul>
-<li><b>Money</b> is always a whole number of kobo (₦1 = 100).</li>
+<li><b>Money</b> is always a whole number of the minor unit, kobo or cents ({{ Money::symbol() }}1 = 100).</li>
 <li><b>IDs:</b> things people can see (shipments, agreements, negotiation threads, service requests) use a 26-character public ID. Catalogue rows (service types, cities, vehicle types) and driver offers use plain integers.</li>
 <li><b>Errors:</b> bad input is <code>422</code> with <code>{"message": "...", "errors": {"field": ["..."]}}</code>. Business rule failures are <code>422</code> with <code>{"error": "code", "message": "words you can show"}</code>. <code>401</code> means sign in again, <code>403</code> not allowed, <code>404</code> not yours or not found, <code>429</code> slow down (see <code>Retry-After</code>).</li>
 <li><b>Rate limits</b> are per user, roughly 60 to 120 calls a minute depending on the area, and tighter on sign-in and anything that sends a code.</li>

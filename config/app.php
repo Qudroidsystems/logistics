@@ -68,7 +68,8 @@ return [
     |
     */
 
-    'timezone' => 'Africa/Lagos',  // Updated: UTC+1 for West Africa (e.g., Nigeria)
+    // From the REGION preset (config/region-presets.php): Africa/Lagos for NG, America/Toronto for CA. REGION_TIMEZONE overrides it (APP_TIMEZONE is ignored, as before).
+    'timezone' => env('REGION_TIMEZONE') ?: ((require __DIR__.'/region-presets.php')[strtoupper((string) env('REGION', 'NG'))]['timezone'] ?? 'Africa/Lagos'),
 
     /*
     |--------------------------------------------------------------------------
@@ -170,6 +171,7 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         'Excel' => Maatwebsite\Excel\Facades\Excel::class,
+        'Money' => App\Support\Money::class,
         // 'PDF' => Barryvdh\Snappy\Facades\SnappyPdf::class, // Use Snappy OR DomPDF, not both
         'PDF' => Barryvdh\DomPDF\Facade::class, // ✅ Using DomPDF
     ])->toArray(),

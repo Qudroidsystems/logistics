@@ -22,7 +22,7 @@ class CityZoneController extends Controller
     public function index()
     {
         $cities = DB::table('cities as c')
-            ->selectRaw('c.id, c.name, c.region, c.slug, c.launch_status, ST_Y(c.centre::geometry) as lat, ST_X(c.centre::geometry) as lng,
+            ->selectRaw('c.id, c.name, c.region, c.slug, c.launch_status, c.tax_rate_bp, ST_Y(c.centre::geometry) as lat, ST_X(c.centre::geometry) as lng,
                 (select count(*) from zones z where z.city_id = c.id and z.operator_id is null) as zone_count,
                 (select count(*) from zones z where z.city_id = c.id and z.operator_id is null and z.active) as active_zones')
             ->orderBy('c.name')
@@ -40,7 +40,10 @@ class CityZoneController extends Controller
             'lng' => ['required', 'numeric', 'between:-180,180'],
             'radius_km' => ['required', 'numeric', 'between:1,200'],
             'launch_status' => ['required', Rule::in(self::STATUSES)],
+            'tax_percent' => ['nullable', 'numeric', 'between:0,50'],
         ]);
+        // Sales tax on deliveries in this city: what was typed, or the default for its province/state (config/region.php).
+        $data['tax_rate_bp'] = isset($data['tax_percent']) ? (int) round($data['tax_percent'] * 100) : \App\Support\Region::taxFor($data['region'] ?? null)['rate_bp'];
 
         $slug = Str::slug($data['name']);
         if (DB::table('cities')->where('slug', $slug)->exists()) {
@@ -53,6 +56,8 @@ class CityZoneController extends Controller
                 'name' => $data['name'],
                 'slug' => $slug,
                 'launch_status' => $data['launch_status'],
+                'tax_rate_bp' => $data['tax_rate_bp'],
+                'timezone' => config('app.timezone'),
                 'centre' => DB::raw(sprintf('ST_SetSRID(ST_MakePoint(%F, %F), 4326)::geography', (float) $data['lng'], (float) $data['lat'])),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -90,12 +95,14 @@ class CityZoneController extends Controller
             'name' => ['required', 'string', 'max:80'],
             'region' => ['nullable', 'string', 'max:80'],
             'launch_status' => ['required', Rule::in(self::STATUSES)],
+            'tax_percent' => ['nullable', 'numeric', 'between:0,50'],
         ]);
 
-        DB::table('cities')->where('id', $city)->update([
+        DB::table('cities')->where('id', $city)->update(array_filter([
             'name' => $data['name'], 'region' => $data['region'] ?? null,
             'launch_status' => $data['launch_status'], 'updated_at' => now(),
-        ]);
+            'tax_rate_bp' => isset($data['tax_percent']) ? (int) round($data['tax_percent'] * 100) : null,
+        ], fn ($v, $k) => $v !== null || $k === 'region', ARRAY_FILTER_USE_BOTH));
 
         return back()->with('success', 'City saved.');
     }
@@ -147,7 +154,7 @@ class CityZoneController extends Controller
     private function cityRow(int $id): ?object
     {
         return DB::table('cities')
-            ->selectRaw('id, name, region, slug, launch_status, ST_Y(centre::geometry) as lat, ST_X(centre::geometry) as lng')
+            ->selectRaw('id, name, region, slug, launch_status, tax_rate_bp, ST_Y(centre::geometry) as lat, ST_X(centre::geometry) as lng')
             ->where('id', $id)->first();
     }
 

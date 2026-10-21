@@ -111,7 +111,7 @@ class ReferralService
                 ]);
                 DB::table('referrals')->where('id', $r->id)->update(['status' => 'rewarded', 'reward' => $reward, 'agreement_id' => $a->id, 'rewarded_at' => now(), 'updated_at' => now()]);
                 $friend = (string) Str::of((string) DB::table('users')->where('id', $a->customer_id)->value('name'))->trim()->explode(' ')->first();
-                $this->notify->notify((int) $r->referrer_id, 'referral.rewarded', ['amount' => '₦'.number_format($reward / 100), 'friend' => $friend ?: 'Your friend'], '/wallet');
+                $this->notify->notify((int) $r->referrer_id, 'referral.rewarded', ['amount' => \App\Support\Money::symbol().number_format($reward / 100), 'friend' => $friend ?: 'Your friend'], '/wallet');
             });
         } catch (Throwable $e) {
             Log::warning("Referral reward for agreement {$agreementId} failed: {$e->getMessage()}");
@@ -132,7 +132,7 @@ class ReferralService
         }
         $rows = DB::table('referrals as r')->join('users as u', 'u.id', '=', 'r.friend_id')->where('r.referrer_id', $userId)
             ->orderByDesc('r.id')->limit(50)->get(['u.name', 'r.status', 'r.reward', 'r.created_at']);
-        $naira = fn ($k) => '₦'.number_format(((int) $k) / 100);
+        $naira = fn ($k) => \App\Support\Money::symbol().number_format(((int) $k) / 100);
 
         return [
             'enabled' => (bool) $s['enabled'], 'code' => $code,

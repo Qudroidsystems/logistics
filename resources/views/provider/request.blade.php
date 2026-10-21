@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="ucfirst($req->type).' request'" icon="ri-inbox-line" :subtitle="($stops['pickup']['line1'] ?? '').' to '.($stops['dropoff']['line1'] ?? '')" :back="route('provider.requests')" back-label="Requests">
         <x-slot:pills><span class="cb-meta-pill">{{ $req->status }}</span>@if($req->distance_m)<span class="cb-meta-pill">{{ number_format($req->distance_m / 1000, 1) }} km</span>@endif</x-slot:pills>
@@ -52,11 +52,11 @@
                 </x-cb.card>
                 <x-cb.card title="Make an offer" icon="ri-price-tag-3-line">
                     <form method="POST" action="{{ route('provider.request.offer', $req->public_id) }}">@csrf
-                        <label class="form-label small">Your price (₦)</label><input type="number" step="0.01" min="1" name="price_naira" id="priceNaira" class="form-control mb-2" value="{{ old('price_naira') }}" required>
+                        <label class="form-label small">Your price ({{ Money::symbol() }})</label><input type="number" step="0.01" min="1" name="price_naira" id="priceNaira" class="form-control mb-2" value="{{ old('price_naira') }}" required>
                         @if(in_array($req->type, ['shopping', 'errand'], true))
-                        <label class="form-label small">Goods budget the customer should fund (₦)</label><input type="number" step="0.01" min="0" name="goods_budget_naira" class="form-control mb-2" value="{{ old('goods_budget_naira') }}">
+                        <label class="form-label small">Goods budget the customer should fund ({{ Money::symbol() }})</label><input type="number" step="0.01" min="0" name="goods_budget_naira" class="form-control mb-2" value="{{ old('goods_budget_naira') }}">
                         @endif
-                        <label class="form-label small">Tip (₦, optional)</label><input type="number" step="0.01" min="0" name="tip_naira" class="form-control mb-2" value="{{ old('tip_naira') }}">
+                        <label class="form-label small">Tip ({{ Money::symbol() }}, optional)</label><input type="number" step="0.01" min="0" name="tip_naira" class="form-control mb-2" value="{{ old('tip_naira') }}">
                         <input name="note" class="form-control mb-2" placeholder="Terms or note (optional)" maxlength="500" value="{{ old('note') }}">
                         <input name="message" class="form-control mb-3" placeholder="Message to the customer (optional)" maxlength="1000" value="{{ old('message') }}">
                         <button class="btn btn-primary w-100">Send offer</button>

@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $naira = fn ($k) => '₦'.number_format(((int) $k) / 100);
+    $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100);
     $tone = fn ($s) => match ($s) { 'active', 'approved', 'delivered', 'paid', 'verified' => 'success', 'suspended', 'rejected', 'failed', 'cancelled' => 'danger', 'pending', 'submitted', 'requested', 'awaiting_dispatch' => 'warning', default => 'secondary' };
     $canSuspend = auth()->user()->hasAnyPermission(['Suspend vendor', 'Suspend driver', 'Suspend shopper']);
 @endphp

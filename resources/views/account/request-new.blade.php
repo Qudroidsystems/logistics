@@ -38,14 +38,14 @@
                     <label class="form-label small" id="itemsLabel">What is being sent? <span class="text-muted">(one item per line)</span></label>
                     <textarea name="items" rows="3" class="form-control mb-2" maxlength="2000">{{ old('items') }}</textarea>
                     <div id="shopBox" class="d-none">
-                        <label class="form-label small">Most you want to spend on goods (₦)</label>
+                        <label class="form-label small">Most you want to spend on goods ({{ Money::symbol() }})</label>
                         <input type="number" step="0.01" min="1" name="budget_cap_naira" class="form-control mb-2" value="{{ old('budget_cap_naira') }}">
                         <label class="form-label small">If something is unavailable</label>
                         <select name="substitution_policy" class="form-select mb-2">@foreach(['ask' => 'Ask me first', 'allow' => 'Pick a close substitute', 'none' => 'Skip it'] as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select>
                     </div>
                     <div class="row g-2">
-                        <div class="col-6"><label class="form-label small">Budget from (₦)</label><input type="number" step="0.01" min="0" name="budget_min_naira" class="form-control" value="{{ old('budget_min_naira') }}"></div>
-                        <div class="col-6"><label class="form-label small">to (₦)</label><input type="number" step="0.01" min="0" name="budget_max_naira" class="form-control" value="{{ old('budget_max_naira') }}"></div>
+                        <div class="col-6"><label class="form-label small">Budget from ({{ Money::symbol() }})</label><input type="number" step="0.01" min="0" name="budget_min_naira" class="form-control" value="{{ old('budget_min_naira') }}"></div>
+                        <div class="col-6"><label class="form-label small">to ({{ Money::symbol() }})</label><input type="number" step="0.01" min="0" name="budget_max_naira" class="form-control" value="{{ old('budget_max_naira') }}"></div>
                     </div>
                     <label class="form-label small mt-2">Needed by <span class="text-muted">(optional)</span></label>
                     <input type="datetime-local" name="needed_by" class="form-control" value="{{ old('needed_by') }}">
@@ -113,7 +113,7 @@
 (function () {
     var $ = function (id) { return document.getElementById(id); };
     var city = $('citySel').selectedOptions[0];
-    var start = [parseFloat(city.dataset.lat) || 9.082, parseFloat(city.dataset.lng) || 8.6753], zoom = city.dataset.lat ? 13 : 6;
+    var start = [parseFloat(city.dataset.lat) || {{ (float) config('region.map.lat') }}, parseFloat(city.dataset.lng) || {{ (float) config('region.map.lng') }}], zoom = city.dataset.lat ? 13 : {{ (int) config('region.map.zoom') }};
     var map = L.map('map').setView(start, zoom);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
     var pins = {}, mode = null;

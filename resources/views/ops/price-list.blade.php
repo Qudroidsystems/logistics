@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => $k === null ? '' : '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $dayNames = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun']; @endphp
+@php $naira = fn ($k) => $k === null ? '' : Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $dayNames = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun']; @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="$p->name" icon="ri-price-tag-3-line" :subtitle="$p->provider.' · '.$p->service.' · '.($p->city ?: 'all cities')" :back="route('ops.price-lists')" back-label="Price lists">
         <x-slot:pills><span class="cb-meta-pill">{{ $p->status }}</span><span class="cb-meta-pill">v{{ $p->version }}</span><span class="cb-meta-pill">min {{ $naira($p->min_fee) }}</span></x-slot:pills>
@@ -27,7 +27,7 @@
         <p class="small text-muted">Amounts are added first; percentage surcharges (night, peak hour, weekend, rush, fuel) then apply to the running total in the order given. Rush applies only when the customer asks for a rush job.</p>
         <form method="POST" action="{{ route('ops.price-list.rule', $p->id) }}" class="row g-2">@csrf
             <div class="col-md-4"><select name="kind" class="form-select">@foreach($kinds as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select></div>
-            <div class="col-md-2"><input name="amount_naira" type="number" step="0.01" min="0" class="form-control" placeholder="₦ amount"></div>
+            <div class="col-md-2"><input name="amount_naira" type="number" step="0.01" min="0" class="form-control" placeholder="{{ Money::symbol() }} amount"></div>
             <div class="col-md-2"><input name="rate" type="number" step="0.01" min="0" class="form-control" placeholder="% rate"></div>
             <div class="col-md-2"><input name="priority" type="number" min="0" max="100" class="form-control" placeholder="Order" value="0"></div>
             <div class="col-md-1"><input name="from_km" type="number" step="0.1" min="0" class="form-control" placeholder="From km"></div>

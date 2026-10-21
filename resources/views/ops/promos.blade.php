@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => $k === null ? '—' : '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $market = \App\Support\Platform::marketplace(); @endphp
+@php $naira = fn ($k) => $k === null ? '—' : Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); $market = \App\Support\Platform::marketplace(); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Promo codes and discounts" icon="ri-coupon-3-line" subtitle="Codes customers type before paying, standing discounts for business customers, and invites. The platform pays for these; a provider's own codes come out of that provider's share." :back="route('ops.dashboard')" back-label="Operations" />
     @include('ops._flash')
@@ -34,12 +34,12 @@
         <form method="POST" action="{{ route('ops.promo.store') }}" class="row g-2">@csrf
             <div class="col-md-6"><label class="form-label small">Code</label><input name="code" class="form-control text-uppercase" maxlength="32" required value="{{ old('code') }}" placeholder="WELCOME10"></div>
             <div class="col-md-6"><label class="form-label small">Kind</label><select name="type" class="form-select">@foreach($types as $k => $v)<option value="{{ $k }}" @selected(old('type') === $k)>{{ $v }}</option>@endforeach</select></div>
-            <div class="col-md-4"><label class="form-label small">Percent or ₦ amount</label><input name="value" type="number" step="0.01" min="0" class="form-control" value="{{ old('value') }}"></div>
-            <div class="col-md-4"><label class="form-label small">Most off one job (₦)</label><input name="cap_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('cap_naira') }}"></div>
-            <div class="col-md-4"><label class="form-label small">Minimum price (₦)</label><input name="min_order_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('min_order_naira') }}"></div>
+            <div class="col-md-4"><label class="form-label small">Percent or {{ Money::symbol() }} amount</label><input name="value" type="number" step="0.01" min="0" class="form-control" value="{{ old('value') }}"></div>
+            <div class="col-md-4"><label class="form-label small">Most off one job ({{ Money::symbol() }})</label><input name="cap_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('cap_naira') }}"></div>
+            <div class="col-md-4"><label class="form-label small">Minimum price ({{ Money::symbol() }})</label><input name="min_order_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('min_order_naira') }}"></div>
             <div class="col-md-4"><label class="form-label small">Uses per customer</label><input name="per_user_limit" type="number" min="1" class="form-control" value="{{ old('per_user_limit', 1) }}"></div>
             <div class="col-md-4"><label class="form-label small">Total uses</label><input name="usage_limit" type="number" min="1" class="form-control" value="{{ old('usage_limit') }}"></div>
-            <div class="col-md-4"><label class="form-label small">Budget (₦)</label><input name="budget_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('budget_naira') }}"></div>
+            <div class="col-md-4"><label class="form-label small">Budget ({{ Money::symbol() }})</label><input name="budget_naira" type="number" step="0.01" min="0" class="form-control" value="{{ old('budget_naira') }}"></div>
             <div class="col-md-6"><label class="form-label small">Starts</label><input name="valid_from" type="datetime-local" class="form-control" value="{{ old('valid_from') }}"></div>
             <div class="col-md-6"><label class="form-label small">Ends</label><input name="valid_to" type="datetime-local" class="form-control" value="{{ old('valid_to') }}"></div>
             @if($market)<div class="col-12"><label class="form-label small">Only with this provider (optional)</label><select name="operator_id" class="form-select"><option value="">Any provider</option>@foreach($operators as $o)<option value="{{ $o->id }}">{{ $o->display_name }}</option>@endforeach</select></div>@endif
@@ -63,7 +63,7 @@
             <div class="col-md-4"><input name="rate" type="number" step="0.01" min="0.01" max="100" class="form-control" placeholder="% off" required value="{{ old('rate') }}"></div>
             <div class="col-md-6"><select name="merchant_id" class="form-select"><option value="">Business account (API merchant)…</option>@foreach($merchants as $m)<option value="{{ $m->id }}">{{ $m->name }}</option>@endforeach</select></div>
             <div class="col-md-6"><input name="user_email" type="email" class="form-control" placeholder="or a customer's email" value="{{ old('user_email') }}"></div>
-            <div class="col-md-6"><input name="cap_naira" type="number" step="0.01" min="0" class="form-control" placeholder="Most off one job (₦)"></div>
+            <div class="col-md-6"><input name="cap_naira" type="number" step="0.01" min="0" class="form-control" placeholder="Most off one job ({{ Money::symbol() }})"></div>
             <div class="col-md-6"><input name="valid_to" type="date" class="form-control" title="Ends (optional)"></div>
             @if($market)<div class="col-12"><select name="operator_id" class="form-select"><option value="">With any provider</option>@foreach($operators as $o)<option value="{{ $o->id }}">{{ $o->display_name }}</option>@endforeach</select></div>@endif
             <div class="col-12"><button class="btn btn-outline-primary">Add corporate discount</button></div>
@@ -81,9 +81,9 @@
         @can('Update promo code')
         <form method="POST" action="{{ route('ops.referrals.save') }}" class="row g-2">@csrf
             <div class="col-12"><select name="enabled" class="form-select"><option value="1" @selected($referral['enabled'])>Invites are on</option><option value="0" @selected(! $referral['enabled'])>Invites are off</option></select></div>
-            <div class="col-6"><label class="form-label small">Friend gets off their first delivery (₦)</label><input name="friend_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['friend_discount'] / 100 }}"></div>
-            <div class="col-6"><label class="form-label small">Inviter's wallet credit (₦)</label><input name="reward_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['reward'] / 100 }}"></div>
-            <div class="col-6"><label class="form-label small">First delivery must cost at least (₦)</label><input name="min_price_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['min_price'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">Friend gets off their first delivery ({{ Money::symbol() }})</label><input name="friend_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['friend_discount'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">Inviter's wallet credit ({{ Money::symbol() }})</label><input name="reward_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['reward'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">First delivery must cost at least ({{ Money::symbol() }})</label><input name="min_price_naira" type="number" step="0.01" min="0" class="form-control" value="{{ $referral['min_price'] / 100 }}"></div>
             <div class="col-6"><label class="form-label small">Most credits per customer a month</label><input name="monthly_cap" type="number" min="0" class="form-control" value="{{ $referral['monthly_cap'] }}"></div>
             <div class="col-12"><button class="btn btn-outline-primary">Save</button></div>
         </form>
@@ -114,8 +114,8 @@
         @can('Update promo code')
         <form method="POST" action="{{ route('ops.loyalty.save') }}" class="row g-2">@csrf
             <div class="col-12"><select name="enabled" class="form-select"><option value="1" @selected($loyalty['enabled'])>Points are on</option><option value="0" @selected(! $loyalty['enabled'])>Points are off</option></select></div>
-            <div class="col-6"><label class="form-label small">Points for each ₦100 paid</label><input name="earn_per_100" type="number" min="0" class="form-control" value="{{ $loyalty['earn_per_100'] }}"></div>
-            <div class="col-6"><label class="form-label small">One point is worth (₦)</label><input name="point_value_naira" type="number" step="0.01" min="0.01" class="form-control" value="{{ $loyalty['point_value'] / 100 }}"></div>
+            <div class="col-6"><label class="form-label small">Points for each {{ Money::symbol() }}100 paid</label><input name="earn_per_100" type="number" min="0" class="form-control" value="{{ $loyalty['earn_per_100'] }}"></div>
+            <div class="col-6"><label class="form-label small">One point is worth ({{ Money::symbol() }})</label><input name="point_value_naira" type="number" step="0.01" min="0.01" class="form-control" value="{{ $loyalty['point_value'] / 100 }}"></div>
             <div class="col-6"><label class="form-label small">Points needed to spend any</label><input name="min_redeem" type="number" min="0" class="form-control" value="{{ $loyalty['min_redeem'] }}"></div>
             <div class="col-6"><label class="form-label small">Most of one delivery points pay (%)</label><input name="max_share_percent" type="number" min="1" max="100" class="form-control" value="{{ intdiv($loyalty['max_share_bp'], 100) }}"></div>
             <div class="col-12"><button class="btn btn-outline-primary">Save</button></div>
@@ -125,7 +125,7 @@
     @can('Create promo code')
     <x-cb.card title="Give a gift card" icon="ri-gift-line">
         <form method="POST" action="{{ route('ops.giftcards.issue') }}" class="row g-2">@csrf
-            <div class="col-6"><label class="form-label small">Amount (₦)</label><input name="amount_naira" type="number" step="0.01" min="1" class="form-control" required value="{{ old('amount_naira') }}"></div>
+            <div class="col-6"><label class="form-label small">Amount ({{ Money::symbol() }})</label><input name="amount_naira" type="number" step="0.01" min="1" class="form-control" required value="{{ old('amount_naira') }}"></div>
             <div class="col-6"><label class="form-label small">Expires (optional)</label><input name="expires_at" type="date" class="form-control" value="{{ old('expires_at') }}"></div>
             <div class="col-12"><label class="form-label small">For</label><input name="recipient_name" class="form-control" maxlength="120" placeholder="Name" value="{{ old('recipient_name') }}"></div>
             <div class="col-6"><input name="recipient_phone" class="form-control" maxlength="24" placeholder="Phone, to text the code" value="{{ old('recipient_phone') }}"></div>

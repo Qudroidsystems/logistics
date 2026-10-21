@@ -91,7 +91,7 @@ class StopVerifier
     {
         $due = (int) DB::table('shipments')->where('id', $shipmentId)->value('cod_amount');
 
-        return is_numeric($collected) && (int) $collected === $due ? null : 'the cash collected (₦'.number_format($due / 100).')';
+        return is_numeric($collected) && (int) $collected === $due ? null : 'the cash collected ('.\App\Support\Money::whole($due).')';
     }
 
     private function plain(string $s): string

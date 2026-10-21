@@ -164,7 +164,7 @@ class GiftCardService
     private function checkAmount(int $amount): void
     {
         if ($amount < self::MIN || $amount > self::MAX) {
-            throw new RuntimeException('A gift card can be from ₦'.number_format(self::MIN / 100).' to ₦'.number_format(self::MAX / 100).'.');
+            throw new RuntimeException('A gift card can be from '.\App\Support\Money::whole(self::MIN).' to '.\App\Support\Money::whole(self::MAX).'.');
         }
     }
 
@@ -196,7 +196,7 @@ class GiftCardService
     private function send(object $card, string $code, ?int $buyer): void
     {
         $from = $buyer ? (string) Str::of((string) DB::table('users')->where('id', $buyer)->value('name'))->trim()->explode(' ')->first() : config('app.name');
-        $text = "{$from} sent you a ".config('app.name').' gift card worth ₦'.number_format($card->initial_value / 100).". Code: {$code}. Use it when you pay for a delivery."
+        $text = "{$from} sent you a ".config('app.name').' gift card worth '.\App\Support\Money::whole($card->initial_value).". Code: {$code}. Use it when you pay for a delivery."
             .($card->message ? " Message: {$card->message}" : '');
         try {
             if ($card->recipient_phone) {

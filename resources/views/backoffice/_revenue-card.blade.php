@@ -28,7 +28,7 @@
     var r = @json(['labels' => $rev['labels'], 'sales' => $rev['sales'], 'earn' => $operatorId ? $rev['net'] : null]);
     var series = [{name: 'Sales', data: r.sales}];
     if (r.earn) { series.push({name: 'Your earnings', data: r.earn}); }
-    var fmt = function (v) { return '₦' + Number(v || 0).toLocaleString(undefined, {maximumFractionDigits: 0}); };
+    var fmt = function (v) { return '{{ Money::symbol() }}' + Number(v || 0).toLocaleString(undefined, {maximumFractionDigits: 0}); };
     new ApexCharts(document.getElementById('revChart'), {chart: {type: 'area', height: 200, toolbar: {show: false}, sparkline: {enabled: false}, fontFamily: 'inherit'},
         series: series, xaxis: {categories: r.labels, labels: {hideOverlappingLabels: true}}, yaxis: {labels: {formatter: fmt}}, tooltip: {y: {formatter: fmt}},
         dataLabels: {enabled: false}, stroke: {width: 2, curve: 'smooth'}, colors: ['#0ab39c', '#405189'], legend: {show: series.length > 1, position: 'top'}}).render();

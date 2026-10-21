@@ -9,7 +9,7 @@
             <x-cb.card title="Your number" icon="ri-smartphone-line">
                 <form method="POST" action="{{ route($area.'.phone.save') }}">@csrf
                     <label class="form-label small">Mobile number</label>
-                    <input type="tel" name="phone" class="form-control mb-2" placeholder="0803 123 4567" value="{{ old('phone', $u->phone_number) }}" required maxlength="24">
+                    <input type="tel" name="phone" class="form-control mb-2" placeholder="{{ config('region.phone_example') }}" value="{{ old('phone', $u->phone_number) }}" required maxlength="24">
                     <button class="btn btn-primary w-100">Save number</button>
                 </form>
                 @if($u->phone_number)

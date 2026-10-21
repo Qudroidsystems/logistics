@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="$t->provider" icon="ri-chat-quote-line" :subtitle="ucfirst($t->type).' request'" :back="route('account.request', $t->request)" back-label="Request">
         <x-slot:pills><span class="cb-meta-pill">{{ $t->status }}</span></x-slot:pills>
@@ -30,7 +30,7 @@
             @if($t->status === 'open')
             <x-cb.card title="Counter-offer" icon="ri-exchange-line" class="mt-3">
                 <form method="POST" action="{{ route('account.thread.counter', $t->public_id) }}">@csrf
-                    <label class="form-label small">Your price (₦)</label><input type="number" step="0.01" min="1" name="price_naira" class="form-control mb-2" required>
+                    <label class="form-label small">Your price ({{ Money::symbol() }})</label><input type="number" step="0.01" min="1" name="price_naira" class="form-control mb-2" required>
                     <input name="message" class="form-control mb-2" placeholder="Add a note (optional)" maxlength="500">
                     <button class="btn btn-outline-primary w-100">Send counter-offer</button>
                 </form>

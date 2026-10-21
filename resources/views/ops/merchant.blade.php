@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content" data-live-page><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="$m->display_name" icon="ri-store-3-line" :subtitle="'Merchant code '.$m->merchant_code" :back="route('ops.merchants')" back-label="Merchants">
         <x-slot:pills><span class="cb-meta-pill">{{ $m->status }}</span></x-slot:pills>

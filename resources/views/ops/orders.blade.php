@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Orders" icon="ri-shopping-bag-3-line" subtitle="Search by order number or tracking code." :back="route('ops.dashboard')" back-label="Operations">
         @can('Create delivery')

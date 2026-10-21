@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Job" icon="ri-route-line" :subtitle="str_replace('_', ' ', ucfirst($job['status']))" :back="route('driver.home')" back-label="Today">
         <x-slot:pills>@if($job['payout_amount'])<span class="cb-meta-pill">{{ $naira($job['payout_amount']) }}</span>@endif</x-slot:pills>
@@ -48,7 +48,7 @@
                     @if(!empty($job['authorised_receivers']) && in_array('receiver_name', $req, true))<div class="small text-muted mb-2">Only: {{ implode(', ', $job['authorised_receivers']) }}</div>@endif
                 @endif
                 @if(($s['cod_amount'] ?? 0) > 0)
-                    <label class="form-label small">Cash collected (₦). Collect exactly {{ \App\Modules\Cod\CodService::naira((int) $s['cod_amount']) }}</label>
+                    <label class="form-label small">Cash collected ({{ Money::symbol() }}). Collect exactly {{ \App\Modules\Cod\CodService::naira((int) $s['cod_amount']) }}</label>
                     <input name="cod_naira" type="number" step="0.01" min="0" inputmode="decimal" class="form-control form-control-lg mb-2" required>
                 @endif
                 @if(in_array('receiver_id', $req, true))

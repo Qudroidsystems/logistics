@@ -86,6 +86,17 @@ class MessagingService
             return $this->result('sent', null, 'log');
         }
 
+        if ($s->driver === 'twilio') {
+            $from = (string) $s->value('from');
+            $service = (string) $s->value('messaging_service_sid');
+            if ($from === '' && $service === '') {
+                return $this->result('failed', 'Twilio: fill in a Messaging Service SID or a Twilio phone number.');
+            }
+            $r = \App\Modules\Notifications\Sms\TwilioGateway::post((string) $s->value('account_sid'), (string) $s->value('auth_token'), $phone, $text, $from, $service);
+
+            return $r['ok'] ? $this->result('sent', null, $r['ref']) : $this->result('failed', 'Twilio: '.$r['error'], null, str_contains((string) $r['error'], ' 429') || str_contains((string) $r['error'], ' 5'));
+        }
+
         $res = Http::acceptJson()->timeout(30)->post(rtrim($s->value('base_url') ?: 'https://api.ng.termii.com', '/') . '/api/sms/send', [
             'api_key' => $s->value('api_key'),
             'to'      => $phone,
@@ -259,9 +270,12 @@ class MessagingService
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    /** Nigeria-friendly: 0803… / 803… / +234803… → 234803…; null when not a phone. */
+    /** Any local form for the install's country, or "+" international → digits with country code; null when not a phone. */
     public static function normalizePhone(?string $phone): ?string
     {
+        if (($intl = \App\Support\Phone::international($phone)) !== null) {
+            return $intl;
+        }
         $d = preg_replace('/\D+/', '', (string) $phone);
         if ($d === '' || $d === null) return null;
         if (str_starts_with($d, '234') && strlen($d) === 13) return $d;

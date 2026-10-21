@@ -5,8 +5,8 @@ namespace App\Modules\Booking;
 use Carbon\Carbon;
 
 /**
- * Timestamps are written as the app's wall-clock time (Africa/Lagos) while the database session runs on UTC, so a
- * value read back carries "+00" but means Lagos time. This gives the apps the moment with the right offset.
+ * Timestamps are written as the app's wall-clock time (config('app.timezone')) while the database session runs on UTC, so a
+ * value read back carries "+00" but means local time. This gives the apps the moment with the right offset.
  */
 class LocalTime
 {

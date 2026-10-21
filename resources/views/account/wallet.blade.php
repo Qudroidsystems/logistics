@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('content')
-@php $naira = fn ($k) => '₦'.number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
+@php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero title="Wallet" icon="ri-wallet-3-line" subtitle="Money you can spend on deliveries, or take back out." :back="route('account.dashboard')" back-label="Home" />
     @include('account._flash')
@@ -13,14 +13,14 @@
         <div class="col-lg-5">
             <x-cb.card title="Add money" icon="ri-add-circle-line">
                 <form method="POST" action="{{ route('account.wallet.topup') }}">@csrf
-                    <label class="form-label small">Amount (₦)</label><input type="number" step="0.01" min="100" name="amount_naira" class="form-control mb-2" value="{{ old('amount_naira') }}" required>
+                    <label class="form-label small">Amount ({{ Money::symbol() }})</label><input type="number" step="0.01" min="100" name="amount_naira" class="form-control mb-2" value="{{ old('amount_naira') }}" required>
                     <button class="btn btn-primary w-100">Continue to payment</button>
                 </form>
             </x-cb.card>
             <x-cb.card title="Take money out" icon="ri-bank-line" class="mt-3">
                 @if(count($banks))
                 <form method="POST" action="{{ route('account.wallet.withdraw') }}">@csrf
-                    <label class="form-label small">Amount (₦)</label><input type="number" step="0.01" min="1" name="amount_naira" class="form-control mb-2" required>
+                    <label class="form-label small">Amount ({{ Money::symbol() }})</label><input type="number" step="0.01" min="1" name="amount_naira" class="form-control mb-2" required>
                     <select name="bank_account_id" class="form-select mb-2" required>@foreach($banks as $b)<option value="{{ $b['public_id'] }}">{{ $b['bank_name'] }} ····{{ $b['account_number_last4'] }} · {{ $b['account_name'] }}</option>@endforeach</select>
                     <button class="btn btn-outline-primary w-100">Withdraw</button>
                 </form>

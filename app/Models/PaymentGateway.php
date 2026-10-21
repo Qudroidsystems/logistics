@@ -54,9 +54,9 @@ class PaymentGateway extends Model
     public function getFormattedFeeAttribute()
     {
         if ($this->fee_percentage > 0) {
-            return $this->fee_percentage . '% + ₦' . number_format($this->fee_fixed, 2);
+            return $this->fee_percentage . '% + ' . \App\Support\Money::symbol() . number_format($this->fee_fixed, 2);
         }
-        return '₦' . number_format($this->fee_fixed, 2);
+        return \App\Support\Money::symbol(). number_format($this->fee_fixed, 2);
     }
 
     public function getIsLiveAttribute()
