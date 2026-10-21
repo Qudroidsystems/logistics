@@ -69,11 +69,11 @@ class StripeGateway implements CollectionGateway
     {
         $session = $intentRaw['gateway_ref'] ?? null;
         if (! $session) {
-            return ['status' => 'pending', 'amount' => 0, 'currency' => 'NGN', 'channel' => null, 'raw' => []];
+            return ['status' => 'pending', 'amount' => 0, 'currency' => \App\Support\Money::code(), 'channel' => null, 'raw' => []];
         }
         $res = Http::withToken((string) $this->credential('secret_key'))->acceptJson()->timeout(20)->get(self::BASE.'/checkout/sessions/'.rawurlencode($session));
         if (! $res->successful()) {
-            return ['status' => 'pending', 'amount' => 0, 'currency' => 'NGN', 'channel' => null, 'raw' => []];
+            return ['status' => 'pending', 'amount' => 0, 'currency' => \App\Support\Money::code(), 'channel' => null, 'raw' => []];
         }
         $d = (array) $res->json();
         $status = ($d['payment_status'] ?? '') === 'paid' ? 'success' : (($d['status'] ?? '') === 'expired' ? 'failed' : 'pending');

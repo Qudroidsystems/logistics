@@ -42,7 +42,7 @@ class PaymentService
             $id = DB::table('payment_intents')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'operator_id' => $a->provider_operator_id,
                 'agreement_id' => $agreementId, 'payer_id' => $customerId, 'gateway' => $gw->key(),
-                'amount' => $total, 'reference' => $ref, 'status' => 'initiated', 'is_test' => $a->is_test,
+                'amount' => $total, 'currency' => \App\Support\Money::code(), 'reference' => $ref, 'status' => 'initiated', 'is_test' => $a->is_test,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $intent = DB::table('payment_intents')->find($id);

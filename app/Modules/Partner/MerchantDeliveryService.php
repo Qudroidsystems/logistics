@@ -131,7 +131,7 @@ class MerchantDeliveryService
             'marketplace' => ['name' => $branding->marketplace_display_name ?? config('app.name'), 'badge_text' => $branding->badge_text ?? null, 'badge_logo' => $this->fileUrl($branding->badge_logo ?? null)],
             'city_id' => (int) $d['city_id'],
             'distance_m' => (int) $route['distance_m'],
-            'currency' => 'NGN',
+            'currency' => \App\Support\Money::code(),
             'amount_unit' => 'kobo',
             'expires_at' => now()->addMinutes(\App\Modules\Pricing\QuoteService::QUOTE_TTL_MINUTES)->toIso8601String(),
             'fee_payers' => self::FEE_PAYERS,
@@ -603,7 +603,7 @@ class MerchantDeliveryService
         $provider = DB::table('operators')->where('id', $a->provider_operator_id ?? 0)->first(['public_id', 'display_name']);
 
         return [
-            'agreement' => $a->number, 'status' => $a->status, 'price' => (int) $a->price, 'currency' => 'NGN',
+            'agreement' => $a->number, 'status' => $a->status, 'price' => (int) $a->price, 'currency' => \App\Support\Money::code(),
             'provider' => $provider ? ['id' => $provider->public_id, 'name' => $provider->display_name] : null,
             'fee_payer' => $terms['fee_payer'] ?? 'merchant', 'fee_on_delivery' => (int) ($terms['fee_on_delivery'] ?? 0),
             'payment_url' => $payUrl, 'order' => $order->order_number ?? null, 'tracking_url' => $track ? url("/track/{$track}") : null,

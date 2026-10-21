@@ -27,7 +27,14 @@ class PlatformFinanceController extends Controller
             ->leftJoin('bank_accounts as b', 'b.id', '=', 'p.bank_account_id')->leftJoin('users as u', 'u.id', '=', 'p.approved_by')
             ->where('p.status', $status)->orderBy($status === 'requested' ? 'p.id' : 'p.updated_at', $status === 'requested' ? 'asc' : 'desc')->limit(200)
             ->get(['p.id', 'p.public_id', 'p.amount', 'p.fee', 'p.status', 'p.failure_reason', 'p.created_at', 'p.updated_at', 'p.operator_id',
-                'o.display_name as provider', 'o.public_id as provider_public_id', 'b.bank_name', 'b.account_number_last4', 'b.account_name', 'b.owner_type', 'u.name as approved_by_name']);
+                'o.display_name as provider', 'o.public_id as provider_public_id', 'b.bank_name', 'b.bank_code', 'b.account_number', 'b.account_number_last4', 'b.account_name', 'b.owner_type', 'u.name as approved_by_name'])
+            // Staff need the full e-Transfer email/mobile to send the money; bank account numbers stay hidden.
+            ->map(function ($r) {
+                $r->etransfer_to = $r->bank_code === \App\Modules\Payments\BankDirectory::INTERAC ? rescue(fn () => \Illuminate\Support\Facades\Crypt::decryptString($r->account_number), null, false) : null;
+                unset($r->account_number);
+
+                return $r;
+            });
         $counts = DB::table('payout_requests')->selectRaw('status, COUNT(*) n, COALESCE(SUM(amount), 0) total')->groupBy('status')->get()->keyBy('status');
 
         return view('ops.payouts', ['rows' => $rows, 'status' => $status, 'statuses' => self::PAYOUT_STATUSES, 'counts' => $counts, 'pagetitle' => 'Payouts']);
@@ -36,6 +43,11 @@ class PlatformFinanceController extends Controller
     public function approvePayout(Request $request, int $payout, PayoutService $svc)
     {
         return $this->run(fn () => $svc->approve($payout, $request->user()->id), 'Payout approved. It is being sent to the bank account.');
+    }
+
+    public function sentPayout(Request $request, int $payout, PayoutService $svc)
+    {
+        return $this->run(fn () => $svc->markSent($payout, $request->user()->id), 'Marked as sent. They have been told.');
     }
 
     public function rejectPayout(Request $request, int $payout, PayoutService $svc)

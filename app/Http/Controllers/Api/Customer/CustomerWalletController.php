@@ -19,7 +19,7 @@ class CustomerWalletController extends Controller
         $uid = $request->user()->id;
 
         return response()->json([
-            'balance' => $wallet->balance($uid), 'currency' => 'NGN',
+            'balance' => $wallet->balance($uid), 'currency' => \App\Support\Money::code(),
             'pending_withdrawals' => (int) DB::table('payout_requests as p')->join('wallets as w', 'w.id', '=', 'p.wallet_id')
                 ->where(['w.owner_type' => 'customer', 'w.owner_id' => $uid])->whereIn('p.status', ['requested', 'approved', 'processing'])->sum('p.amount'),
         ]);
@@ -27,7 +27,7 @@ class CustomerWalletController extends Controller
 
     public function topUp(Request $request, WalletService $wallet)
     {
-        $d = $request->validate(['amount' => 'required|integer|min:1', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe']);
+        $d = $request->validate(['amount' => 'required|integer|min:1', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe,etransfer']);
 
         return $this->run(fn () => $wallet->startTopUp($request->user()->id, (int) $d['amount'], $d['gateway'] ?? null), 201);
     }
@@ -71,9 +71,9 @@ class CustomerWalletController extends Controller
 
     public function addBankAccount(Request $request, BankAccountService $banks)
     {
-        $d = $request->validate(['bank_code' => 'required|string|max:12', 'bank_name' => 'nullable|string|max:80', 'account_number' => 'required|digits:10']);
+        $d = $request->validate(\App\Modules\Payments\BankDirectory::rules($request));
 
-        return $this->run(fn () => $banks->add('customer', $request->user()->id, $d['bank_code'], $d['bank_name'] ?? app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code']), $d['account_number']), 201);
+        return $this->run(fn () => $banks->add('customer', $request->user()->id, $d['bank_code'], $d['bank_name'] ?? app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code']), $d['account_number'], $d['account_name'] ?? null), 201);
     }
 
     public function withdraw(Request $request, PayoutService $payouts)
@@ -92,7 +92,7 @@ class CustomerWalletController extends Controller
     /** method=card returns a hosted checkout link (optional gateway); method=wallet pays now from the balance. */
     public function payAgreement(Request $request, string $agreement, PaymentService $payments)
     {
-        $d = $request->validate(['method' => 'required|in:card,wallet', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe']);
+        $d = $request->validate(['method' => 'required|in:card,wallet', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe,etransfer']);
         $a = DB::table('agreements')->where('public_id', $agreement)->where('customer_id', $request->user()->id)->first();
         abort_unless($a, 404);
 

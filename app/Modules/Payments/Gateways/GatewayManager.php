@@ -13,6 +13,7 @@ class GatewayManager
         'opay' => OpayGateway::class,
         'monnify' => MonnifyGateway::class,
         'stripe' => StripeGateway::class,
+        'etransfer' => ETransferGateway::class,
     ];
 
     public function get(string $key): CollectionGateway

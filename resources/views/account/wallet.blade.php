@@ -13,7 +13,11 @@
         <div class="col-lg-5">
             <x-cb.card title="Add money" icon="ri-add-circle-line">
                 <form method="POST" action="{{ route('account.wallet.topup') }}">@csrf
-                    <label class="form-label small">Amount ({{ Money::symbol() }})</label><input type="number" step="0.01" min="100" name="amount_naira" class="form-control mb-2" value="{{ old('amount_naira') }}" required>
+                    <label class="form-label small">Amount ({{ Money::symbol() }})</label><input type="number" step="0.01" min="{{ \App\Modules\Payments\WalletService::MIN_TOPUP_KOBO / 100 }}" name="amount_naira" class="form-control mb-2" value="{{ old('amount_naira') }}" required>
+                    @php try { $methods = app(\App\Modules\Payments\Gateways\GatewayManager::class)->options(); } catch (\Throwable $e) { $methods = []; } @endphp
+                    @if(count($methods) > 1)
+                        <select name="gateway" class="form-select mb-2" aria-label="Pay with">@foreach($methods as $m)<option value="{{ $m['key'] }}" @selected($m['default'])>{{ $m['name'] }}</option>@endforeach</select>
+                    @endif
                     <button class="btn btn-primary w-100">Continue to payment</button>
                 </form>
             </x-cb.card>
@@ -29,9 +33,14 @@
             <x-cb.card title="Bank account" icon="ri-bank-card-line" class="mt-3">
                 <form method="POST" action="{{ route('account.wallet.bank') }}">@csrf
                     <select name="bank_code" class="form-select mb-2" required><option value="">Choose bank</option>@foreach($bankList as $code => $name)<option value="{{ $code }}">{{ $name }}</option>@endforeach</select>
+                    @if(\App\Modules\Payments\BankDirectory::etransfer())
+                    <input name="account_number" class="form-control mb-2" placeholder="Email or mobile for Interac e-Transfer" maxlength="190" required>
+                    <input name="account_name" class="form-control mb-2" placeholder="Your full name, as your bank shows it" maxlength="120" required>
+                    @else
                     <input name="account_number" class="form-control mb-2" placeholder="10-digit account number" maxlength="10" inputmode="numeric" required>
+                    @endif
                     <button class="btn btn-outline-primary w-100">Add account</button>
-                    <div class="form-text">We check the account with the bank. Withdrawals only go to the name the bank returns.</div>
+                    <div class="form-text">@if(\App\Modules\Payments\BankDirectory::etransfer())We send withdrawals by Interac e-Transfer to this email or mobile.@else We check the account with the bank. Withdrawals only go to the name the bank returns.@endif</div>
                 </form>
             </x-cb.card>
         </div>

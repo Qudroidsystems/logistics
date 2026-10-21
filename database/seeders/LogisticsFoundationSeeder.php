@@ -156,7 +156,7 @@ class LogisticsFoundationSeeder extends Seeder
         ];
         foreach ($accounts as [$purpose, $type]) {
             DB::table('ledger_accounts')->updateOrInsert(
-                ['owner_type' => 'platform', 'owner_id' => 1, 'purpose' => $purpose, 'currency' => 'NGN'],
+                ['owner_type' => 'platform', 'owner_id' => 1, 'purpose' => $purpose, 'currency' => \App\Support\Money::code()],
                 ['operator_id' => 1, 'type' => $type, 'code' => $purpose, 'allow_negative' => in_array($type, ['asset', 'expense'], true), 'created_at' => now(), 'updated_at' => now()]
             );
         }

@@ -26,7 +26,7 @@ class ShoppingService
         $cap = intdiv((int) $a->goods_budget * $this->advanceMaxBp(), 10_000);
         $issued = (int) DB::table('shopper_advances')->where('agreement_id', $agreementId)->where('status', 'issued')->sum('amount');
         if ($amount <= 0 || $issued + $amount > $cap) {
-            throw new RuntimeException('Advance is limited to N'.number_format(max($cap - $issued, 0) / 100).' more for this errand.');
+            throw new RuntimeException('Advance is limited to '.\App\Support\Money::whole(max($cap - $issued, 0)).' more for this errand.');
         }
 
         return $this->escrow->issueAdvance($agreementId, $amount, $userId);

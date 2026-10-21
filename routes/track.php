@@ -12,6 +12,8 @@ Route::post('/track/{token}/reply', [TrackPageController::class, 'reply'])->wher
 Route::get('/p/{slug}', [ProviderPageController::class, 'show'])->where('slug', '[a-z0-9-]+')->middleware(['marketplace', 'throttle:60,1'])->name('provider.public');
 
 /** Public reference for merchants integrating the Partner API. */
+Route::get('/pay/etransfer/{reference}', [\App\Http\Controllers\ETransferPageController::class, 'show'])->where('reference', '[A-Z]{2}-[A-Z0-9]{10,40}')->middleware('throttle:60,1')->name('etransfer.show');
+Route::post('/pay/etransfer/{reference}/sent', [\App\Http\Controllers\ETransferPageController::class, 'sent'])->where('reference', '[A-Z]{2}-[A-Z0-9]{10,40}')->middleware('throttle:10,1')->name('etransfer.sent');
 Route::get('/developers/partner-api', fn () => view('developers.partner-api', ['base' => url('/api/v1/partner')]))->middleware('throttle:60,1')->name('developers.partner');
 Route::get('/developers/app-api', fn () => view('developers.app-api', ['base' => url('/api/v1')]))->middleware('throttle:60,1')->name('developers.app');
 

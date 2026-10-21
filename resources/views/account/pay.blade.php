@@ -53,8 +53,19 @@
         <form method="POST" action="{{ route('account.pay.do', $a->public_id) }}" class="mt-3">@csrf
             <button name="method" value="wallet" class="btn btn-success w-100 mb-2" @disabled(! $enough)>Pay {{ $naira($total) }} from my wallet ({{ $naira($balance) }})</button>
             @unless($enough)<div class="small text-muted mb-2">Your wallet is short by {{ $naira($total - $balance) }}. <a href="{{ route('account.wallet') }}">Top it up</a>, or pay by card.</div>@endunless
-            <button name="method" value="card" class="btn btn-primary w-100">Pay by card or bank transfer</button>
         </form>
+        @php
+            try { $methods = app(\App\Modules\Payments\Gateways\GatewayManager::class)->options(); } catch (\Throwable $e) { $methods = []; }
+        @endphp
+        @foreach($methods as $m)
+            <form method="POST" action="{{ route('account.pay.do', $a->public_id) }}" class="mb-2">@csrf
+                <input type="hidden" name="method" value="card"><input type="hidden" name="gateway" value="{{ $m['key'] }}">
+                <button class="btn {{ $m['default'] ? 'btn-primary' : 'btn-outline-primary' }} w-100">
+                    {{ $m['key'] === 'etransfer' ? 'Pay '.$naira($total).' by Interac e-Transfer' : 'Pay '.$naira($total).' with '.$m['name'] }}
+                </button>
+            </form>
+        @endforeach
+        @if(! count($methods))<div class="small text-muted">Online payment is not available right now. Pay from your wallet.</div>@endif
     </div></div>
 </div></div></div>
 @endsection

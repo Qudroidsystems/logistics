@@ -27,13 +27,16 @@
                             <span class="fw-semibold">{{ $r->account_name }}</span><div class="small text-muted">Customer wallet</div>
                         @endif
                     </td>
-                    <td class="small">{{ $r->bank_name ?? '—' }} ····{{ $r->account_number_last4 }}<div class="text-muted">{{ $r->account_name }}</div></td>
+                    <td class="small">@if($r->etransfer_to)Interac e-Transfer to <span class="fw-semibold">{{ $r->etransfer_to }}</span>@else{{ $r->bank_name ?? '—' }} ····{{ $r->account_number_last4 }}@endif<div class="text-muted">{{ $r->account_name }}</div></td>
                     <td class="text-end fw-semibold">{{ $naira($r->amount) }}@if($r->fee)<div class="small text-muted">fee {{ $naira($r->fee) }}</div>@endif</td>
                     <td class="small">{{ \Illuminate\Support\Carbon::parse($r->created_at)->format('j M H:i') }}@if($r->approved_by_name)<div class="text-muted">by {{ $r->approved_by_name }}</div>@endif @if($r->failure_reason)<div class="text-danger">{{ $r->failure_reason }}</div>@endif</td>
                     <td class="text-end text-nowrap">
                         @if($r->status === 'requested' && auth()->user()->can('Approve withdrawal'))
                             <form method="POST" action="{{ route('ops.payout.approve', $r->id) }}" class="d-inline" onsubmit="return confirm('Send {{ $naira($r->amount) }} to this bank account?')">@csrf<button class="btn btn-sm btn-success">Approve</button></form>
                             <form method="POST" action="{{ route('ops.payout.reject', $r->id) }}" class="d-inline" onsubmit="var x=prompt('Why are you rejecting this payout? They will see this.'); if(!x){return false;} this.querySelector('[name=reason]').value=x;">@csrf<input type="hidden" name="reason"><button class="btn btn-sm btn-outline-danger">Reject</button></form>
+                        @elseif($r->status === 'processing' && $r->etransfer_to && auth()->user()->can('Approve withdrawal'))
+                            <div class="small text-muted mb-1">Send {{ $naira($r->amount) }} by e-Transfer, then:</div>
+                            <form method="POST" action="{{ route('ops.payout.sent', $r->id) }}" class="d-inline" onsubmit="return confirm('Did you send {{ $naira($r->amount) }} to {{ $r->etransfer_to }}?')">@csrf<button class="btn btn-sm btn-success">Mark sent</button></form>
                         @else
                             <span class="badge bg-{{ in_array($r->status, ['paid']) ? 'success' : (in_array($r->status, ['failed', 'rejected']) ? 'danger' : 'info') }}">{{ $statuses[$r->status] ?? $r->status }}</span>
                         @endif

@@ -31,7 +31,7 @@ class PayoutService
     {
         $min = (int) ($this->setting('payout.min_kobo') ?? self::DEFAULT_MIN_KOBO);
         if ($amount < $min) {
-            throw new RuntimeException('Minimum payout is N'.number_format($min / 100).'.');
+            throw new RuntimeException('Minimum payout is '.\App\Support\Money::whole($min).'.');
         }
         $bank = DB::table('bank_accounts')->where('id', $bankAccountId)->where('owner_type', 'operator')->where('owner_id', $operatorId)->whereNull('deleted_at')->first();
         if (! $bank || ! $bank->verified_at) {
@@ -50,7 +50,7 @@ class PayoutService
     {
         $min = (int) ($this->setting('payout.min_kobo') ?? self::DEFAULT_MIN_KOBO);
         if ($amount < $min) {
-            throw new RuntimeException('Minimum withdrawal is N'.number_format($min / 100).'.');
+            throw new RuntimeException('Minimum withdrawal is '.\App\Support\Money::whole($min).'.');
         }
         $bank = DB::table('bank_accounts')->where('id', $bankAccountId)->where('owner_type', 'customer')->where('owner_id', $userId)->whereNull('deleted_at')->first();
         if (! $bank || ! $bank->verified_at) {
@@ -139,6 +139,10 @@ class PayoutService
         }
 
         $bank = DB::table('bank_accounts')->find($p->bank_account_id);
+        // Interac e-Transfer has no payout API: the payout waits in "Sending" until staff send it and mark it sent.
+        if ($bank && $bank->bank_code === \App\Modules\Payments\BankDirectory::INTERAC) {
+            return;
+        }
         try {
             $recipient = $bank->verification_ref ?: $this->paystack->createRecipient($bank->account_name, Crypt::decryptString($bank->account_number), $bank->bank_code);
             DB::table('bank_accounts')->where('id', $bank->id)->update(['verification_ref' => $recipient]);
@@ -153,6 +157,18 @@ class PayoutService
             }
             throw $e;
         }
+    }
+
+    /** Staff sent an Interac e-Transfer for a payout waiting in "Sending". */
+    public function markSent(int $payoutId, int $staffId): void
+    {
+        $p = DB::table('payout_requests as p')->join('bank_accounts as b', 'b.id', '=', 'p.bank_account_id')
+            ->where('p.id', $payoutId)->first(['p.status', 'p.gateway_transfer_ref', 'b.bank_code']);
+        if (! $p || $p->status !== 'processing' || $p->bank_code !== \App\Modules\Payments\BankDirectory::INTERAC || ! $p->gateway_transfer_ref) {
+            throw new RuntimeException('This payout is not waiting to be sent by e-Transfer.');
+        }
+        DB::table('payout_requests')->where('id', $payoutId)->update(['approved_by' => DB::raw('COALESCE(approved_by, '.(int) $staffId.')'), 'updated_at' => now()]);
+        $this->complete($p->gateway_transfer_ref);
     }
 
     /** transfer.success webhook. */

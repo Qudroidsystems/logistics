@@ -59,3 +59,6 @@ Schedule::command('reviews:send')->everyTenMinutes()->withoutOverlapping(10);
 
 // Insurance, roadworthiness, servicing and driver documents coming due (30 days, 7 days, on the day, once overdue).
 Schedule::command('fleet:reminders')->dailyAt('07:10')->withoutOverlapping(30);
+
+// Interac e-Transfers that never arrived within the hold time (Payment Gateways > Interac e-Transfer).
+Schedule::command('etransfer:expire')->hourly()->withoutOverlapping(10);

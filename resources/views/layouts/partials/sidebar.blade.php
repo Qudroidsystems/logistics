@@ -41,7 +41,7 @@
                 @endcan
 
                 {{-- ===== Operations (Phase 1+: deliveries, dispatch, tracking) ===== --}}
-                @if(auth()->user()->hasAnyPermission(['dashboard','View delivery','View dispute','View kyc','View payment','View settlement','View rating','Manage fraud flags','View vendor','View driver','View shopper','Approve withdrawal','View driver locations']))
+                @if(auth()->user()->hasAnyPermission(['dashboard','View delivery','View dispute','View kyc','View payment','View settlement','View rating','Manage fraud flags','View vendor','View driver','View shopper','Approve withdrawal','View driver locations','Confirm e-transfer']))
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>OPERATIONS</span></li>
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.order*') ? 'active' : '' }}" href="{{ route('ops.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>Orders</span></a></li>@endcan
                 @can('Create delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.booking*') ? 'active' : '' }}" href="{{ route('ops.booking.new') }}"><i class="ri-add-box-line"></i> <span>New booking</span></a></li>@endcan
@@ -53,6 +53,7 @@
                 @if(\App\Support\Platform::marketplace() && auth()->user()->hasAnyPermission(['View vendor','View driver','View shopper']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.provider*') ? 'active' : '' }}" href="{{ route('ops.providers') }}"><i class="ri-team-line"></i> <span>Providers</span></a></li>@endif
                 @can('View settlement')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.settlement*') ? 'active' : '' }}" href="{{ route('ops.settlements') }}"><i class="ri-bank-line"></i> <span>Settlements</span></a></li>@endcan
                 @can('Approve withdrawal')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.payout*') ? 'active' : '' }}" href="{{ route('ops.payouts') }}"><i class="ri-bank-card-line"></i> <span>Payouts</span></a></li>@endcan
+                @canany(['Confirm e-transfer', 'Manage payment gateways'])<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.etransfer*') ? 'active' : '' }}" href="{{ route('ops.etransfers') }}"><i class="ri-exchange-dollar-line"></i> <span>e-Transfers</span></a></li>@endcanany
                 @can('View payment')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.refunds') ? 'active' : '' }}" href="{{ route('ops.refunds') }}"><i class="ri-refund-2-line"></i> <span>Refunds</span></a></li>@endcan
                 @can('View rating')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.rating*') ? 'active' : '' }}" href="{{ route('ops.ratings') }}"><i class="ri-star-line"></i> <span>Ratings</span></a></li>@endcan
                 @can('View vendor')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.merchant*') ? 'active' : '' }}" href="{{ route('ops.merchants') }}"><i class="ri-store-3-line"></i> <span>Merchants and API keys</span></a></li>@endcan

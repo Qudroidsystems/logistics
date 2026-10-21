@@ -340,7 +340,7 @@ class AccountController extends Controller
 
     public function topUp(Request $request, WalletService $wallet)
     {
-        $request->validate(['amount_naira' => 'required|numeric|min:100']);
+        $request->validate(['amount_naira' => 'required|numeric|min:0.01', 'gateway' => 'nullable|string|max:20']);
         $res = $this->wallet->topUp($request->merge(['amount' => self::kobo($request->input('amount_naira'))]), $wallet);
         if ($res->getStatusCode() >= 400) {
             return back()->withInput()->with('error', $res->getData(true)['message'] ?? 'That could not be done.');
@@ -351,7 +351,7 @@ class AccountController extends Controller
 
     public function addBank(Request $request, BankAccountService $banks)
     {
-        $d = $request->validate(['bank_code' => 'required|string|max:12', 'account_number' => 'required|digits:10']);
+        $d = $request->validate(\App\Modules\Payments\BankDirectory::rules($request));
         $request->merge(['bank_name' => app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code'])]);
 
         return $this->done($this->wallet->addBankAccount($request, $banks), 'Bank account added.');

@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BackofficeController as Bo;
 use App\Http\Controllers\Admin\CityZoneController as Z;
 use App\Http\Controllers\Admin\FailedDeliveriesController as Fd;
 use App\Http\Controllers\Admin\FleetController as Fl;
+use App\Http\Controllers\Admin\ETransfersController as Et;
 use App\Http\Controllers\Admin\MerchantsController as Mc;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
 use App\Http\Controllers\Admin\PricingAdminController as Pr;
@@ -42,6 +43,9 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::post('/documents/{doc}/reject', [C::class, 'rejectDocument'])->middleware('can:Reject kyc')->middleware('marketplace')->name('document.reject');
     Route::post('/applications/{operator}/decide', [C::class, 'decideApplication'])->middleware('can:View kyc')->middleware('marketplace')->name('application.decide');
 
+    Route::get('/etransfers', [Et::class, 'index'])->name('etransfers');
+    Route::post('/etransfers/{intent}/confirm', [Et::class, 'confirm'])->whereNumber('intent')->middleware('throttle:60,1')->name('etransfer.confirm');
+    Route::post('/etransfers/{intent}/reject', [Et::class, 'reject'])->whereNumber('intent')->middleware('throttle:60,1')->name('etransfer.reject');
     Route::get('/refunds', [C::class, 'refunds'])->middleware('can:View payment')->name('refunds');
     Route::get('/settlements', [C::class, 'settlements'])->middleware('can:View settlement')->name('settlements');
     Route::post('/settlements/run', [C::class, 'runSettlements'])->middleware('can:Run settlement')->name('settlements.run');
@@ -51,6 +55,7 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/providers/{operator}', [\App\Http\Controllers\Admin\ProviderDetailController::class, 'show'])->middleware('marketplace')->name('provider');
     Route::get('/payouts', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'payouts'])->middleware('can:Approve withdrawal')->name('payouts');
     Route::post('/payouts/{payout}/approve', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'approvePayout'])->middleware(['can:Approve withdrawal', 'throttle:30,1'])->whereNumber('payout')->name('payout.approve');
+    Route::post('/payouts/{payout}/sent', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'sentPayout'])->middleware(['can:Approve withdrawal', 'throttle:30,1'])->whereNumber('payout')->name('payout.sent');
     Route::post('/payouts/{payout}/reject', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'rejectPayout'])->middleware(['can:Approve withdrawal', 'throttle:30,1'])->whereNumber('payout')->name('payout.reject');
     Route::post('/orders/{order}/cancel', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'cancelOrder'])->middleware(['can:Cancel delivery', 'throttle:20,1'])->name('order.cancel');
     Route::post('/orders/{order}/refund-to-card', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'refundToCard'])->middleware(['can:Refund payment', 'throttle:20,1'])->name('order.refund');

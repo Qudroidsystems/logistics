@@ -26,8 +26,27 @@ class BankDirectory
     }
 
     /** @return array<string,string> bank code => bank name, sorted by name */
+    /** The pseudo "bank" for payouts by Interac e-Transfer; the account number is the person's email or mobile. */
+    public const INTERAC = 'INTERAC';
+
+    public static function etransfer(): bool
+    {
+        return config('payments.payout_method') === 'etransfer';
+    }
+
+    /** Validation for adding a payout account: a 10-digit NUBAN at a bank, or an e-Transfer email/mobile with the holder's name. */
+    public static function rules(\Illuminate\Http\Request $request): array
+    {
+        return $request->input('bank_code') === self::INTERAC
+            ? ['bank_code' => 'required|string|max:12', 'bank_name' => 'nullable|string|max:80', 'account_number' => 'required|string|max:190', 'account_name' => 'required|string|min:2|max:120']
+            : ['bank_code' => 'required|string|max:12', 'bank_name' => 'nullable|string|max:80', 'account_number' => 'required|digits:10'];
+    }
+
     public function all(): array
     {
+        if (self::etransfer()) {
+            return [self::INTERAC => 'Interac e-Transfer'];
+        }
         $banks = Cache::get(self::CACHE_KEY);
         if (! is_array($banks) || $banks === []) {
             $banks = $this->fetch();

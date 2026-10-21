@@ -96,6 +96,19 @@ class PaymentGatewayCatalog
                                      'prefix' => ['test' => 'whsec_', 'live' => 'whsec_']],
             ],
         ],
+        'etransfer' => [
+            'name'      => 'Interac e-Transfer',
+            'supported' => true,
+            'used_for'  => 'Customer payments and wallet top-ups in Canada. The customer sends an e-Transfer with the payment reference; your staff mark it received under Operations > e-Transfers.',
+            'dashboard' => 'https://www.interac.ca/en/consumers/support/e-transfer/',
+            'fields'    => [
+                'recipient_email' => ['label' => 'Email to send e-Transfers to', 'secret' => false, 'required' => true],
+                'recipient_name'  => ['label' => 'Name the sender will see (your business name)', 'secret' => false, 'required' => true],
+                'security_question' => ['label' => 'Security question (leave empty if Autodeposit is on)', 'secret' => false, 'required' => false],
+                'security_answer'   => ['label' => 'Security answer (shown to the customer)', 'secret' => false, 'required' => false],
+                'hold_hours'      => ['label' => 'Hours to wait for the e-Transfer before cancelling (default 48)', 'secret' => false, 'required' => false],
+            ],
+        ],
         'paypal' => [
             'name'      => 'PayPal',
             'supported' => false,

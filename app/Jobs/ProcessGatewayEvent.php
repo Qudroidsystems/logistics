@@ -93,7 +93,7 @@ class ProcessGatewayEvent implements ShouldQueue
             return null;
         }
         // Never trust the event alone: amount and currency must match what we asked the customer to pay.
-        if ((int) $data['amount'] !== (int) $intent->amount || ($data['currency'] ?? 'NGN') !== $intent->currency) {
+        if ((int) $data['amount'] !== (int) $intent->amount || strtoupper((string) ($data['currency'] ?? $intent->currency)) !== strtoupper((string) $intent->currency)) {
             DB::table('payment_intents')->where('id', $intent->id)->update(['status' => 'failed', 'raw' => json_encode($data), 'updated_at' => now()]);
             DB::table('risk_events')->insert(['type' => 'payment_amount_mismatch', 'subject_type' => 'payment_intent', 'subject_id' => $intent->id, 'severity' => 'high', 'evidence' => json_encode($data), 'created_at' => now(), 'updated_at' => now()]);
 

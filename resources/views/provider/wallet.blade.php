@@ -38,9 +38,14 @@
                         <option value="">Choose bank</option>
                         @foreach($bankList as $code => $name)<option value="{{ $code }}">{{ $name }}</option>@endforeach
                     </select>
+                    @if(\App\Modules\Payments\BankDirectory::etransfer())
+                    <input name="account_number" class="form-control mb-2" placeholder="Email or mobile for Interac e-Transfer" maxlength="190" required>
+                    <input name="account_name" class="form-control mb-2" placeholder="Your full name, as your bank shows it" maxlength="120" required>
+                    @else
                     <input name="account_number" class="form-control mb-2" placeholder="10-digit account number" maxlength="10" inputmode="numeric" required>
+                    @endif
                     <button class="btn btn-outline-primary w-100">Add account</button>
-                    <div class="form-text">We check the account with the bank. Payouts only go to the name the bank returns.</div>
+                    <div class="form-text">@if(\App\Modules\Payments\BankDirectory::etransfer())We send withdrawals by Interac e-Transfer to this email or mobile.@else We check the account with the bank. Payouts only go to the name the bank returns.@endif</div>
                 </form>
             </x-cb.card>
         </div>

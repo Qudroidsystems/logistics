@@ -334,7 +334,7 @@ class WorkspaceController extends Controller
     public function addBank(Request $request, BankAccountService $banks)
     {
         $this->ctx($request, 'money');
-        $d = $request->validate(['bank_code' => 'required|string|max:12', 'account_number' => 'required|digits:10']);
+        $d = $request->validate(\App\Modules\Payments\BankDirectory::rules($request));
         $request->merge(['bank_name' => app(\App\Modules\Payments\BankDirectory::class)->name($d['bank_code'])]);
 
         return $this->back($this->payouts->addBankAccount($request, $banks), 'Bank account added.');

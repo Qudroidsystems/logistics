@@ -45,7 +45,7 @@ class PermissionTableSeeder extends Seeder
 
             'Zones & Pricing' => array_merge($crud('zone'), $crud('service area'), ['Manage pricing rules', 'Manage vehicle types', 'Manage delivery types']),
 
-            'Payments'    => ['View payment', 'Refund payment', 'Manage payment gateways', 'View wallet', 'Adjust wallet', 'Approve withdrawal',
+            'Payments'    => ['View payment', 'Refund payment', 'Manage payment gateways', 'Confirm e-transfer', 'View wallet', 'Adjust wallet', 'Approve withdrawal',
                               'View settlement', 'Run settlement', 'Approve refund', 'View commission', 'Manage commission'],
             'Promotions'  => array_merge($crud('promotion'), $crud('promo code'), ['Manage loyalty program', 'Manage referrals']),
 

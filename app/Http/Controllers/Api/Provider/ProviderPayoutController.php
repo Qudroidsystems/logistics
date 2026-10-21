@@ -24,7 +24,7 @@ class ProviderPayoutController extends Controller
         $balance = (int) DB::table('ledger_accounts')->where('id', $accounts->wallet('operator', $op, $op))->value('balance');
         $inTransit = (int) DB::table('payout_requests')->where('operator_id', $op)->whereIn('status', ['requested', 'approved', 'processing'])->sum('amount');
 
-        return response()->json(['balance' => $balance, 'pending_payouts' => $inTransit, 'currency' => 'NGN']);
+        return response()->json(['balance' => $balance, 'pending_payouts' => $inTransit, 'currency' => \App\Support\Money::code()]);
     }
 
     public function payouts(Request $request)
@@ -65,9 +65,9 @@ class ProviderPayoutController extends Controller
     public function addBankAccount(Request $request, \App\Modules\Payments\BankAccountService $banks)
     {
         $op = $this->operatorId($request, ['owner', 'admin', 'finance']);
-        $d = $request->validate(['bank_code' => 'required|string|max:12', 'bank_name' => 'nullable|string|max:80', 'account_number' => 'required|digits:10']);
+        $d = $request->validate(\App\Modules\Payments\BankDirectory::rules($request));
         try {
-            return response()->json($banks->add('operator', $op, $d['bank_code'], $d['bank_name'] ?? null, $d['account_number']), 201);
+            return response()->json($banks->add('operator', $op, $d['bank_code'], $d['bank_name'] ?? null, $d['account_number'], $d['account_name'] ?? null), 201);
         } catch (RuntimeException $e) {
             return response()->json(['error' => 'unverified', 'message' => $e->getMessage()], 422);
         }

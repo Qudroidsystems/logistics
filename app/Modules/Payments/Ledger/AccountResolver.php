@@ -32,8 +32,9 @@ class AccountResolver
         'gift_card' => 'liability',
     ];
 
-    public function for(string $ownerType, ?int $ownerId, string $purpose, int $operatorId, string $currency = 'NGN'): int
+    public function for(string $ownerType, ?int $ownerId, string $purpose, int $operatorId, ?string $currency = null): int
     {
+        $currency ??= \App\Support\Money::code();
         $existing = DB::table('ledger_accounts')
             ->where(['owner_type' => $ownerType, 'owner_id' => $ownerId, 'purpose' => $purpose, 'currency' => $currency])
             ->value('id');

@@ -11,7 +11,7 @@ use RuntimeException;
 
 class WalletService
 {
-    public const MIN_TOPUP_KOBO = 10_000;        // N100
+    public const MIN_TOPUP_KOBO = 1_000;         // 10 in the main unit (₦10, $10)
     public const MAX_TOPUP_KOBO = 100_000_000;   // N1,000,000 per top-up
 
     public function __construct(private LedgerPoster $ledger, private AccountResolver $accounts, private GatewayManager $gateways)
@@ -27,14 +27,14 @@ class WalletService
     public function startTopUp(int $userId, int $amount, ?string $gateway = null): array
     {
         if ($amount < self::MIN_TOPUP_KOBO || $amount > self::MAX_TOPUP_KOBO) {
-            throw new RuntimeException('Top-up must be between N'.number_format(self::MIN_TOPUP_KOBO / 100).' and N'.number_format(self::MAX_TOPUP_KOBO / 100).'.');
+            throw new RuntimeException('Top-up must be between '.\App\Support\Money::whole(self::MIN_TOPUP_KOBO).' and '.\App\Support\Money::whole(self::MAX_TOPUP_KOBO).'.');
         }
         $gw = $this->gateways->choose($gateway);
         $walletId = $this->ensureWallet($userId);
         $ref = 'WT-'.strtoupper(Str::random(18));
 
         $intentId = DB::table('payment_intents')->insertGetId([
-            'public_id' => (string) Str::ulid(), 'operator_id' => 1, 'payer_id' => $userId, 'gateway' => $gw->key(), 'amount' => $amount,
+            'public_id' => (string) Str::ulid(), 'operator_id' => 1, 'payer_id' => $userId, 'gateway' => $gw->key(), 'amount' => $amount, 'currency' => \App\Support\Money::code(),
             'reference' => $ref, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('wallet_topups')->insert(['wallet_id' => $walletId, 'payment_intent_id' => $intentId, 'amount' => $amount, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
@@ -65,7 +65,7 @@ class WalletService
         });
     }
 
-    private function ensureWallet(int $userId): int
+    public function ensureWallet(int $userId): int
     {
         $account = $this->accounts->wallet('customer', $userId, 1);
         DB::table('wallets')->insertOrIgnore([

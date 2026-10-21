@@ -122,7 +122,12 @@ class CancellationService
     public function expireUnpaid(int $hours = 24): int
     {
         $ids = DB::table('agreements')->where('status', 'locked')->where('locked_at', '<', now()->subHours($hours))
-            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('escrow_holds')->whereColumn('escrow_holds.agreement_id', 'agreements.id'))->pluck('id');
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('escrow_holds')->whereColumn('escrow_holds.agreement_id', 'agreements.id'))
+            // An e-Transfer the customer may still be sending keeps the agreement open until its own hold time ends.
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('payment_intents as pi')->whereColumn('pi.agreement_id', 'agreements.id')
+                ->where('pi.gateway', \App\Modules\Payments\Gateways\ETransferGateway::KEY)->whereIn('pi.status', ['initiated', 'pending'])
+                ->where('pi.created_at', '>', now()->subHours(app(\App\Modules\Payments\Gateways\ETransferGateway::class)->instructions()['hold_hours'])))
+            ->pluck('id');
         foreach ($ids as $id) {
             DB::table('agreements')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
             DB::table('payment_intents')->where('agreement_id', $id)->whereIn('status', ['initiated', 'pending'])->update(['status' => 'abandoned', 'updated_at' => now()]);
