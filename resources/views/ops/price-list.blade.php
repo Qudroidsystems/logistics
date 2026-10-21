@@ -15,7 +15,7 @@
         @forelse($rules as $r)
             @php $c = $r->condition ? json_decode($r->condition, true) : []; @endphp
             <tr><td>{{ $kinds[$r->kind] ?? $r->kind }}</td><td>{{ $naira($r->amount) }}</td><td>{{ $r->rate_bp ? rtrim(rtrim(number_format($r->rate_bp / 100, 2), '0'), '.').'%' : '' }}</td>
-                <td class="small">{{ isset($c['from_km']) || isset($c['to_km']) ? ($c['from_km'] ?? 0).' to '.($c['to_km'] ?? '∞').' km' : '' }}{{ isset($c['hours']) ? 'hours '.implode(', ', $c['hours']) : '' }}{{ isset($c['days']) ? implode(', ', array_map(fn ($d) => $dayNames[$d] ?? $d, $c['days'])) : ($r->kind === 'weekend' ? 'Sat, Sun' : '') }}</td>
+                <td class="small">{{ isset($c['from_km']) || isset($c['to_km']) ? ($c['from_km'] ?? 0).' to '.($c['to_km'] ?? '∞').' km' : '' }}{{ isset($c['hours']) ? 'hours '.implode(', ', $c['hours']) : '' }}{{ isset($c['days']) ? implode(', ', array_map(fn ($d) => $dayNames[$d] ?? $d, $c['days'])) : ($r->kind === 'weekend' ? 'Sat, Sun' : '') }}{{ isset($c['sizes']) ? implode(', ', $c['sizes']) : '' }}{{ isset($c['vehicles']) ? implode(', ', $c['vehicles']) : '' }}</td>
                 <td class="text-end">{{ $r->priority }}</td>
                 <td class="text-end"><form method="POST" action="{{ route('ops.price-list.rule.delete', [$p->id, $r->id]) }}">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger">Remove</button></form></td></tr>
         @empty
@@ -34,6 +34,8 @@
             <div class="col-md-1"><input name="to_km" type="number" step="0.1" min="0" class="form-control" placeholder="To km"></div>
             <div class="col-md-4"><input name="hours" class="form-control" placeholder="Hours for night/peak, e.g. 21,22,23,0,1"></div>
             <div class="col-md-6 d-flex align-items-center gap-2 small">Weekend days: @foreach($dayNames as $n => $d)<label><input type="checkbox" name="days[]" value="{{ $n }}" @checked($n >= 6)> {{ $d }}</label>@endforeach</div>
+            <div class="col-md-6 d-flex align-items-center gap-2 small">Item sizes: @foreach(\App\Modules\Booking\InstantQuoteService::sizes() as $k => $s)<label><input type="checkbox" name="sizes[]" value="{{ $k }}"> {{ $s['label'] }}</label>@endforeach</div>
+            <div class="col-md-6 d-flex align-items-center gap-2 small flex-wrap">Vehicles: @foreach(\Illuminate\Support\Facades\DB::table('vehicle_types')->where('active', true)->orderBy('id')->pluck('name', 'code') as $code => $name)<label><input type="checkbox" name="vehicles[]" value="{{ $code }}"> {{ $name }}</label>@endforeach</div>
             <div class="col-md-2"><button class="btn btn-primary w-100">Add rule</button></div>
         </form>
     </x-cb.card>

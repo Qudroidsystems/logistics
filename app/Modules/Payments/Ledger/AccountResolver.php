@@ -28,6 +28,8 @@ class AccountResolver
         'platform_commission' => 'revenue',
         'platform_revenue' => 'revenue',
         'promo_expense' => 'expense',
+        // Business plan fees (Subscriptions); deliveries a plan covers are paid through promo_expense like any discount.
+        'subscription_revenue' => 'revenue',
         // Unspent gift card balances: owed to whoever holds the card.
         'gift_card' => 'liability',
     ];

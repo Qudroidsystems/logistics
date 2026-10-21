@@ -42,6 +42,9 @@ class AgreementDiscounts
         return DB::transaction(function () use ($agreementId, $customerId, $code) {
             $a = $this->agreement($agreementId, $customerId, true);
             $this->assertPayable($a);
+            if (! $a->merchant_id && app(\App\Modules\Subscriptions\SubscriptionService::class)->lineFor($a)) {
+                throw new RuntimeException('Your business plan already prices this delivery, so a promo code cannot be added.');
+            }
             $promo = $this->discounts->promo($code, $customerId, (int) $a->provider_operator_id);
             if ($this->discounts->promoAmount($promo, (int) $a->price) === 0) {
                 throw new RuntimeException($promo->min_order !== null && (int) $a->price < (int) $promo->min_order
@@ -132,6 +135,24 @@ class AgreementDiscounts
     {
         $price = (int) $a->price;
         $lines = [];
+        // A business plan: an included delivery is free; after the allowance the plan's rate applies. Other codes don't stack on it.
+        $plan = $a->merchant_id ? null : app(\App\Modules\Subscriptions\SubscriptionService::class)->lineFor($a);
+        if ($plan) {
+            $lines[] = $plan;
+            $left = max(0, $price - $plan['amount']);
+            if ($left > 0 && ($amt = $this->loyalty->discountFor($a, $left)) > 0) {
+                $lines[] = ['kind' => 'loyalty', 'label' => 'Loyalty points', 'amount' => $amt, 'funded_by' => 'platform', 'points' => intdiv($amt, max(1, (int) LoyaltyService::settings()['point_value']))];
+                $left -= $amt;
+            }
+            if ($left > 0 && ($amt = $this->giftCards->discountFor($a, $left)) > 0) {
+                $lines[] = ['kind' => 'gift_card', 'label' => 'Gift card ending '.DB::table('gift_cards')->where('id', $a->gift_card_id)->value('last4'), 'amount' => $amt, 'funded_by' => 'gift_card'];
+            }
+            DB::table('agreements')->where('id', $a->id)->update([
+                'promo_code_id' => null, 'discount' => min($price, array_sum(array_column($lines, 'amount'))), 'discount_lines' => json_encode($lines), 'updated_at' => now(),
+            ]);
+
+            return;
+        }
         // Merchant jobs were already discounted in their instant quote.
         $corp = $a->merchant_id ? null : $this->discounts->corporate(null, (int) $a->customer_id, (int) $a->provider_operator_id);
         if ($corp && ($amt = $this->discounts->corporateAmount($corp, $price)) > 0) {

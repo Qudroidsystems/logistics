@@ -162,6 +162,7 @@ class NotificationService
         'delivery_failed' => ['customer' => 'delivery.failed_customer', 'provider' => 'delivery.failed_provider'],
         'returned' => ['customer' => 'delivery.returned_customer', 'provider' => 'delivery.returned_provider'],
         'at_pickup_point' => ['customer' => 'delivery.at_pickup_point_customer'],
+        'at_dropoff_centre' => ['customer' => 'dropoff.received_customer'],
     ];
 
     // ---------------------------------------------------------------- helpers

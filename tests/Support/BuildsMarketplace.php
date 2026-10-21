@@ -19,6 +19,13 @@ trait BuildsMarketplace
 {
     protected int $platformId = 1;
 
+    /** Runs the test with a country's settings (phone numbers, provinces, currency) whatever REGION the .env has. */
+    protected function useRegion(string $code): void
+    {
+        $presets = require base_path('config/region-presets.php');
+        config(['region' => array_merge(config('region'), $presets[$code])]);
+    }
+
     protected function seedFoundation(): void
     {
         $this->seed(LogisticsFoundationSeeder::class);

@@ -91,6 +91,7 @@ class RegisterController extends Controller
             return redirect()->route('account.invitations');
         }
 
-        return redirect()->route('account.dashboard');
+        // Signed up from "Book this" on the price form: carry on to the booking.
+        return redirect()->intended(route('account.dashboard'));
     }
 }

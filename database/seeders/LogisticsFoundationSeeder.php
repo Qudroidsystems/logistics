@@ -77,6 +77,8 @@ class LogisticsFoundationSeeder extends Seeder
             ['motorbike', 'Motorbike', 25_000, true, 10000],
             ['tricycle', 'Tricycle (Keke)', 150_000, true, 13000],
             ['car', 'Car', 60_000, true, 15000],
+            ['sedan', 'Sedan', 60_000, true, 15000],
+            ['suv', 'SUV', 120_000, true, 17500],
             ['van', 'Van', 800_000, true, 22000],
             ['truck', 'Truck', 5_000_000, true, 40000],
         ];

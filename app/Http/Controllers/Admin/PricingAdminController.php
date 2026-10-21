@@ -27,6 +27,8 @@ class PricingAdminController extends Controller
         'night' => 'Night surcharge (rate %, hours)', 'peak_hour' => 'Peak-hour surcharge (rate %, hours)',
         'weekend' => 'Weekend surcharge (rate % and/or amount; Sat and Sun)', 'rush' => 'Rush delivery surcharge (rate % and/or amount)',
         'fuel_surcharge' => 'Fuel surcharge (rate % and/or amount)',
+        'item_size' => 'Item size (amount; pick the sizes it applies to)', 'vehicle' => 'Vehicle choice (amount; pick the vehicles it applies to)',
+        'store_dropoff' => 'Dropped off at a partner store (amount taken off the price)',
     ];
 
     // ---------------------------------------------------------------- promo codes and corporate discounts
@@ -232,13 +234,22 @@ class PricingAdminController extends Controller
             'kind' => ['required', Rule::in(array_keys(self::RULE_KINDS))], 'amount_naira' => 'nullable|numeric|min:0', 'rate' => 'nullable|numeric|min:0|max:500',
             'from_km' => 'nullable|numeric|min:0', 'to_km' => 'nullable|numeric|gt:from_km', 'hours' => 'nullable|string|max:80',
             'days' => 'nullable|array', 'days.*' => 'integer|between:1,7', 'priority' => 'nullable|integer|min:0|max:100',
+            'sizes' => 'nullable|array', 'sizes.*' => 'in:small,medium,large', 'vehicles' => 'nullable|array', 'vehicles.*' => 'string|max:24',
         ]);
+        if (in_array($d['kind'], ['item_size', 'vehicle'], true) && empty($d[$d['kind'] === 'item_size' ? 'sizes' : 'vehicles'])) {
+            return back()->withInput()->with('error', $d['kind'] === 'item_size' ? 'Pick the sizes this rule applies to.' : 'Pick the vehicles this rule applies to.');
+        }
         $condition = array_filter([
             'from_km' => isset($d['from_km']) ? (float) $d['from_km'] : null, 'to_km' => isset($d['to_km']) ? (float) $d['to_km'] : null,
             'hours' => ! empty($d['hours']) ? array_values(array_unique(array_filter(array_map('intval', preg_split('/[\s,]+/', $d['hours'])), fn ($h) => $h >= 0 && $h <= 23))) : null,
             'days' => ! empty($d['days']) && $d['kind'] === 'weekend' ? array_map('intval', $d['days']) : null,
+            'sizes' => $d['kind'] === 'item_size' ? array_values($d['sizes'] ?? []) : null,
+            'vehicles' => $d['kind'] === 'vehicle' ? array_values($d['vehicles'] ?? []) : null,
         ], fn ($v) => $v !== null && $v !== []);
         $amount = self::kobo($d['amount_naira'] ?? null);
+        if ($d['kind'] === 'store_dropoff' && $amount) {
+            $amount = -abs($amount);
+        }
         $rate = isset($d['rate']) && $d['rate'] !== '' ? (int) round((float) $d['rate'] * 100) : null;
         if (! $amount && ! $rate) {
             return back()->withInput()->with('error', 'Give the rule an amount, a rate, or both.');

@@ -4,7 +4,10 @@
 @php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="$m->display_name" icon="ri-store-3-line" :subtitle="'Merchant ID '.$m->merchant_code">
-        <x-slot:pills><span class="cb-meta-pill">{{ $m->status }}</span></x-slot:pills>
+        <x-slot:pills><span class="cb-meta-pill">{{ $m->status }}</span>
+            <span class="cb-meta-pill"><a class="text-reset" href="{{ route('account.book') }}">Book a delivery by hand</a></span>
+            <span class="cb-meta-pill"><a class="text-reset" href="{{ route('account.recurring') }}">Recurring deliveries</a></span>
+            <span class="cb-meta-pill"><a class="text-reset" href="{{ route('account.plan') }}">Business plan</a></span></x-slot:pills>
     </x-cb.hero>
     @include('merchant._flash')
 

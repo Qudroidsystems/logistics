@@ -21,6 +21,9 @@ class DispatchService
     public const OFFER_SECONDS = 30;
     public const MAX_ATTEMPTS = 5;
     public const RADIUS_STEPS_M = [2_000, 4_000, 8_000];
+
+    /** Priority jobs (business plans with priority dispatch) look wider straight away and try more drivers before the manual queue. */
+    public const PRIORITY_RADIUS_STEPS_M = [4_000, 8_000, 15_000];
     public const SCHEDULED_LEAD_MINUTES = 45;
 
     /** A booking for later is offered to drivers only when its pickup time is close. */
@@ -59,6 +62,12 @@ class DispatchService
         $shipment = DB::table('shipments')->find($shipmentId);
         if (! $shipment || ! in_array($shipment->status, ['created', 'awaiting_dispatch', 'offered'], true)) {
             throw new RuntimeException('Shipment is not waiting for a driver.');
+        }
+        // Booked to start at a partner store: no driver until the store has the parcel (DropOffService::receive starts dispatch).
+        if (\App\Modules\DropOff\DropOffService::waitingForDropOff($shipmentId)) {
+            DB::table('shipments')->where('id', $shipmentId)->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
+
+            return 0;
         }
         if (! $evenIfEarly && $this->isEarly($shipment)) {
             DB::table('shipments')->where('id', $shipmentId)->update(['status' => 'awaiting_dispatch', 'updated_at' => now()]);
@@ -122,7 +131,7 @@ class DispatchService
                 ->whereNotIn('driver_profile_id', $tried ?: [0])
                 ->orderBy('rank')->first();
 
-            if (! $next || count($tried) >= $this->maxAttempts()) {
+            if (! $next || count($tried) >= $this->maxAttempts() * ((int) ($shipment->priority ?? 0) > 0 ? 2 : 1)) {
                 $this->toManualQueue($run, $shipment, $next ? 'repeated_decline' : 'no_supply');
 
                 return null;
@@ -243,7 +252,7 @@ class DispatchService
      */
     private function findCandidates(object $shipment, object $pickup): array
     {
-        foreach (self::RADIUS_STEPS_M as $radius) {
+        foreach ((int) ($shipment->priority ?? 0) > 0 ? self::PRIORITY_RADIUS_STEPS_M : self::RADIUS_STEPS_M as $radius) {
             $rows = DB::select(<<<'SQL'
                 SELECT dp.id, dp.rating_avg, dp.acceptance_rate, dp.completion_rate, dp.max_active_jobs,
                        dp.accepts_cod, dp.kyc_status, dp.status, dp.current_vehicle_id, v.vehicle_type_id,

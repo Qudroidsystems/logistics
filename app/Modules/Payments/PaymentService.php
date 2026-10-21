@@ -27,6 +27,10 @@ class PaymentService
         }
         $a = app(\App\Modules\Booking\AgreementDiscounts::class)->settleForPayment($a);
         $total = $this->escrow->payableTotal($a);
+        // Nothing to pay (a business plan or gift card covers it all): book it straight away, no checkout.
+        if ($total === 0) {
+            return $this->payWithWallet($agreementId, $customerId) + ['amount' => 0, 'gateway' => 'none'];
+        }
         $gw = $this->gateways->choose($gateway);
 
         // A pending checkout on the SAME gateway is reused so a double-tap never creates two charges.

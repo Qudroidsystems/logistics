@@ -19,6 +19,7 @@ class DispatchScheduledShipments extends Command
         $due = DB::table('shipments as s')->where('s.status', 'awaiting_dispatch')->whereNotNull('s.pickup_window_start')
             ->where('s.pickup_window_start', '<=', now()->addMinutes(DispatchService::SCHEDULED_LEAD_MINUTES))
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('dispatch_runs as r')->whereColumn('r.shipment_id', 's.id'))
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('dropoff_parcels as dp')->whereColumn('dp.shipment_id', 's.id')->where('dp.status', 'expected'))
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('assignments as a')->whereColumn('a.shipment_id', 's.id')->whereIn('a.status', ['accepted', 'en_route', 'active']))
             ->limit(200)->pluck('s.id');
 

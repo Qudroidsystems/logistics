@@ -54,6 +54,16 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::delete('/pay/{agreement}/gift-card', [Bk::class, 'removeGiftCard'])->name('pay.giftcard.remove');
     Route::get('/orders/{shipment}/receipt', [Bk::class, 'receipt'])->middleware('throttle:20,1')->name('order.receipt');
 
+    Route::get('/book', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'book'])->name('book');
+    Route::get('/recurring', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'recurring'])->name('recurring');
+    Route::post('/recurring', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'store'])->middleware('throttle:20,1')->name('recurring.store');
+    Route::post('/recurring/{schedule}/status', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'status'])->where('schedule', '[A-Za-z0-9]{26}')->name('recurring.status');
+    Route::get('/plan', [\App\Http\Controllers\Customer\PlanController::class, 'show'])->name('plan');
+    Route::post('/plan', [\App\Http\Controllers\Customer\PlanController::class, 'subscribe'])->middleware('throttle:10,1')->name('plan.subscribe');
+    Route::post('/plan/change', [\App\Http\Controllers\Customer\PlanController::class, 'change'])->middleware('throttle:10,1')->name('plan.change');
+    Route::post('/plan/cancel', [\App\Http\Controllers\Customer\PlanController::class, 'cancel'])->name('plan.cancel');
+    Route::post('/plan/resume', [\App\Http\Controllers\Customer\PlanController::class, 'resume'])->name('plan.resume');
+    Route::post('/plan/pay', [\App\Http\Controllers\Customer\PlanController::class, 'payNow'])->middleware('throttle:10,1')->name('plan.pay');
     Route::get('/wallet', [A::class, 'walletPage'])->name('wallet');
     Route::post('/wallet/top-up', [A::class, 'topUp'])->middleware('throttle:10,1')->name('wallet.topup');
     Route::post('/wallet/bank', [A::class, 'addBank'])->name('wallet.bank');

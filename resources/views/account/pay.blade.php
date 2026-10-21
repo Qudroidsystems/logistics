@@ -50,6 +50,11 @@
             @foreach(\App\Modules\Marketplace\FailedDeliveryPolicy::describe($a->failed_delivery_policy ? json_decode($a->failed_delivery_policy, true) : null) as $line)<p class="small mb-2">{{ $line }}</p>@endforeach
             <div class="small text-muted">These terms are part of your agreement and were fixed when it was created.</div>
         </x-cb.card>
+        @if($total === 0)
+        <form method="POST" action="{{ route('account.pay.do', $a->public_id) }}" class="mt-3">@csrf
+            <button name="method" value="wallet" class="btn btn-success w-100 mb-2">{{ collect($summary['discount_lines'])->contains('kind', 'subscription') ? 'Book with my plan' : 'Book it: nothing to pay' }}</button>
+        </form>
+        @else
         <form method="POST" action="{{ route('account.pay.do', $a->public_id) }}" class="mt-3">@csrf
             <button name="method" value="wallet" class="btn btn-success w-100 mb-2" @disabled(! $enough)>Pay {{ $naira($total) }} from my wallet ({{ $naira($balance) }})</button>
             @unless($enough)<div class="small text-muted mb-2">Your wallet is short by {{ $naira($total - $balance) }}. <a href="{{ route('account.wallet') }}">Top it up</a>, or pay by card.</div>@endunless
@@ -66,6 +71,7 @@
             </form>
         @endforeach
         @if(! count($methods))<div class="small text-muted">Online payment is not available right now. Pay from your wallet.</div>@endif
+        @endif
     </div></div>
 </div></div></div>
 @endsection

@@ -23,6 +23,8 @@ namespace App\Modules\Pricing;
  *   weekend       rate_bp surcharge (plus any flat amount) on Saturdays and Sundays (condition: days = ISO 1..7, default [6, 7])
  *   rush          rate_bp surcharge (plus any flat amount) when the customer asks for a rush job
  *   fuel_surcharge rate_bp of the running subtotal and/or a flat amount, shown as its own line
+ *   item_size     flat amount when the item size matches (condition: sizes = ['small'|'medium'|'large', ...])
+ *   vehicle       flat amount when the chosen vehicle matches (condition: vehicles = vehicle type codes, e.g. ['suv'])
  */
 class PriceCalculator
 {
@@ -123,6 +125,10 @@ class PriceCalculator
             'insurance' => intdiv($in['declared_value'] * (int) ($rule['rate_bp'] ?? 0), 10_000),
             'cod_fee' => $in['cod_amount'] > 0 ? $amount + intdiv($in['cod_amount'] * (int) ($rule['rate_bp'] ?? 0), 10_000) : 0,
             'remote_area' => $this->inZones($cond, $in['dropoff_zone_ids']) ? $amount : 0,
+            'item_size' => in_array((string) ($in['size'] ?? ''), (array) ($cond['sizes'] ?? []), true) ? $amount : 0,
+            'vehicle' => in_array((string) ($in['vehicle_code'] ?? ''), (array) ($cond['vehicles'] ?? []), true) ? $amount : 0,
+            // Usually negative: money off for handing the parcel in at a partner store.
+            'store_dropoff' => ! empty($in['store_dropoff']) ? $amount : 0,
             default => 0,
         };
     }

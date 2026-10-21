@@ -267,10 +267,10 @@ class WorkspaceController extends Controller
         [$op] = $this->ctx($request, 'jobs');
 
         $base = fn () => DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('s.operator_id', $op->id)
-            ->select('s.id', 's.public_id', 's.status', 's.needs_manual_dispatch', 's.updated_at', 'o.order_number', 'o.total');
+            ->select('s.id', 's.public_id', 's.status', 's.needs_manual_dispatch', 's.priority', 's.updated_at', 'o.order_number', 'o.total');
 
         $waiting = $base()->where('o.payment_status', 'paid')->whereIn('s.status', ManualAssignmentService::UNASSIGNED)
-            ->orderByDesc('s.needs_manual_dispatch')->orderBy('s.updated_at')->limit(100)->get();
+            ->orderByDesc('s.priority')->orderByDesc('s.needs_manual_dispatch')->orderBy('s.updated_at')->limit(100)->get();
         $moving = $base()->whereIn('s.status', ['assigned', 'heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff'])
             ->orderBy('s.updated_at')->limit(100)->get();
 

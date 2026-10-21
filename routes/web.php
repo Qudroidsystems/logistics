@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\Session;
 | their own routes from app/Modules/
 */
 
-Route::view('/', 'landing')->name('landing');
+// Home: instant price and booking (config/booking.php). The earlier demo page stays at /platform.
+Route::get('/', [\App\Http\Controllers\InstantBookingController::class, 'home'])->name('landing');
+Route::view('/platform', 'landing')->name('platform.demo');
 
 // Sign-up is open: customers, providers and invited drivers/staff all start with one account (see RegisterController).
 Auth::routes(['register' => true]);

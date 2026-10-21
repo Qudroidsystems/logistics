@@ -14,7 +14,7 @@ use RuntimeException;
  * Expected $request keys:
  *   operator_id, service_type_id, vehicle_type_id?, city_id, customer_id?, distance_m, duration_s,
  *   weight_g, stops (array of pickup/dropoff points), fragile?, declared_value?, cod_amount?,
- *   dropoff_zone_ids?, wait_minutes?, promo_code?, scheduled_for?, rush?, merchant_id?, is_test?
+ *   dropoff_zone_ids?, wait_minutes?, promo_code?, scheduled_for?, rush?, merchant_id?, is_test?, size? (small|medium|large)
  */
 class QuoteService
 {
@@ -60,6 +60,9 @@ class QuoteService
             'hour' => (int) $when->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('G'),
             'weekday' => (int) $when->setTimezone(config('app.timezone', 'Africa/Lagos'))->format('N'),
             'rush' => (bool) ($request['rush'] ?? false),
+            'size' => (string) ($request['size'] ?? ''),
+            'store_dropoff' => (bool) ($request['store_dropoff'] ?? false),
+            'vehicle_code' => isset($request['vehicle_type_id']) ? (string) DB::table('vehicle_types')->where('id', $request['vehicle_type_id'])->value('code') : '',
             'fragile' => (bool) ($request['fragile'] ?? false),
             'declared_value' => (int) ($request['declared_value'] ?? 0),
             'cod_amount' => (int) ($request['cod_amount'] ?? 0),

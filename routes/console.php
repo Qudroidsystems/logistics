@@ -62,3 +62,9 @@ Schedule::command('fleet:reminders')->dailyAt('07:10')->withoutOverlapping(30);
 
 // Interac e-Transfers that never arrived within the hold time (Payment Gateways > Interac e-Transfer).
 Schedule::command('etransfer:expire')->hourly()->withoutOverlapping(10);
+
+// Business plans: take next month's fee from the wallet, or mark the plan past due.
+Schedule::command('subscriptions:renew')->hourly()->withoutOverlapping(10);
+
+// Recurring deliveries: book the trips coming up in the next day.
+Schedule::command('recurring:run')->everyFifteenMinutes()->withoutOverlapping(15);

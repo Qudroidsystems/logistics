@@ -115,6 +115,11 @@ class LoginController extends Controller
             }
         }
 
+        // Staff at a partner drop-off store go to the counter screen.
+        if (! $user->can('dashboard') && \Illuminate\Support\Facades\DB::table('dropoff_centre_users')->where('user_id', $user->id)->exists()) {
+            return redirect()->route('counter');
+        }
+
         // A merchant's team goes to the merchant page.
         if (! $user->can('dashboard') && \Illuminate\Support\Facades\DB::table('operator_members as om')->join('merchants as m', 'm.operator_id', '=', 'om.operator_id')
             ->where('om.user_id', $user->id)->where('om.status', 'active')->exists()) {

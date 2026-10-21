@@ -27,6 +27,7 @@ class ShipmentEvents
         'delivery_failed' => 'delivery.failed',
         'returned' => 'delivery.returned',
         'at_pickup_point' => 'delivery.at_pickup_point',
+        'at_dropoff_centre' => 'delivery.at_dropoff_centre',
     ];
 
     public function __construct(private WebhookService $webhooks)
@@ -40,6 +41,14 @@ class ShipmentEvents
             'shipment_id' => $shipmentId, 'seq' => $seq, 'type' => $type, 'from_status' => $from, 'to_status' => $to,
             'actor_type' => $actorType, 'actor_id' => $actorId, 'meta' => json_encode($meta), 'source' => 'system', 'created_at' => now(),
         ]);
+
+        // A parcel that started at a partner store: the driver taking it (or the job ending) settles the store's side.
+        if ($type === 'picked_up') {
+            app(\App\Modules\DropOff\DropOffService::class)->markCollected($shipmentId, $actorType === 'user' ? $actorId : null);
+        } elseif ($type === 'cancelled') {
+            app(\App\Modules\DropOff\DropOffService::class)->cancelled($shipmentId);
+            app(\App\Modules\Subscriptions\SubscriptionService::class)->giveBack($shipmentId);
+        }
 
         app(\App\Modules\Notifications\NotificationService::class)->shipmentEvent($shipmentId, $type, $meta);
 

@@ -39,6 +39,8 @@ return [
         'tax' => ['name' => 'VAT', 'rate_bp' => 750, 'by_subdivision' => []],
         // How wallet withdrawals are paid out: paystack (bank transfer, automatic) | etransfer (staff send an Interac e-Transfer)
         'payout_method' => 'paystack',
+        // Vehicles customers can pick on the instant price form (vehicle_types codes).
+        'quote_vehicles' => ['motorbike', 'car', 'van'],
     ],
 
     'CA' => [
@@ -62,6 +64,7 @@ return [
         // HST provinces charge one combined rate; elsewhere this is the 5% GST only (provincial sales tax, where it
         // applies to delivery services, must be added by setting the city's rate). Check rates with your accountant.
         'payout_method' => 'etransfer',
+        'quote_vehicles' => ['sedan', 'suv', 'van'],
         'tax' => ['name' => 'HST', 'rate_bp' => 1300, 'by_subdivision' => [
             'ON' => ['name' => 'HST', 'rate_bp' => 1300], 'NB' => ['name' => 'HST', 'rate_bp' => 1500], 'NL' => ['name' => 'HST', 'rate_bp' => 1500],
             'NS' => ['name' => 'HST', 'rate_bp' => 1400], 'PE' => ['name' => 'HST', 'rate_bp' => 1500],

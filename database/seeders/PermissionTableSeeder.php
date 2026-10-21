@@ -41,12 +41,12 @@ class PermissionTableSeeder extends Seeder
             'Tracking'   => ['View live map', 'View tracking', 'Manage proof of delivery'],
 
             'Fleet'      => array_merge($crud('vehicle'), ['Manage vehicle maintenance', 'Manage fuel logs']),
-            'Warehouses' => array_merge($crud('warehouse'), $crud('hub'), $crud('pickup point'), ['Scan packages']),
+            'Warehouses' => array_merge($crud('warehouse'), $crud('hub'), $crud('pickup point'), ['Scan packages', 'Manage drop-off centres']),
 
             'Zones & Pricing' => array_merge($crud('zone'), $crud('service area'), ['Manage pricing rules', 'Manage vehicle types', 'Manage delivery types']),
 
             'Payments'    => ['View payment', 'Refund payment', 'Manage payment gateways', 'Confirm e-transfer', 'View wallet', 'Adjust wallet', 'Approve withdrawal',
-                              'View settlement', 'Run settlement', 'Approve refund', 'View commission', 'Manage commission'],
+                              'View settlement', 'Run settlement', 'Approve refund', 'View commission', 'Manage commission', 'Manage business plans'],
             'Promotions'  => array_merge($crud('promotion'), $crud('promo code'), ['Manage loyalty program', 'Manage referrals']),
 
             'Support'     => ['View support ticket', 'Reply support ticket', 'Assign support ticket', 'Close support ticket',
