@@ -29,6 +29,7 @@ class HomeController extends Controller
 
         return view('driver.home', [
             'd' => $d, 'offers' => $this->drivers->offers($d->id), 'jobs' => $this->drivers->jobs($d->id),
+            'handle' => app(\App\Modules\Directory\DirectoryService::class)->ensureDriverHandle((int) $d->id),
             'pagetitle' => 'Driver',
         ]);
     }
@@ -165,6 +166,21 @@ class HomeController extends Controller
     }
 
     // ----------------------------------------------------------------
+
+    /** The rider's own @handle: customers can ask for them by it. */
+    public function handle(Request $request, \App\Modules\Directory\DirectoryService $dir)
+    {
+        $d = $this->driver($request);
+        $request->validate(['handle' => 'required|string|max:31']);
+        try {
+            $h = $dir->validate((string) $request->input('handle'), (int) $d->id);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        DB::table('driver_profiles')->where('id', $d->id)->update(['handle' => $h, 'updated_at' => now()]);
+
+        return back()->with('success', "Your handle is now @{$h}. Customers who know you can ask for you by it.");
+    }
 
     private function driver(Request $request): object
     {

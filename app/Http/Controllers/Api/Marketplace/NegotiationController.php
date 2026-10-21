@@ -40,6 +40,8 @@ class NegotiationController extends Controller
             'dropoff.contact_name' => 'nullable|string|max:120', 'dropoff.contact_phone' => 'nullable|string|max:24',
             'packages' => 'nullable|array|max:20', 'budget_min' => 'nullable|integer|min:0', 'budget_max' => 'nullable|integer|min:0', 'cod_amount' => 'nullable|integer|min:0|max:10000000000', 'needed_by' => 'nullable|date|after:now',
             'visibility' => 'nullable|in:direct,invited,open', 'operator_ids' => 'nullable|array|max:20', 'operator_ids.*' => 'integer',
+            // A rider the customer found by @handle: the request goes to their company, which is told who was asked for.
+            'driver_handle' => 'nullable|string|max:31',
             'errand.list' => 'required_if:type,shopping|array', 'errand.budget_cap' => 'required_if:type,shopping|integer|min:1', 'errand.market_id' => 'nullable|integer',
             'errand.substitution_policy' => 'nullable|in:ask,allow,none',
             // Extra proofs the job giver wants on top of the provider's standard.

@@ -56,6 +56,9 @@ class RequestsController extends WorkspaceController
         return $this->view('provider.request', $request, [
             'req' => $req, 'stops' => json_decode($req->stops, true) ?? [], 'packages' => array_diff_key(json_decode($req->packages ?? '[]', true) ?? [], ['cod_amount' => 1]),
             'thread' => $thread, 'canOffer' => $open && ! $thread, 'pagetitle' => 'Request',
+            // The customer found one of this team's riders by @handle and asked for them.
+            'askedRider' => $req->preferred_driver_profile_id ? DB::table('driver_profiles as d')->join('users as u', 'u.id', '=', 'd.user_id')
+                ->where('d.id', $req->preferred_driver_profile_id)->where('d.operator_id', $op->id)->first(['d.handle', 'u.name', 'd.availability']) : null,
             'costProfiles' => app(\App\Modules\Pricing\ProviderCostingService::class)->profiles($op->id),
         ], 'requests');
     }

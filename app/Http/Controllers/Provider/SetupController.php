@@ -84,6 +84,22 @@ class SetupController extends WorkspaceController
         return $this->back($this->api()->updateProfile($request), 'Profile saved.');
     }
 
+    /** The business's @handle (also its public page address). Customers find it by typing @ in the app. */
+    public function saveHandle(Request $request, \App\Modules\Directory\DirectoryService $dir)
+    {
+        [$op, $role] = $this->ctx($request);
+        abort_unless(in_array($role, ['owner', 'admin'], true), 403, 'Only the owner or an admin can change the handle.');
+        $request->validate(['handle' => 'required|string|max:31']);
+        try {
+            $h = $dir->validate((string) $request->input('handle'), null, (int) $op->id);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage())->withInput();
+        }
+        DB::table('provider_profiles')->where('operator_id', $op->id)->update(['public_slug' => $h, 'updated_at' => now()]);
+
+        return back()->with('success', "Your handle is now @{$h}. Customers can find you by typing it in the app.");
+    }
+
     public function availability(Request $request)
     {
         $this->ctx($request);

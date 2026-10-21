@@ -9,7 +9,15 @@
     @if(count($cities) === 0)<div class="cb-banner warning"><i class="ri-error-warning-line"></i><div>No city has been set up yet, so requests cannot be sent. An administrator needs to add one first.</div></div>@endif
 
     <form method="POST" action="{{ route('account.request.create') }}" id="reqForm" enctype="multipart/form-data">@csrf
-        @if($provider)<input type="hidden" name="provider" value="{{ $provider->id }}"><div class="cb-banner info"><i class="ri-send-plane-line"></i><div>This request goes only to <strong>{{ $provider->display_name }}</strong>.</div></div>@endif
+        @if($provider)
+            <input type="hidden" name="provider" value="{{ $provider->id }}">
+            <div class="cb-banner info"><i class="ri-send-plane-line"></i><div>This request goes only to <strong>{{ $provider->display_name }}</strong>
+                @if(!empty($rider))
+                    and asks for <strong>{{ \Illuminate\Support\Str::before($rider->name, ' ') }} ({{ '@'.$rider->handle }})</strong> to do it
+                @endif
+            </div></div>
+        @endif
+        @if(!empty($rider))<input type="hidden" name="driver" value="{{ $rider->handle }}">@endif
         <div class="row g-3">
             <div class="col-lg-5">
                 <x-cb.card title="What" icon="ri-box-3-line">

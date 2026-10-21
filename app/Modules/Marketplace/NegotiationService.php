@@ -33,6 +33,19 @@ class NegotiationService
             : $this->routes->estimate($d['pickup']['lat'], $d['pickup']['lng'], $d['dropoff']['lat'], $d['dropoff']['lng']);
         $visibility = $d['visibility'] ?? 'open';
         $operatorIds = array_map('intval', $d['operator_ids'] ?? []);
+        $rider = null;
+        if (! empty($d['driver_handle'])) {
+            // "@musa": ask Musa's company, and tell them who the customer wants.
+            $rider = app(\App\Modules\Directory\DirectoryService::class)->rider((string) $d['driver_handle'])
+                ?? throw new InvalidArgumentException('That rider is not available. Check the @handle.');
+            if (! $operatorIds) {
+                $visibility = 'direct';
+                $operatorIds = [(int) $rider->operator_id];
+            } elseif (! in_array((int) $rider->operator_id, $operatorIds, true)) {
+                $operatorIds[] = (int) $rider->operator_id;
+                $visibility = $visibility === 'direct' ? 'invited' : $visibility;
+            }
+        }
         if (Platform::companyOnly()) {
             // Single-company install: the house operator prices every request.
             $visibility = 'direct';
@@ -45,14 +58,14 @@ class NegotiationService
             throw new InvalidArgumentException('A direct request goes to exactly one provider.');
         }
 
-        return DB::transaction(function () use ($customerId, $d, $route, $visibility, $operatorIds, $isTest, $extra) {
+        return DB::transaction(function () use ($customerId, $d, $route, $visibility, $operatorIds, $isTest, $extra, $rider) {
             $id = DB::table('service_requests')->insertGetId([
                 'public_id' => (string) Str::ulid(), 'customer_id' => $customerId, 'type' => $d['type'], 'service_type_id' => $d['service_type_id'],
                 'stops' => json_encode(['pickup' => $d['pickup'], 'dropoff' => $d['dropoff'], 'city_id' => $d['city_id']] + ($extra ? ['extra' => $extra] : [])),
                 'packages' => json_encode(['items' => $d['packages'] ?? [], 'errand' => $d['errand'] ?? null, 'vehicle_type_id' => $d['vehicle_type_id'] ?? null] + (($d['cod_amount'] ?? 0) > 0 ? ['cod_amount' => (int) $d['cod_amount']] : [])),
                 'distance_m' => $route['distance_m'], 'budget_min' => $d['budget_min'] ?? null, 'budget_max' => $d['budget_max'] ?? null,
                 'needed_by' => $d['needed_by'] ?? null, 'pickup_at' => self::local($d['pickup_at'] ?? null), 'rush' => (bool) ($d['rush'] ?? false),
-                'visibility' => $visibility, 'status' => 'open', 'is_test' => $isTest,
+                'visibility' => $visibility, 'status' => 'open', 'is_test' => $isTest, 'preferred_driver_profile_id' => $rider->id ?? null,
                 'verification' => isset($d['verification']) ? json_encode(VerificationPolicy::normalize($d['verification'])) : null,
                 'expires_at' => $this->expiresAt($d['pickup_at'] ?? null), 'created_at' => now(), 'updated_at' => now(),
             ]);

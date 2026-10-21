@@ -180,4 +180,19 @@ class PartnerDeliveryOptionsTest extends TestCase
         $this->assertSame($new, DB::table('webhook_endpoints')->value('secret'));
         $this->assertNotSame($hook->secret, $new);
     }
+
+    public function test_the_new_secret_is_shown_on_the_page(): void
+    {
+        $staff = \App\Models\User::factory()->create(['must_change_password' => false]);
+        foreach (['View vendor', 'Update vendor'] as $p) {
+            \Spatie\Permission\Models\Permission::findOrCreate($p, 'web');
+        }
+        $staff->givePermissionTo(['View vendor', 'Update vendor']);
+        $page = "/ops/merchants/{$this->merchantId}";
+        $this->actingAs($staff)->from($page)->followingRedirects()->post("{$page}/webhooks", ['url' => 'https://shop.example/hook', 'environment' => 'sandbox'])
+            ->assertSee(DB::table('webhook_endpoints')->value('secret'));
+        $hook = DB::table('webhook_endpoints')->first();
+        $r = $this->actingAs($staff)->from($page)->followingRedirects()->post("{$page}/webhooks/{$hook->id}/secret");
+        $r->assertSee(DB::table('webhook_endpoints')->value('secret'));
+    }
 }

@@ -26,6 +26,7 @@ class LocationIngestService
 
         $accepted = 0;
         $last = null;
+        $fastest = null;
         usort($pings, fn ($a, $b) => strcmp($a['at'], $b['at']));
 
         foreach ($pings as $p) {
@@ -40,6 +41,12 @@ class LocationIngestService
             );
             $accepted++;
             $last = $p;
+            if (isset($p['speed']) && ($fastest === null || (float) $p['speed'] > (float) $fastest['speed'])) {
+                $fastest = $p;
+            }
+        }
+        if ($fastest) {
+            $this->flagIfSpeeding($driver, $fastest, $shipmentId ? (int) $shipmentId : null);
         }
 
         if ($last) {
@@ -80,6 +87,47 @@ class LocationIngestService
                 'subject_type' => 'driver', 'subject_id' => $driver->id, 'type' => 'gps_spoof', 'severity' => 'high',
                 'evidence' => json_encode($p), 'created_at' => now(), 'updated_at' => now(),
             ]);
+        }
+    }
+
+    /** Pure: km/h over the limit, or null when within it. Pings arrive in metres per second. */
+    public static function overLimit(?float $speedMps, int $limitKmh): ?int
+    {
+        if ($speedMps === null) {
+            return null;
+        }
+        $kmh = (int) round($speedMps * 3.6);
+
+        return $kmh > $limitKmh ? $kmh : null;
+    }
+
+    /**
+     * A fresh ping above the speed limit raises one "speeding" risk event per driver per cool-down, and tells the
+     * provider's dispatchers and driver manager. Old pings from an offline batch only make the record, no alert.
+     */
+    private function flagIfSpeeding(object $driver, array $p, ?int $shipmentId): void
+    {
+        $limit = FleetService::speedLimitKmh();
+        $kmh = self::overLimit(isset($p['speed']) ? (float) $p['speed'] : null, $limit);
+        if ($kmh === null) {
+            return;
+        }
+        $cooldown = max(1, (int) config('tracking.speeding_cooldown_minutes', 15));
+        $recent = DB::table('risk_events')->where(['subject_type' => 'driver', 'subject_id' => $driver->id, 'type' => 'speeding'])
+            ->where('created_at', '>', now()->subMinutes($cooldown))->exists();
+        if ($recent) {
+            return;
+        }
+        DB::table('risk_events')->insert([
+            'subject_type' => 'driver', 'subject_id' => $driver->id, 'type' => 'speeding', 'severity' => $kmh >= $limit * 1.5 ? 'high' : 'medium',
+            'evidence' => json_encode(['speed_kmh' => $kmh, 'limit_kmh' => $limit, 'lat' => $p['lat'], 'lng' => $p['lng'], 'at' => $p['at'], 'shipment_id' => $shipmentId]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $fresh = strtotime($p['at']) >= time() - 5 * 60;
+        if ($fresh) {
+            $name = (string) DB::table('users')->where('id', $driver->user_id)->value('name');
+            app(\App\Modules\Notifications\NotificationService::class)->notifyOperator((int) $driver->operator_id, 'driver.speeding',
+                ['name' => $name, 'speed' => $kmh, 'limit' => $limit], '/provider/fleet', ['owner', 'admin', 'dispatcher', 'driver_manager']);
         }
     }
 

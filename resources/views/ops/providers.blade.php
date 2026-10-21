@@ -20,7 +20,7 @@
             <tbody>
             @forelse($rows as $r)
                 <tr>
-                    <td class="fw-semibold">{{ $r['display_name'] }}<div class="small text-muted fw-normal">{{ str_replace('_', ' ', $r['type']) }}{{ $r['listed'] ? '' : ' · not listed' }}</div></td>
+                    <td class="fw-semibold"><a href="{{ route('ops.provider', $r['operator_id']) }}">{{ $r['display_name'] }}</a><div class="small text-muted fw-normal">{{ str_replace('_', ' ', $r['type']) }}{{ $r['listed'] ? '' : ' · not listed' }}</div></td>
                     <td><span class="badge bg-{{ $r['status'] === 'active' ? 'success' : ($r['status'] === 'suspended' ? 'danger' : 'secondary') }}">{{ $r['status'] }}</span></td>
                     <td>{{ $r['tier'] }}</td>
                     <td class="text-end">{{ $r['score'] !== null ? round($r['score']) : '—' }}</td>

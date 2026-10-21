@@ -339,7 +339,8 @@ class BackofficeTest extends TestCase
         }
         $this->actingAs($all)->get('/ops/reports/routes/export.xlsx')->assertOk();
         $this->actingAs($all)->get('/ops/reports/nope')->assertNotFound();
-        $this->actingAs($all)->get('/ops')->assertOk()->assertSee('Revenue');
+        $this->actingAs($all)->get('/ops')->assertRedirect(route('dashboard'));
+        $this->actingAs($all)->get('/dashboard')->assertOk()->assertSee('Revenue');
         $this->actingAs($all)->get('/ops/reports/daily?provider='.DB::table('operators')->where('id', $this->op)->value('public_id'))->assertOk()->assertSee('All providers');
     }
 }

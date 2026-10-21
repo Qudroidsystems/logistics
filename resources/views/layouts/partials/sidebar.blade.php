@@ -35,23 +35,24 @@
                 @can('dashboard')
                 <li class="nav-item">
                     <a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                        <i class="ri-dashboard-2-line"></i> <span>Dashboard</span>
+                        <i class="ri-dashboard-2-line"></i> <span>Platform overview</span>
                     </a>
                 </li>
                 @endcan
 
                 {{-- ===== Operations (Phase 1+: deliveries, dispatch, tracking) ===== --}}
-                @if(auth()->user()->hasAnyPermission(['dashboard','View delivery','View dispute','View kyc','View payment','View settlement','View rating','Manage fraud flags','View vendor','View driver','View shopper']))
+                @if(auth()->user()->hasAnyPermission(['dashboard','View delivery','View dispute','View kyc','View payment','View settlement','View rating','Manage fraud flags','View vendor','View driver','View shopper','Approve withdrawal','View driver locations']))
                 <li class="menu-title"><i class="ri-more-fill"></i> <span>OPERATIONS</span></li>
-                @can('dashboard')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dashboard') ? 'active' : '' }}" href="{{ route('ops.dashboard') }}"><i class="ri-truck-line"></i> <span>Overview</span></a></li>@endcan
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.order*') ? 'active' : '' }}" href="{{ route('ops.orders') }}"><i class="ri-shopping-bag-3-line"></i> <span>Orders</span></a></li>@endcan
                 @can('Create delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.booking*') ? 'active' : '' }}" href="{{ route('ops.booking.new') }}"><i class="ri-add-box-line"></i> <span>New booking</span></a></li>@endcan
+                @can('View driver locations')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.fleet*') ? 'active' : '' }}" href="{{ route('ops.fleet') }}"><i class="ri-map-2-line"></i> <span>Live fleet</span></a></li>@endcan
                 @if(auth()->user()->hasAnyPermission(['View reports', 'View operations report', 'View financial report', 'View geographic report']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.reports*') ? 'active' : '' }}" href="{{ route('ops.reports') }}"><i class="ri-bar-chart-box-line"></i> <span>Reports</span></a></li>@endif
                 @can('View delivery')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.failed') ? 'active' : '' }}" href="{{ route('ops.failed') }}"><i class="ri-error-warning-line"></i> <span>Failed deliveries</span></a></li>@endcan
                 @can('View dispute')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.dispute*') ? 'active' : '' }}" href="{{ route('ops.disputes') }}"><i class="ri-scales-3-line"></i> <span>Disputes</span></a></li>@endcan
                 @if(\App\Support\Platform::marketplace())@can('View kyc')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.application*') ? 'active' : '' }}" href="{{ route('ops.applications') }}"><i class="ri-shield-user-line"></i> <span>Provider applications</span></a></li>@endcan @endif
                 @if(\App\Support\Platform::marketplace() && auth()->user()->hasAnyPermission(['View vendor','View driver','View shopper']))<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.provider*') ? 'active' : '' }}" href="{{ route('ops.providers') }}"><i class="ri-team-line"></i> <span>Providers</span></a></li>@endif
                 @can('View settlement')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.settlement*') ? 'active' : '' }}" href="{{ route('ops.settlements') }}"><i class="ri-bank-line"></i> <span>Settlements</span></a></li>@endcan
+                @can('Approve withdrawal')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.payout*') ? 'active' : '' }}" href="{{ route('ops.payouts') }}"><i class="ri-bank-card-line"></i> <span>Payouts</span></a></li>@endcan
                 @can('View payment')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.refunds') ? 'active' : '' }}" href="{{ route('ops.refunds') }}"><i class="ri-refund-2-line"></i> <span>Refunds</span></a></li>@endcan
                 @can('View rating')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.rating*') ? 'active' : '' }}" href="{{ route('ops.ratings') }}"><i class="ri-star-line"></i> <span>Ratings</span></a></li>@endcan
                 @can('View vendor')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('ops.merchant*') ? 'active' : '' }}" href="{{ route('ops.merchants') }}"><i class="ri-store-3-line"></i> <span>Merchants and API keys</span></a></li>@endcan

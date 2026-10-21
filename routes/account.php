@@ -15,6 +15,10 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::post('/phone/send', [\App\Http\Controllers\PhonePageController::class, 'send'])->middleware('throttle:6,1')->name('phone.send');
     Route::post('/phone/verify', [\App\Http\Controllers\PhonePageController::class, 'verify'])->middleware('throttle:10,1')->name('phone.verify');
 
+    // Joining a company's team (drivers, dispatchers ...) from an emailed invitation.
+    Route::get('/invitations', [\App\Http\Controllers\Customer\InvitationsController::class, 'index'])->name('invitations');
+    Route::post('/invitations/accept', [\App\Http\Controllers\Customer\InvitationsController::class, 'accept'])->middleware('throttle:10,1')->name('invitations.accept');
+
     Route::get('/providers', [A::class, 'providers'])->middleware('marketplace')->name('providers');
     Route::get('/requests', [A::class, 'requests'])->name('requests');
     Route::get('/requests/new', [A::class, 'newRequest'])->name('request.new');

@@ -398,6 +398,7 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-1">
+                    @include('layouts.partials.workspace-switcher')
                     <!-- Notifications bell -->
                     @include('layouts.partials.online-badge')
                     @include('layouts.partials.notification-bell')

@@ -56,3 +56,6 @@ Schedule::command('accounting:sync')->dailyAt('02:30')->withoutOverlapping(60);
 // Marketing: send campaigns in batches, and ask for Google reviews after finished deliveries.
 Schedule::command('campaigns:send')->everyMinute()->withoutOverlapping(10);
 Schedule::command('reviews:send')->everyTenMinutes()->withoutOverlapping(10);
+
+// Insurance, roadworthiness, servicing and driver documents coming due (30 days, 7 days, on the day, once overdue).
+Schedule::command('fleet:reminders')->dailyAt('07:10')->withoutOverlapping(30);

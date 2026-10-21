@@ -3,13 +3,18 @@
 namespace App\Modules\Notifications\Sms;
 
 use App\Jobs\SendSmsMessage;
+use App\Jobs\SendWhatsAppMessage;
+use App\Services\Messaging\MessagingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Queues text messages and records each on notification_deliveries (channel `sms`). Best effort: a failure here
- * is logged and never breaks the delivery or money step that asked for the text.
+ * Queues text messages and records each on sms_log. Best effort: a failure here is logged and never breaks the
+ * delivery or money step that asked for the text.
+ *
+ * When WhatsApp is switched on (Notification Settings) the same message also, or instead, goes out on WhatsApp,
+ * per config('services.sms.whatsapp'): see channels().
  */
 class SmsService
 {
@@ -41,6 +46,34 @@ class SmsService
         };
     }
 
+    /**
+     * Pure: which channels one message goes out on.
+     *
+     * @return list<string> 'sms' and/or 'whatsapp'
+     */
+    public static function channels(string $mode, bool $whatsappReady): array
+    {
+        if (! $whatsappReady) {
+            return ['sms'];
+        }
+
+        return match ($mode) {
+            'instead' => ['whatsapp'],
+            'also' => ['sms', 'whatsapp'],
+            default => ['sms'],
+        };
+    }
+
+    /** WhatsApp is switched on and fully filled in under Notification Settings. */
+    public static function whatsappReady(): bool
+    {
+        try {
+            return app(MessagingService::class)->enabled('whatsapp');
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
     /** Queue a text to a user's own phone number. Returns false when they have none or the number is unusable. */
     public function toUser(int $userId, string $message, ?string $templateKey = null): bool
     {
@@ -57,12 +90,20 @@ class SmsService
             return false;
         }
         try {
-            // The log row needs a user; guest numbers are logged without one.
-            $id = DB::table('sms_log')->insertGetId([
-                'user_id' => $userId, 'phone' => $to, 'template_key' => $templateKey, 'status' => 'queued',
-                'created_at' => now(), 'updated_at' => now(),
-            ]);
-            SendSmsMessage::dispatch($id, $message)->afterCommit();
+            $channels = self::channels((string) config('services.sms.whatsapp', 'instead'), self::whatsappReady());
+            foreach ($channels as $channel) {
+                // The log row needs a user; guest numbers are logged without one.
+                $id = DB::table('sms_log')->insertGetId([
+                    'user_id' => $userId, 'phone' => $to, 'channel' => $channel, 'template_key' => $templateKey, 'status' => 'queued',
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+                if ($channel === 'whatsapp') {
+                    // Alone on WhatsApp, the message falls back to a text if WhatsApp cannot deliver it.
+                    SendWhatsAppMessage::dispatch($id, $message, ! in_array('sms', $channels, true))->afterCommit();
+                } else {
+                    SendSmsMessage::dispatch($id, $message)->afterCommit();
+                }
+            }
 
             return true;
         } catch (Throwable $e) {

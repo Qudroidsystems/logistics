@@ -22,9 +22,10 @@ class OpsConsoleController extends Controller
     {
     }
 
+    /** The operations overview now lives on the platform dashboard. */
     public function dashboard()
     {
-        return view('ops.dashboard', ['d' => $this->ops->dashboard()->getData(true)]);
+        return redirect()->route('dashboard');
     }
 
     // ---------------------------------------------------------------- orders

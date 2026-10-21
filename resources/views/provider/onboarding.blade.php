@@ -37,6 +37,11 @@
     <div class="row g-3">
         <div class="col-lg-6">
             <x-cb.card title="Your public profile" icon="ri-user-star-line">
+                <form method="POST" action="{{ route('provider.handle.save') }}" class="mb-3">@csrf
+                    <label class="form-label small">Your @handle <span class="text-muted">(customers type it in the app to find you)</span></label>
+                    <div class="input-group"><span class="input-group-text">@</span><input name="handle" class="form-control" value="{{ old('handle', $profile->public_slug ?? '') }}" maxlength="30" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{2,29}" required><button class="btn btn-outline-primary">Save</button></div>
+                    <div class="form-text">Also your public page: {{ url('/p/'.($profile->public_slug ?? '…')) }}. Changing it changes that link.</div>
+                </form>
                 <form method="POST" action="{{ route('provider.profile.save') }}">@csrf
                     <label class="form-label small">Name customers see</label>
                     <input name="display_name" class="form-control mb-2" value="{{ old('display_name', $op->display_name) }}" maxlength="120">
@@ -89,6 +94,7 @@
                     <select name="doc_type" class="form-select mb-2" required>
                         <option value="">What are you uploading?</option>
                         @foreach($required as $t)<option value="{{ $t }}">{{ $nice($t) }}</option>@endforeach
+                        @foreach(array_diff(['guarantor_form', 'police_report'], $required) as $t)<option value="{{ $t }}">{{ $t === 'police_report' ? 'Background check (police report)' : $nice($t) }} (optional)</option>@endforeach
                         @if($isRider)@foreach(['vehicle_registration', 'insurance', 'roadworthiness'] as $t)<option value="{{ $t }}">{{ $nice($t) }} (vehicle)</option>@endforeach @endif
                     </select>
                     @if($isRider && count($vehicles))

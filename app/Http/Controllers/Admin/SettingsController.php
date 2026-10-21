@@ -39,7 +39,15 @@ class SettingsController extends Controller
             'offerSeconds' => (int) ($this->get(self::KEYS['offer_seconds']) ?? 30),
             'maxAttempts' => (int) ($this->get(self::KEYS['max_attempts']) ?? 5),
             'failed' => FailedDeliveryPolicy::current(),
-            'otherRules' => DB::table('commission_rules')->when($fee, fn ($q) => $q->where('id', '!=', $fee->id))->where('active', true)->orderByDesc('id')->limit(30)->get(),
+            'otherRules' => DB::table('commission_rules as r')->leftJoin('operators as o', 'o.id', '=', 'r.operator_id')
+                ->leftJoin('cities as c', 'c.id', '=', 'r.city_id')->leftJoin('service_types as t', 't.id', '=', 'r.service_type_id')
+                ->when($fee, fn ($q) => $q->where('r.id', '!=', $fee->id))->orderByDesc('r.active')->orderByDesc('r.id')->limit(60)
+                ->get(['r.*', 'o.display_name as provider', 'c.name as city', 't.name as service']),
+            'ruleProviders' => DB::table('operators')->whereIn('type', \App\Support\Workspaces::providerTypes())->whereIn('status', ['active', 'pending', 'suspended'])
+                ->orderBy('display_name')->limit(500)->get(['id', 'display_name', 'type']),
+            'ruleTypes' => \App\Support\Workspaces::providerTypes(),
+            'ruleServices' => DB::table('service_types')->where('active', true)->orderBy('id')->get(['id', 'name']),
+            'ruleCities' => DB::table('cities')->orderBy('name')->get(['id', 'name']),
             'canFee' => $request->user()->can('Manage commission'),
             'canRules' => $request->user()->can('Manage pricing rules'),
             'pagetitle' => 'Settings',
@@ -60,6 +68,54 @@ class SettingsController extends Controller
         }
 
         return back()->with('success', 'Platform fee saved. It applies to agreements made from now on.');
+    }
+
+    /**
+     * A special fee for one provider, or for every provider of one kind (optionally only in one city or for one service).
+     * The most specific matching rule wins over the platform fee (CommissionResolver).
+     */
+    public function saveRule(Request $request)
+    {
+        abort_unless($request->user()->can('Manage commission'), 403);
+        $d = $request->validate([
+            'applies_to' => 'required|in:provider,type',
+            'operator_id' => 'required_if:applies_to,provider|nullable|integer|exists:operators,id',
+            'operator_type' => 'required_if:applies_to,type|nullable|in:'.implode(',', \App\Support\Workspaces::providerTypes()),
+            'service_type_id' => 'nullable|integer|exists:service_types,id',
+            'city_id' => 'nullable|integer|exists:cities,id',
+            'percent' => 'required|numeric|min:0|max:50',
+            'min_naira' => 'nullable|numeric|min:0|max:100000',
+        ]);
+        $where = [
+            'operator_id' => $d['applies_to'] === 'provider' ? (int) $d['operator_id'] : null,
+            'operator_type' => $d['applies_to'] === 'type' ? $d['operator_type'] : null,
+            'service_type_id' => $d['service_type_id'] ?? null,
+            'city_id' => $d['city_id'] ?? null,
+        ];
+        $values = ['basis' => 'percent_of_delivery_fee', 'rate_bp' => (int) round($d['percent'] * 100), 'fixed_amount' => 0,
+            'min_fee' => (int) round(((float) ($d['min_naira'] ?? 0)) * 100), 'active' => true, 'updated_at' => now()];
+        $same = DB::table('commission_rules');
+        foreach ($where as $k => $v) {
+            $v === null ? $same->whereNull($k) : $same->where($k, $v);
+        }
+        if ($id = $same->value('id')) {
+            DB::table('commission_rules')->where('id', $id)->update($values);
+        } else {
+            DB::table('commission_rules')->insert($where + $values + ['priority' => 0, 'created_at' => now()]);
+        }
+
+        return back()->with('success', 'Special fee saved. It applies to agreements made from now on; signed ones keep their fee.');
+    }
+
+    /** Switch a special fee off (or back on). The platform-wide fee cannot be switched off here. */
+    public function toggleRule(Request $request, int $rule)
+    {
+        abort_unless($request->user()->can('Manage commission'), 403);
+        $r = DB::table('commission_rules')->find($rule);
+        abort_unless($r && ($r->operator_id || $r->operator_type || $r->service_type_id || $r->city_id), 404);
+        DB::table('commission_rules')->where('id', $r->id)->update(['active' => ! $r->active, 'updated_at' => now()]);
+
+        return back()->with('success', $r->active ? 'Special fee switched off. The platform fee applies again.' : 'Special fee switched on.');
     }
 
     public function saveRules(Request $request)

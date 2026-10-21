@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Customer\TrackingController;
 use App\Http\Controllers\Api\Driver\DriverJobController;
 use App\Http\Controllers\Api\Driver\DriverWorkController;
 use App\Http\Controllers\Api\Messaging\ChatController;
+use App\Http\Controllers\Api\Messaging\DispatchChatController;
 use Illuminate\Support\Facades\Route;
 
 // Public, token-guarded tracking page data.
@@ -18,6 +19,8 @@ Route::post('/v1/voice/{secret}', [ChatController::class, 'voice'])->middleware(
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::prefix('driver')->middleware('throttle:120,1')->group(function () {
         Route::get('/me', [DriverWorkController::class, 'me']);
+        Route::get('/handle', [DriverWorkController::class, 'handle']);
+        Route::put('/handle', [DriverWorkController::class, 'setHandle'])->middleware('throttle:10,1');
         Route::post('/availability', [DriverWorkController::class, 'availability']);
         Route::get('/offers', [DriverWorkController::class, 'offers']);
         Route::post('/offers/{offer}/accept', [DriverWorkController::class, 'accept'])->whereNumber('offer');
@@ -37,6 +40,8 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::get('/jobs/{shipment}/chat', [ChatController::class, 'show']);
         Route::post('/jobs/{shipment}/chat', [ChatController::class, 'send'])->middleware('throttle:30,1');
         Route::post('/jobs/{shipment}/call', [ChatController::class, 'call'])->middleware('throttle:6,1');
+        Route::get('/jobs/{shipment}/dispatch-chat', [DispatchChatController::class, 'show']);
+        Route::post('/jobs/{shipment}/dispatch-chat', [DispatchChatController::class, 'send'])->middleware('throttle:30,1');
     });
     Route::get('/banks', [CustomerWalletController::class, 'banks']);
     Route::prefix('customer')->group(function () {

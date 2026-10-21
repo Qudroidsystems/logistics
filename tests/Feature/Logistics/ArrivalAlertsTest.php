@@ -130,7 +130,9 @@ class ArrivalAlertsTest extends TestCase
         $this->assertMatchesRegularExpression('/^\d+ to \d+ min$/', $eta['label']);
 
         DB::table('driver_profiles')->where('id', $this->dp)->update(['last_seen_at' => now()->subMinutes(6)->toIso8601String()]);
-        $this->assertTrue($this->getJson("/api/v1/track/{$token}")->json('driver.eta.stale'));
+        $old = $this->getJson("/api/v1/track/{$token}")->json('driver');
+        $this->assertTrue($old['eta']['stale']);
+        $this->assertGreaterThanOrEqual(359, $old['seconds_since_update']); // a positive age, so the page can say the location is old
     }
 
     public function test_a_late_rider_sends_one_delay_notice_and_texts_can_be_turned_off(): void

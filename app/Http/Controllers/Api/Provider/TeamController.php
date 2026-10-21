@@ -110,7 +110,7 @@ class TeamController extends Controller
 
     public function myInvitations(Request $request)
     {
-        return response()->json($this->team->mine($request->user()->id));
+        return response()->json(['invitations' => $this->team->mine($request->user()->id)]);
     }
 
     public function accept(Request $request)

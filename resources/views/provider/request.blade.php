@@ -7,6 +7,9 @@
         <x-slot:pills><span class="cb-meta-pill">{{ $req->status }}</span>@if($req->distance_m)<span class="cb-meta-pill">{{ number_format($req->distance_m / 1000, 1) }} km</span>@endif</x-slot:pills>
     </x-cb.hero>
     @include('provider._flash')
+    @if(!empty($askedRider))
+        <div class="cb-banner info"><i class="ri-user-star-line"></i><div><strong>The customer asked for {{ $askedRider->name }} ({{ '@'.$askedRider->handle }}).</strong> Assign them to this job if you can{{ in_array($askedRider->availability, ['online', 'on_job']) ? '' : ' (they are offline right now)' }}.</div></div>
+    @endif
     <div class="row g-3">
         <div class="col-lg-7">
             @include('partials.booking-details', ['bookingRequest' => $req])

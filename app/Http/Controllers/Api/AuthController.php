@@ -176,7 +176,7 @@ class AuthController extends Controller
         $current = (int) $user->current_operator_id;
 
         return [
-            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone_number, 'email_verified' => $user->email_verified_at !== null, 'must_change_password' => (bool) $user->must_change_password, 'two_factor' => $user->two_factor_confirmed_at !== null],
+            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone_number, 'email_verified' => $user->email_verified_at !== null, 'phone_verified' => $user->phone_verified_at !== null, 'must_change_password' => (bool) $user->must_change_password, 'two_factor' => $user->two_factor_confirmed_at !== null],
             'customer' => DB::table('customer_profiles')->where('user_id', $user->id)->exists(),
             'operators' => $memberships->map(fn ($m) => [
                 'operator_id' => $m->operator_id, 'type' => $m->type, 'name' => $m->display_name, 'status' => $m->status, 'role' => $m->role, 'current' => (int) $m->_id === $current,

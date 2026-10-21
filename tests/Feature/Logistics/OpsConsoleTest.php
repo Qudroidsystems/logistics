@@ -43,7 +43,8 @@ class OpsConsoleTest extends TestCase
         $u = $this->staff(['dashboard', 'View delivery', 'View dispute', 'View kyc']);
         $this->actingAs($u);
 
-        $this->get('/ops')->assertOk()->assertSee('Operations');
+        $this->get('/ops')->assertRedirect(route('dashboard'));
+        $this->get('/dashboard')->assertOk()->assertSee('Platform overview')->assertSee('Needs your attention');
         $this->get('/ops/orders')->assertOk()->assertSee('Orders');
         $this->get('/ops/disputes')->assertOk()->assertSee('Disputes');
         $this->get('/ops/applications')->assertOk()->assertSee('Provider applications');

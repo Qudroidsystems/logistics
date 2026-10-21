@@ -46,6 +46,8 @@ class ProviderOnboardingController extends Controller
         } catch (RuntimeException $e) {
             return $this->fail($e);
         }
+        // The new account is now the current one: keep the signed-in user in step (the service updated the row).
+        $request->user()->forceFill(['current_operator_id' => $op])->syncOriginalAttribute('current_operator_id');
 
         return response()->json($this->status($op), 201);
     }

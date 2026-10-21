@@ -28,6 +28,14 @@
                             <td>
                                 @if($m->role === 'driver')
                                     <span class="badge bg-{{ $m->driver_status === 'active' ? 'success' : ($m->driver_status === 'suspended' ? 'danger' : 'warning') }}">{{ $m->driver_status ?? 'applied' }}</span>
+                                    @php
+                                        $fresh = $m->last_seen_at && \Illuminate\Support\Carbon::parse($m->last_seen_at)->gt(now()->subMinutes(\App\Modules\Tracking\FleetService::STALE_MINUTES));
+                                        $avail = ($m->availability ?? 'offline') === 'offline' ? 'offline' : ($fresh ? $m->availability : 'no_signal');
+                                        $availLabel = ['on_job' => 'On a job', 'online' => 'Online', 'break' => 'On a break', 'offline' => 'Offline', 'no_signal' => 'No signal'][$avail] ?? $avail;
+                                        $availColour = ['on_job' => 'primary', 'online' => 'success', 'break' => 'warning', 'offline' => 'light text-muted', 'no_signal' => 'secondary'][$avail] ?? 'light';
+                                    @endphp
+                                    <span class="badge bg-{{ $availColour }}">{{ $availLabel }}</span>
+                                    <div class="small text-muted">Last position {{ $m->last_seen_at ? \Illuminate\Support\Carbon::parse($m->last_seen_at)->diffForHumans() : 'never' }}@if($m->driver_status === 'active') · <a href="{{ route('provider.fleet') }}">see on map</a>@endif</div>
                                     @if($canEdit)
                                     <form method="POST" action="{{ route('provider.team.driver', $m->user_id) }}" class="d-inline">@csrf @method('PUT')
                                         @if($m->driver_status !== 'active')<button name="status" value="active" class="btn btn-sm btn-success">Approve</button>
@@ -36,6 +44,10 @@
                                     <form method="POST" action="{{ route('provider.team.pay', $m->user_id) }}" class="d-flex gap-1 align-items-center mt-1">@csrf @method('PUT')
                                         <input type="number" name="percent" min="0" max="100" step="0.5" value="{{ $m->pay_share_bp ? rtrim(rtrim(number_format($m->pay_share_bp / 100, 2, '.', ''), '0'), '.') : 0 }}" class="form-control form-control-sm" style="width:5.5rem" title="Share of each job's net paid to this driver (0 = you pay them yourself)">
                                         <span class="small text-muted">% of job</span>
+                                        <button class="btn btn-sm btn-outline-primary">Save</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('provider.team.handle', $m->user_id) }}" class="d-flex gap-1 align-items-center mt-1">@csrf @method('PUT')
+                                        <div class="input-group input-group-sm" style="max-width:14rem"><span class="input-group-text">@</span><input name="handle" class="form-control" value="{{ $m->handle }}" maxlength="30" placeholder="handle" title="Customers can ask for this rider by @handle"></div>
                                         <button class="btn btn-sm btn-outline-primary">Save</button>
                                     </form>
                                     @if($m->driver_status === 'active' && count($vehicles))

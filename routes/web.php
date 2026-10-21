@@ -27,7 +27,8 @@ use Illuminate\Support\Facades\Session;
 
 Route::view('/', 'landing')->name('landing');
 
-Auth::routes(['register' => false]);
+// Sign-up is open: customers, providers and invited drivers/staff all start with one account (see RegisterController).
+Auth::routes(['register' => true]);
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 // Maintenance page is always reachable.
@@ -57,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/password/change', [ChangePasswordController::class, 'update'])->name('password.change.update');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/workspace', \App\Http\Controllers\WorkspaceSwitchController::class)->middleware('throttle:30,1')->name('workspace.switch');
 
     // Proof-of-delivery photos (private disk, access checked per file)
     Route::get('/proofs/{proof}', [\App\Http\Controllers\ProofController::class, 'show'])->where('proof', '[A-Za-z0-9]{26}')->middleware('throttle:120,1')->name('proofs.show');

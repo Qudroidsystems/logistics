@@ -93,6 +93,15 @@
             </x-cb.card>
         </div>
         <div class="col-lg-4">
+            <x-cb.card title="Chat with the rider" icon="ri-message-3-line" class="mb-3">
+                <div id="dcBox" class="mb-2" style="max-height:280px;overflow-y:auto"><div class="small text-muted">Loading…</div></div>
+                <div id="dcQuick" class="d-flex flex-wrap gap-1 mb-2"></div>
+                <form id="dcForm" class="d-flex gap-2" hidden>
+                    <input id="dcText" class="form-control form-control-sm" maxlength="1000" placeholder="Message the rider" autocomplete="off">
+                    <button class="btn btn-sm btn-primary">Send</button>
+                </form>
+                <div id="dcNote" class="small text-muted"></div>
+            </x-cb.card>
             @include('provider._job-returns')
             @if($assignable)
             <x-cb.card :title="$driver ? 'Change the driver' : 'Who will do this job?'" icon="ri-user-received-line" class="mb-3">
@@ -130,4 +139,44 @@
         </div>
     </div>
 </div></div></div>
+<script>
+(function () {
+    var URL = @json(route('provider.job.chat', $s->public_id)), SEND = @json(route('provider.job.chat.send', $s->public_id)), TOKEN = @json(csrf_token());
+    var box = document.getElementById('dcBox'), form = document.getElementById('dcForm'), text = document.getElementById('dcText'), quick = document.getElementById('dcQuick'), note = document.getElementById('dcNote');
+    var last = 0, shown = {};
+    function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+    function add(m) {
+        if (shown[m.id]) return;
+        shown[m.id] = true; last = Math.max(last, m.id);
+        if (box.dataset.empty !== '0') { box.innerHTML = ''; box.dataset.empty = '0'; }
+        var at = m.at ? new Date(m.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
+        box.insertAdjacentHTML('beforeend', '<div class="d-flex ' + (m.mine ? 'justify-content-end' : '') + ' mb-1"><div class="px-2 py-1 rounded ' + (m.mine ? 'bg-primary text-white' : 'bg-light') + '" style="max-width:85%">' +
+            '<div class="small">' + esc(m.body) + '</div><div class="small opacity-75">' + (m.sender && !m.mine ? esc(m.sender) + ' · ' : '') + esc(at) + '</div></div></div>');
+        box.scrollTop = box.scrollHeight;
+    }
+    function load() {
+        fetch(URL + (last ? '?after=' + last : ''), {headers: {'Accept': 'application/json'}, cache: 'no-store'})
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (t) {
+                if (!t) return;
+                if (!t.messages.length && !last) { box.dataset.empty = '1'; box.innerHTML = '<div class="small text-muted">No messages yet. ' + (t.open ? 'The rider sees what you send here.' : '') + '</div>'; }
+                t.messages.forEach(add);
+                form.hidden = !t.open;
+                note.textContent = t.closed_note || '';
+                quick.innerHTML = (t.quick || []).map(function (q) { return '<button type="button" class="btn btn-sm btn-outline-secondary" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('');
+            });
+    }
+    function send(body) {
+        body = body.trim();
+        if (!body) return;
+        fetch(SEND, {method: 'POST', headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TOKEN, 'X-Requested-With': 'XMLHttpRequest'}, body: JSON.stringify({body: body})})
+            .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
+            .then(function (res) { if (!res.ok) { note.textContent = res.j.message || 'Not sent.'; } load(); });
+    }
+    form.addEventListener('submit', function (e) { e.preventDefault(); var v = text.value; text.value = ''; send(v); });
+    quick.addEventListener('click', function (e) { var q = e.target.getAttribute('data-q'); if (q) send(q); });
+    load();
+    setInterval(function () { if (!document.hidden) load(); }, 6000);
+})();
+</script>
 @endsection

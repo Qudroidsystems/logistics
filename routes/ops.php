@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BackofficeController as Bo;
 use App\Http\Controllers\Admin\CityZoneController as Z;
 use App\Http\Controllers\Admin\FailedDeliveriesController as Fd;
+use App\Http\Controllers\Admin\FleetController as Fl;
 use App\Http\Controllers\Admin\MerchantsController as Mc;
 use App\Http\Controllers\Admin\OpsConsoleController as C;
 use App\Http\Controllers\Admin\PricingAdminController as Pr;
@@ -26,6 +27,9 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/reports/{report?}', [Bo::class, 'reports'])->name('reports');
 
     Route::get('/failed-deliveries', [Fd::class, 'index'])->middleware('can:View delivery')->name('failed');
+    Route::get('/fleet', [Fl::class, 'index'])->middleware('can:View driver locations')->name('fleet');
+    Route::get('/fleet/live', [Fl::class, 'live'])->middleware(['can:View driver locations', 'throttle:120,1'])->name('fleet.live');
+    Route::get('/fleet/drivers/{driver}/trail', [Fl::class, 'trail'])->middleware(['can:View driver locations', 'throttle:60,1'])->where('driver', '[A-Za-z0-9]{26}')->name('fleet.trail');
 
     Route::get('/disputes', [C::class, 'disputes'])->middleware('can:View dispute')->name('disputes');
     Route::get('/disputes/{dispute}', [C::class, 'dispute'])->middleware('can:View dispute')->name('dispute');
@@ -44,6 +48,12 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::post('/settlements/{settlement}/approve', [C::class, 'approveSettlement'])->middleware('can:Run settlement')->name('settlement.approve');
 
     Route::get('/providers', [C::class, 'providersList'])->middleware('marketplace')->name('providers');
+    Route::get('/providers/{operator}', [\App\Http\Controllers\Admin\ProviderDetailController::class, 'show'])->middleware('marketplace')->name('provider');
+    Route::get('/payouts', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'payouts'])->middleware('can:Approve withdrawal')->name('payouts');
+    Route::post('/payouts/{payout}/approve', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'approvePayout'])->middleware(['can:Approve withdrawal', 'throttle:30,1'])->whereNumber('payout')->name('payout.approve');
+    Route::post('/payouts/{payout}/reject', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'rejectPayout'])->middleware(['can:Approve withdrawal', 'throttle:30,1'])->whereNumber('payout')->name('payout.reject');
+    Route::post('/orders/{order}/cancel', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'cancelOrder'])->middleware(['can:Cancel delivery', 'throttle:20,1'])->name('order.cancel');
+    Route::post('/orders/{order}/refund-to-card', [\App\Http\Controllers\Admin\PlatformFinanceController::class, 'refundToCard'])->middleware(['can:Refund payment', 'throttle:20,1'])->name('order.refund');
     Route::post('/providers/{operator}/refresh-score', [C::class, 'refreshScore'])->middleware('marketplace')->name('provider.refresh');
     Route::post('/providers/{operator}/suspend', [C::class, 'suspend'])->middleware('marketplace')->name('provider.suspend');
     Route::post('/providers/{operator}/reinstate', [C::class, 'reinstate'])->middleware('marketplace')->name('provider.reinstate');
@@ -64,6 +74,8 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/settings', [St::class, 'index'])->name('settings');
     Route::post('/settings/fee', [St::class, 'saveFee'])->name('settings.fee');
     Route::post('/settings/rules', [St::class, 'saveRules'])->name('settings.rules');
+    Route::post('/settings/commission', [St::class, 'saveRule'])->middleware('throttle:30,1')->name('settings.commission');
+    Route::post('/settings/commission/{rule}/toggle', [St::class, 'toggleRule'])->whereNumber('rule')->name('settings.commission.toggle');
 
     Route::get('/promos', [Pr::class, 'promos'])->middleware('can:View promo code')->name('promos');
     Route::post('/promos', [Pr::class, 'storePromo'])->middleware('can:Create promo code')->name('promo.store');

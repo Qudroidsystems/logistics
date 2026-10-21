@@ -68,6 +68,11 @@ return [
     'sms' => [
         // log (default, nothing is sent) | termii
         'driver' => env('SMS_DRIVER', 'log'),
+        // WhatsApp for the same messages, once WhatsApp is switched on and filled in under Notification Settings:
+        //   instead (default)  WhatsApp first; a message WhatsApp cannot deliver goes out as a text
+        //   also               both a text and a WhatsApp message
+        //   off                texts only
+        'whatsapp' => env('SMS_WHATSAPP', 'instead'),
     ],
 
     'termii' => [

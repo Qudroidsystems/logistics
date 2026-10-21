@@ -7,22 +7,26 @@
     @include('provider._flash')
     <x-cb.card title="Jobs" icon="ri-list-check" :count="count($rows)" :flush="true">
         <x-slot:tools>
-            <form method="GET"><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                @foreach(['active' => 'In progress', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled', 'all' => 'All'] as $k => $v)<option value="{{ $k }}" @selected($status === $k)>{{ $v }}</option>@endforeach
-            </select></form>
+            <form method="GET" class="d-flex gap-2">
+                <input type="search" name="q" value="{{ $search }}" class="form-control form-control-sm" placeholder="Order, tracking code, customer, address or phone" style="min-width:16rem">
+                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                    @foreach(['active' => 'In progress', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled', 'all' => 'All'] as $k => $v)<option value="{{ $k }}" @selected($status === $k)>{{ $v }}</option>@endforeach
+                </select>
+                <button class="btn btn-sm btn-primary">Search</button>
+            </form>
         </x-slot:tools>
         <div class="table-responsive"><table class="table table-hover align-middle mb-0">
             <thead><tr><th>Order</th><th>Status</th><th class="text-end">Value</th><th>Created</th></tr></thead>
             <tbody>
             @forelse($rows as $r)
                 <tr>
-                    <td><a href="{{ route('provider.job', $r->public_id) }}" class="fw-semibold">{{ $r->order_number }}</a><div class="small text-muted">{{ $r->tracking_code }}</div></td>
+                    <td><a href="{{ route('provider.job', $r->public_id) }}" class="fw-semibold">{{ $r->order_number }}</a><div class="small text-muted">{{ $r->tracking_code }}@if($r->customer) · {{ $r->customer }}@endif</div></td>
                     <td><span class="badge bg-light text-dark">{{ str_replace('_', ' ', $r->status) }}</span></td>
                     <td class="text-end">{{ $naira($r->total) }}</td>
                     <td class="small text-muted">{{ \Illuminate\Support\Carbon::parse($r->created_at)->diffForHumans() }}</td>
                 </tr>
             @empty
-                <tr><td colspan="4" class="text-center text-muted py-4">No jobs here.</td></tr>
+                <tr><td colspan="4" class="text-center text-muted py-4">@if($search !== '')No jobs match "{{ $search }}". Try "All" to include finished jobs.@else No jobs here.@endif</td></tr>
             @endforelse
             </tbody>
         </table></div>

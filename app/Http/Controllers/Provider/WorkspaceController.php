@@ -51,9 +51,10 @@ class WorkspaceController extends Controller
     protected function ctx(Request $request, ?string $area = null): array
     {
         $user = $request->user();
-        $opId = (int) $user->current_operator_id;
+        // Someone who also runs a shop (or switched elsewhere) lands on their provider business, not a 403.
+        $opId = (int) (\App\Support\Workspaces::ensureProvider($user) ?? $user->current_operator_id);
         $m = $opId ? DB::table('operator_members as m')->join('operators as o', 'o.id', '=', 'm.operator_id')
-            ->where(['m.operator_id' => $opId, 'm.user_id' => $user->id, 'm.status' => 'active'])->whereIn('o.type', ProviderOnboardingService::TYPES)
+            ->where(['m.operator_id' => $opId, 'm.user_id' => $user->id, 'm.status' => 'active'])->whereIn('o.type', \App\Support\Workspaces::providerTypes())
             ->first(['o.id', 'o.public_id', 'o.type', 'o.display_name', 'o.status', 'm.role']) : null;
         abort_unless($m, 403, 'This account is not linked to a provider.');
         if ($area) {
@@ -65,9 +66,7 @@ class WorkspaceController extends Controller
 
     protected function isProvider(Request $request): bool
     {
-        return (int) $request->user()->current_operator_id > 0 && DB::table('operator_members as m')->join('operators as o', 'o.id', '=', 'm.operator_id')
-            ->where(['m.operator_id' => $request->user()->current_operator_id, 'm.user_id' => $request->user()->id, 'm.status' => 'active'])
-            ->whereIn('o.type', ProviderOnboardingService::TYPES)->exists();
+        return \App\Support\Workspaces::ensureProvider($request->user()) !== null;
     }
 
     /** Which sidebar items this role sees, shared with every provider view. */
@@ -97,8 +96,87 @@ class WorkspaceController extends Controller
             'balance' => (int) DB::table('ledger_accounts')->where('id', $accounts->wallet('operator', $op->id, $op->id))->value('balance'),
             'active' => DB::table('shipments')->where('operator_id', $op->id)->whereIn('status', ['assigned', 'heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff'])->count(),
             'done' => DB::table('shipments')->where('operator_id', $op->id)->whereIn('status', ['delivered', 'completed'])->count(),
+            'today' => $this->today((int) $op->id),
+            'recentJobs' => DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->leftJoin('merchants as mc', 'mc.id', '=', 'o.merchant_id')
+                ->leftJoin('assignments as a', fn ($j) => $j->on('a.shipment_id', '=', 's.id')->whereIn('a.status', ['accepted', 'en_route', 'active', 'completed']))
+                ->leftJoin('driver_profiles as dp', 'dp.id', '=', 'a.driver_profile_id')->leftJoin('users as du', 'du.id', '=', 'dp.user_id')
+                ->where('s.operator_id', $op->id)->orderByDesc('s.id')->limit(8)
+                ->get(['s.public_id', 's.tracking_code', 's.status', 's.created_at', 'o.order_number', 'o.delivery_fee', 'mc.display_name as shop', 'du.name as rider']),
+            'commission' => $this->commissionFor($op),
             'pagetitle' => 'Dashboard',
         ]);
+    }
+
+    /** Today's work for the dashboard: what is waiting, who is out, money in and out. */
+    private function today(int $opId): array
+    {
+        $start = now()->startOfDay();
+        $ship = fn () => DB::table('shipments')->where('operator_id', $opId);
+
+        return [
+            'waiting' => $ship()->whereIn('status', ['awaiting_dispatch', 'offered'])->count(),
+            'waiting_long' => $ship()->whereIn('status', ['awaiting_dispatch', 'offered'])->where('updated_at', '<', now()->subMinutes(15))->count(),
+            'manual' => $ship()->where('needs_manual_dispatch', true)->whereIn('status', ['awaiting_dispatch', 'offered'])->count(),
+            'late' => $ship()->whereIn('status', ['assigned', 'heading_to_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_dropoff'])->whereNotNull('deliver_by')->where('deliver_by', '<', now())->count(),
+            'new_today' => $ship()->where('created_at', '>=', $start)->count(),
+            'delivered_today' => $ship()->where('status', 'delivered')->where('updated_at', '>=', $start)->count(),
+            'shop_jobs_today' => DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('s.operator_id', $opId)
+                ->whereNotNull('o.merchant_id')->where('s.created_at', '>=', $start)->count(),
+            'riders_online' => DB::table('driver_profiles')->where('operator_id', $opId)->where('status', 'active')->whereIn('availability', ['online', 'on_job'])
+                ->whereNull('deleted_at')->where('last_seen_at', '>=', now()->subMinutes(15))->count(),
+            'riders' => DB::table('driver_profiles')->where('operator_id', $opId)->where('status', 'active')->whereNull('deleted_at')->count(),
+            'requests' => DB::table('request_invitations as i')->join('service_requests as r', 'r.id', '=', 'i.request_id')
+                ->where('i.operator_id', $opId)->where('i.status', 'sent')->whereIn('r.status', ['open', 'negotiating'])->count(),
+            'exceptions' => DB::table('delivery_exceptions as e')->join('shipments as s', 's.id', '=', 'e.shipment_id')
+                ->where('s.operator_id', $opId)->whereNull('e.resolved_at')->count(),
+            'earned_today' => (int) DB::table('commissions')->where('operator_id', $opId)->where('created_at', '>=', $start)->sum('operator_net'),
+            'payouts_waiting' => (int) DB::table('payout_requests')->where('operator_id', $opId)->whereIn('status', ['requested', 'approved', 'processing'])->sum('amount'),
+            'docs_expiring' => DB::table('kyc_documents')->where('operator_id', $opId)->where('status', 'approved')->whereNotNull('expires_on')
+                ->where('expires_on', '<=', now()->addDays(30)->toDateString())->count(),
+        ];
+    }
+
+    /** The platform fee that applies to this provider's jobs now (special fee, fee for its kind, or the platform fee). */
+    private function commissionFor(object $op): ?array
+    {
+        $type = (string) DB::table('operators')->where('id', $op->id)->value('type');
+        $r = app(\App\Modules\Marketplace\CommissionResolver::class)->resolve((int) $op->id, $type, 0, null, 1_000_000);
+        $row = $r['rule_id'] ? DB::table('commission_rules')->find($r['rule_id']) : null;
+
+        return $row ? ['percent' => rtrim(rtrim(number_format($row->rate_bp / 100, 2), '0'), '.'), 'min' => (int) $row->min_fee, 'special' => (bool) $row->operator_id] : null;
+    }
+
+    /** Weekly statements from the platform: sales, commission taken and what was paid in; plus the fee on each recent job. */
+    public function statements(Request $request)
+    {
+        [$op] = $this->ctx($request, 'money');
+
+        return $this->view('provider.statements', $request, [
+            'statements' => DB::table('settlements')->where('operator_id', $op->id)->orderByDesc('period_end')->limit(52)->get(),
+            'jobs' => DB::table('commissions as c')->join('shipments as s', 's.id', '=', 'c.shipment_id')->join('orders as o', 'o.id', '=', 's.order_id')
+                ->where('c.operator_id', $op->id)->orderByDesc('c.id')->limit(50)
+                ->get(['c.gross_amount', 'c.platform_fee', 'c.operator_net', 'c.driver_net', 'c.status', 'c.created_at', 's.tracking_code', 'o.order_number']),
+            'month' => DB::table('commissions')->where('operator_id', $op->id)->where('created_at', '>=', now()->startOfMonth())
+                ->selectRaw('COUNT(*) n, COALESCE(SUM(gross_amount),0) gross, COALESCE(SUM(platform_fee),0) fee, COALESCE(SUM(operator_net),0) net')->first(),
+            'commission' => $this->commissionFor($op),
+            'pagetitle' => 'Statements',
+        ], 'money');
+    }
+
+    /** What customers said about the business. */
+    public function reviews(Request $request)
+    {
+        [$op] = $this->ctx($request);
+        $rows = DB::table('ratings as r')->join('shipments as s', 's.id', '=', 'r.shipment_id')->join('orders as o', 'o.id', '=', 's.order_id')
+            ->leftJoin('users as u', 'u.id', '=', 'r.rater_id')
+            ->where('r.ratee_type', 'operator')->where('r.ratee_id', $op->id)->orderByDesc('r.id')->limit(100)
+            ->get(['r.score', 'r.tags', 'r.comment', 'r.moderation_status', 'r.created_at', 'o.order_number', 'u.name']);
+        $sum = DB::table('ratings')->where('ratee_type', 'operator')->where('ratee_id', $op->id)->where('moderation_status', 'approved')
+            ->selectRaw('COUNT(*) n, AVG(score) avg')->selectRaw('COUNT(*) FILTER (WHERE score >= 4) good')->first();
+        $spread = DB::table('ratings')->where('ratee_type', 'operator')->where('ratee_id', $op->id)->where('moderation_status', 'approved')
+            ->groupBy('score')->selectRaw('score, COUNT(*) AS n')->pluck('n', 'score');
+
+        return $this->view('provider.reviews', $request, ['rows' => $rows, 'sum' => $sum, 'spread' => $spread, 'pagetitle' => 'Reviews']);
     }
 
     // ---------------------------------------------------------------- jobs
@@ -107,12 +185,23 @@ class WorkspaceController extends Controller
     {
         [$op] = $this->ctx($request, 'jobs');
         $status = $request->query('status', 'active');
-        $rows = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->where('s.operator_id', $op->id)
+        $search = trim((string) $request->query('q', ''));
+        $rows = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->leftJoin('users as c', 'c.id', '=', 'o.customer_id')->where('s.operator_id', $op->id)
             ->when($status === 'active', fn ($q) => $q->whereNotIn('s.status', ['delivered', 'completed', 'cancelled']))
             ->when(! in_array($status, ['active', 'all'], true), fn ($q) => $q->where('s.status', $status))
-            ->orderByDesc('s.id')->limit(100)->get(['s.public_id', 's.status', 's.tracking_code', 'o.order_number', 'o.total', 's.created_at']);
+            // Order number, tracking code, customer, or any stop's address, contact name or phone.
+            ->when($search !== '', function ($q) use ($search) {
+                $like = '%'.mb_strtolower($search).'%';
+                $digits = preg_replace('/\D+/', '', $search);
+                $q->where(fn ($w) => $w->whereRaw('LOWER(o.order_number) LIKE ?', [$like])->orWhereRaw('LOWER(s.tracking_code) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(c.name) LIKE ?', [$like])->orWhereRaw('LOWER(c.email) LIKE ?', [$like])
+                    ->orWhereExists(fn ($e) => $e->select(DB::raw(1))->from('shipment_stops as st')->whereColumn('st.shipment_id', 's.id')
+                        ->where(fn ($x) => $x->whereRaw('LOWER(st.line1) LIKE ?', [$like])->orWhereRaw('LOWER(st.contact_name) LIKE ?', [$like])
+                            ->when(strlen($digits) >= 4, fn ($p) => $p->orWhere('st.contact_phone', 'like', '%'.substr($digits, -10).'%')))));
+            })
+            ->orderByDesc('s.id')->limit($search !== '' ? 200 : 100)->get(['s.public_id', 's.status', 's.tracking_code', 'o.order_number', 'o.total', 's.created_at', 'c.name as customer']);
 
-        return $this->view('provider.jobs', $request, ['rows' => $rows, 'status' => $status, 'pagetitle' => 'Jobs'], 'jobs');
+        return $this->view('provider.jobs', $request, ['rows' => $rows, 'status' => $status, 'search' => $search, 'pagetitle' => 'Jobs'], 'jobs');
     }
 
     public function job(Request $request, string $shipment)
@@ -263,6 +352,23 @@ class WorkspaceController extends Controller
             'vehicles' => DB::table('vehicles')->where('operator_id', $op->id)->whereNull('deleted_at')->get(['id', 'public_id', 'plate']),
             'me' => $request->user()->id, 'pagetitle' => 'Team',
         ], 'team');
+    }
+
+    /** Change a rider's @handle (customers can ask for a rider by it). */
+    public function driverHandle(Request $request, int $user, \App\Modules\Directory\DirectoryService $dir)
+    {
+        [$op] = $this->ctx($request, 'team');
+        $request->validate(['handle' => 'required|string|max:31']);
+        $d = DB::table('driver_profiles')->where('operator_id', $op->id)->where('user_id', $user)->whereNull('deleted_at')->first(['id']);
+        abort_unless($d, 404);
+        try {
+            $h = $dir->validate((string) $request->input('handle'), (int) $d->id);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        DB::table('driver_profiles')->where('id', $d->id)->update(['handle' => $h, 'updated_at' => now()]);
+
+        return back()->with('success', "Rider handle saved: @{$h}.");
     }
 
     public function invite(Request $request)

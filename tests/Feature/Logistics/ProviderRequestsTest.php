@@ -62,7 +62,7 @@ class ProviderRequestsTest extends TestCase
 
         // The customer counters; now the provider can accept it.
         $this->actingAs($this->customer)->post("/account/negotiations/{$thread}/counter", ['price_naira' => 2500]);
-        $this->actingAs($this->owner)->get("/provider/negotiations/{$thread}")->assertOk()->assertSee("Accept the customer's offer");
+        $this->actingAs($this->owner)->get("/provider/negotiations/{$thread}")->assertOk()->assertSee("Accept the customer's offer", false);
 
         $this->actingAs($this->owner)->post("/provider/negotiations/{$thread}/say", ['text' => 'Fine, thanks'])->assertSessionHasNoErrors();
         $latest = DB::table('negotiation_messages')->where('kind', 'counter_offer')->orderByDesc('id')->value('id');

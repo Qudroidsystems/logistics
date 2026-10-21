@@ -84,7 +84,8 @@ class TrackingService
                 'first_name' => Str::before($d->name, ' '), 'rating' => $d->rating_avg,
                 'vehicle' => $vehicle ? trim("{$vehicle->make} {$vehicle->model}")." · {$vehicle->plate}" : null,
                 'lat' => (float) $d->lat, 'lng' => (float) $d->lng,
-                'seconds_since_update' => $d->last_seen_at ? now()->diffInSeconds($d->last_seen_at) : null,
+                // Carbon 3 signs the difference, so take the absolute whole seconds since the rider's last ping.
+                'seconds_since_update' => $d->last_seen_at ? (int) now()->diffInSeconds($d->last_seen_at, true) : null,
                 'eta_minutes' => $eta['minutes'] ?? null,
                 // A range, and whether the rider's position is old enough that the range is a guess.
                 'eta' => $eta ? ['label' => $eta['label'], 'low' => $eta['low'], 'high' => $eta['high'], 'stale' => $eta['stale'], 'to' => $eta['stop_type']] : null,

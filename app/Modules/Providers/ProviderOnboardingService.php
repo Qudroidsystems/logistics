@@ -140,7 +140,7 @@ class ProviderOnboardingService
             }
             [$subjectType, $subjectId] = ['vehicle', (int) $vehicle->id];
         } else {
-            if (! in_array($docType, ['cac_certificate', 'national_id', 'drivers_licence', 'utility_bill', 'guarantor_form'], true)) {
+            if (! in_array($docType, ['cac_certificate', 'national_id', 'drivers_licence', 'utility_bill', 'guarantor_form', 'police_report'], true)) {
                 throw new RuntimeException('That document type is not accepted here.');
             }
             [$subjectType, $subjectId] = $this->subject($opId);
@@ -416,7 +416,8 @@ class ProviderOnboardingService
                 throw new RuntimeException('Only suspended providers can be reinstated.');
             }
             $listed = DB::table('operator_capabilities')->where(['operator_id' => $opId, 'capability' => 'list_in_directory', 'enabled' => true])->exists();
-            DB::table('provider_profiles')->where('operator_id', $opId)->update(['listed' => $listed, 'updated_at' => now()]);
+            // Suspension set them "away"; reinstating puts them back in front of customers (they can step away again themselves).
+            DB::table('provider_profiles')->where('operator_id', $opId)->update(['listed' => $listed, 'availability_status' => 'accepting', 'updated_at' => now()]);
             DB::table('driver_profiles')->where('operator_id', $opId)->update(['status' => 'active', 'updated_at' => now()]);
         });
         $this->tell($opId, 'provider.reinstated');

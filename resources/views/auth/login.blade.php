@@ -635,6 +635,9 @@
                                             </form>
 
                                             <div class="text-center mt-4">
+                                                @if (Route::has('register'))
+                                                    <p class="mb-0 text-muted">New here? <a href="{{ route('register') }}" class="fw-semibold">Create an account</a></p>
+                                                @endif
                                             </div>
                                         </div>
                                     </div><!-- end card body -->

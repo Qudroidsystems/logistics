@@ -46,7 +46,23 @@
                 @forelse($o['refunds'] as $r)
                     <div class="d-flex justify-content-between"><span>{{ $naira($r['amount']) }} <span class="text-muted small">{{ $r['reason_code'] }}</span></span><span class="badge bg-light text-dark">{{ $r['status'] }}</span></div>
                 @empty <span class="text-muted">None.</span> @endforelse
+                @if(auth()->user()->can('Refund payment') && in_array($o['order']['payment_status'], ['refunded', 'partially_refunded']))
+                <form method="POST" action="{{ route('ops.order.refund', $o['order']['public_id']) }}" class="mt-2 d-flex gap-2" onsubmit="return confirm('Send this amount from the customer\'s wallet back to the card or account they paid with?')">@csrf
+                    <div class="input-group input-group-sm"><span class="input-group-text">₦</span><input type="number" step="0.01" min="1" name="amount_naira" class="form-control" placeholder="Amount" required></div>
+                    <button class="btn btn-sm btn-outline-primary text-nowrap">Send to card</button>
+                </form>
+                <div class="form-text">Cancelled orders are refunded to the customer's wallet first. Use this when they want the money back on their card.</div>
+                @endif
             </x-cb.card>
+            @if(auth()->user()->can('Cancel delivery') && ! in_array($o['order']['status'], ['cancelled', 'completed', 'delivered', 'failed']) && ! in_array($o['shipment']['status'] ?? '', ['delivered', 'cancelled', 'returned']))
+            <x-cb.card title="Cancel this delivery" icon="ri-close-circle-line" class="mt-3">
+                <form method="POST" action="{{ route('ops.order.cancel', $o['order']['public_id']) }}" class="d-flex gap-2" onsubmit="return confirm('Cancel this delivery? The customer is refunded to their wallet and the provider is told.')">@csrf
+                    <select name="reason" class="form-select form-select-sm">@foreach(\App\Http\Controllers\Admin\PlatformFinanceController::CANCEL_REASONS as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select>
+                    <button class="btn btn-sm btn-danger text-nowrap">Cancel delivery</button>
+                </form>
+                <div class="form-text">Not possible once the parcel has been picked up: open a dispute instead.</div>
+            </x-cb.card>
+            @endif
         </div>
     </div>
 </div></div></div>

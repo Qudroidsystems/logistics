@@ -8,6 +8,9 @@ use App\Http\Controllers\Provider\PickupPointsController as Pp;
 use App\Http\Controllers\Provider\PricingController as P;
 use App\Http\Controllers\Provider\PromoCodesController as Pc;
 use App\Http\Controllers\Provider\CashController as Cash;
+use App\Http\Controllers\Provider\FleetController as Fl;
+use App\Http\Controllers\Provider\DispatchChatController as Dc;
+use App\Http\Controllers\Provider\VehiclesController as Vh;
 use App\Http\Controllers\Provider\MarketingController as Mk;
 use App\Http\Controllers\Provider\RequestsController as R;
 use App\Http\Controllers\Provider\SetupController as S;
@@ -20,10 +23,19 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/', [W::class, 'dashboard'])->name('dashboard');
 
     Route::get('/dispatch', [W::class, 'board'])->name('dispatch');
+    Route::get('/fleet', [Fl::class, 'index'])->name('fleet');
+    Route::get('/vehicles', [Vh::class, 'index'])->name('vehicles');
+    Route::put('/vehicles/{vehicle}/care', [Vh::class, 'care'])->where('vehicle', '[A-Za-z0-9]{26}')->name('vehicles.care');
+    Route::post('/vehicles/{vehicle}/service', [Vh::class, 'service'])->where('vehicle', '[A-Za-z0-9]{26}')->middleware('throttle:30,1')->name('vehicles.service');
+    Route::post('/vehicles/{vehicle}/fuel', [Vh::class, 'fuel'])->where('vehicle', '[A-Za-z0-9]{26}')->middleware('throttle:60,1')->name('vehicles.fuel');
+    Route::get('/fleet/live', [Fl::class, 'live'])->middleware('throttle:120,1')->name('fleet.live');
+    Route::get('/fleet/drivers/{driver}/trail', [Fl::class, 'trail'])->where('driver', '[A-Za-z0-9]{26}')->middleware('throttle:60,1')->name('fleet.trail');
     Route::get('/jobs', [W::class, 'jobs'])->name('jobs');
     Route::get('/jobs/{shipment}', [W::class, 'job'])->name('job');
     Route::post('/jobs/{shipment}/assign', [W::class, 'assignJob'])->name('job.assign');
     Route::post('/jobs/{shipment}/cancel', [W::class, 'cancelJob'])->name('job.cancel');
+    Route::get('/jobs/{shipment}/dispatch-chat', [Dc::class, 'show'])->middleware('throttle:120,1')->name('job.chat');
+    Route::post('/jobs/{shipment}/dispatch-chat', [Dc::class, 'send'])->middleware('throttle:30,1')->name('job.chat.send');
     Route::get('/jobs/{shipment}/edit', [Bo::class, 'editJob'])->name('job.edit');
     Route::put('/jobs/{shipment}', [Bo::class, 'updateJob'])->name('job.update');
     Route::get('/bookings/new', [Bo::class, 'newBooking'])->name('booking.new');
@@ -107,10 +119,13 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::post('/negotiations/{thread}/accept', [R::class, 'accept'])->name('thread.accept');
 
     Route::get('/wallet', [W::class, 'wallet'])->name('wallet');
+    Route::get('/statements', [W::class, 'statements'])->name('statements');
+    Route::get('/reviews', [W::class, 'reviews'])->name('reviews');
     Route::post('/wallet/payout', [W::class, 'requestPayout'])->name('payout');
     Route::post('/wallet/bank', [W::class, 'addBank'])->name('bank');
 
     Route::get('/team', [W::class, 'team'])->name('team');
+    Route::put('/team/members/{user}/handle', [W::class, 'driverHandle'])->whereNumber('user')->middleware('throttle:20,1')->name('team.handle');
     Route::post('/team/invite', [W::class, 'invite'])->name('team.invite');
     Route::delete('/team/invitations/{invitation}', [W::class, 'revokeInvite'])->name('team.revoke');
     Route::put('/team/members/{user}/role', [W::class, 'changeRole'])->whereNumber('user')->name('team.role');
@@ -124,6 +139,7 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::post('/start', [S::class, 'register'])->middleware(['marketplace', 'throttle:10,1'])->name('register');
     Route::get('/setup', [S::class, 'onboarding'])->name('onboarding');
     Route::post('/setup/profile', [S::class, 'saveProfile'])->name('profile.save');
+    Route::post('/setup/handle', [S::class, 'saveHandle'])->middleware('throttle:10,1')->name('handle.save');
     Route::post('/setup/availability', [S::class, 'availability'])->name('availability');
     Route::post('/setup/documents', [S::class, 'uploadDocument'])->middleware('throttle:20,1')->name('document.upload');
     Route::post('/setup/vehicles', [S::class, 'addVehicle'])->name('vehicle.add');

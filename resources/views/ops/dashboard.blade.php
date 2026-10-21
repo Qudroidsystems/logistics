@@ -31,4 +31,5 @@
         </div>
     </x-cb.card>
 </div></div></div>
+@include('partials.auto-refresh', ['seconds' => 60])
 @endsection

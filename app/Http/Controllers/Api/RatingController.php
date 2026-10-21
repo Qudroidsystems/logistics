@@ -38,7 +38,9 @@ class RatingController extends Controller
         abort_unless($p, 404);
 
         return response()->json([
-            'provider' => collect((array) $p)->except('operator_id')->all(),
+            'provider' => collect((array) $p)->except('operator_id')->all() + ['handle' => $slug],
+            // What the app needs to ask this provider directly for a delivery.
+            'book' => ['operator_id' => (int) $p->operator_id, 'provider' => $p->display_name, 'slug' => $slug],
             'reviews' => $ratings->publicReviews((int) $p->operator_id),
         ]);
     }

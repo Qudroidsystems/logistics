@@ -47,7 +47,7 @@ class TeamService
         return DB::table('operator_members as m')->join('users as u', 'u.id', '=', 'm.user_id')->leftJoin('driver_profiles as d', function ($j) {
             $j->on('d.user_id', '=', 'm.user_id')->on('d.operator_id', '=', 'm.operator_id');
         })->where('m.operator_id', $opId)->where('m.status', 'active')->orderBy('m.id')
-            ->get(['u.id as user_id', 'u.name', 'u.email', 'u.phone_number as phone', 'm.role', 'm.joined_at', 'd.status as driver_status', 'd.availability', 'd.current_vehicle_id', 'd.pay_share_bp']);
+            ->get(['u.id as user_id', 'u.name', 'u.email', 'u.phone_number as phone', 'm.role', 'm.joined_at', 'd.status as driver_status', 'd.availability', 'd.current_vehicle_id', 'd.pay_share_bp', 'd.id as driver_profile_id', 'd.handle', 'd.last_seen_at']);
     }
 
     public function invitations(int $opId)
@@ -92,10 +92,10 @@ class TeamService
 
         $provider = (string) DB::table('operators')->where('id', $opId)->value('display_name');
         if ($existingUser = DB::table('users')->whereRaw('LOWER(email) = ?', [$email])->value('id')) {
-            $this->notify->notify((int) $existingUser, 'team.invited', ['provider' => $provider, 'role' => str_replace('_', ' ', $role)], '/invitations');
+            $this->notify->notify((int) $existingUser, 'team.invited', ['provider' => $provider, 'role' => str_replace('_', ' ', $role)], '/account/invitations');
         }
         SendPlainEmail::dispatch($email, "{$provider} invited you to join their team",
-            "{$provider} invited you to join as ".str_replace('_', ' ', $role).".\n\nSign in (or register with this email address) in the app and open Invitations, or enter this code:\n\n{$token}\n\nIt expires in ".self::INVITE_DAYS." days. If you were not expecting this, ignore this email.")->afterCommit();
+            "{$provider} invited you to join as ".str_replace('_', ' ', $role).".\n\nSign in (or register with this email address) in the driver app, or on the website under Team invitations (".url('/account/invitations')."), and accept it. You can also enter this code:\n\n{$token}\n\nIt expires in ".self::INVITE_DAYS." days. If you were not expecting this, ignore this email.")->afterCommit();
 
         return $publicId;
     }

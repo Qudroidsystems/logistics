@@ -133,6 +133,7 @@ class DriverService
             'stops' => $stops, 'live' => in_array($row->assignment, self::LIVE, true),
             'packages' => $packages,
             'chat_unread' => $this->unreadChat((int) $row->shipment_id, $driverId),
+            'dispatch_unread' => app(\App\Modules\Messaging\DispatchChatService::class)->unreadForRider((int) $row->shipment_id, (int) DB::table('driver_profiles')->where('id', $driverId)->value('user_id')),
             'authorised_receivers' => $policy->forShipment((int) $row->shipment_id)['authorised_receivers'],
             'failed_delivery_terms' => \App\Modules\Marketplace\FailedDeliveryPolicy::describeForDriver($policyJson ? json_decode($policyJson, true) : null),
         ];

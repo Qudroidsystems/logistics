@@ -78,9 +78,14 @@ class AccountController extends Controller
     {
         $serviceTypes = DB::table('service_types')->where('active', true)->orderBy('id')->get(['id', 'name']);
         $sid = (int) $request->query('service_type_id', $serviceTypes->first()->id ?? 0);
-        $rows = $sid ? $this->neg->providers($request->merge(['service_type_id' => $sid]))->getData(true) : [];
+        $q = trim((string) $request->query('q', ''));
+        $kind = $request->query('kind');
+        // Typing a name or @handle searches everyone (companies, riders, shoppers); otherwise list by service.
+        $found = $q !== '' ? app(\App\Modules\Directory\DirectoryService::class)->search($q, is_string($kind) ? $kind : null) : null;
+        $rows = $found === null && $sid ? $this->neg->providers($request->merge(['service_type_id' => $sid]))->getData(true) : [];
 
-        return $this->view('account.providers', ['rows' => $rows, 'serviceTypes' => $serviceTypes, 'sid' => $sid, 'pagetitle' => 'Find a provider']);
+        return $this->view('account.providers', ['rows' => $rows, 'found' => $found, 'q' => $q, 'kind' => $kind, 'kinds' => \App\Modules\Directory\DirectoryService::KINDS,
+            'serviceTypes' => $serviceTypes, 'sid' => $sid, 'pagetitle' => 'Find a provider']);
     }
 
     // ---------------------------------------------------------------- requests
@@ -99,6 +104,7 @@ class AccountController extends Controller
             'cities' => DB::table('cities')->orderBy('name')->selectRaw('id, name, ST_Y(centre::geometry) AS lat, ST_X(centre::geometry) AS lng')->get(),
             'vehicleTypes' => DB::table('vehicle_types')->where('active', true)->orderBy('id')->get(['id', 'name']),
             'provider' => $provider ? DB::table('operators')->where('id', $provider)->first(['id', 'display_name']) : null,
+            'rider' => $request->filled('driver') ? app(\App\Modules\Directory\DirectoryService::class)->rider((string) $request->query('driver')) : null,
             'savedAddresses' => app(\App\Modules\Booking\SavedAddresses::class)->list($request->user()->id),
             'proofOptions' => array_intersect_key(\App\Modules\Verification\VerificationPolicy::LABELS, array_flip(\App\Modules\Verification\VerificationPolicy::DROPOFF)),
             'pagetitle' => 'Ask for a delivery',
@@ -119,6 +125,7 @@ class AccountController extends Controller
             // Extra stops from the form, in the order they were added; rows without a map pin are ignored.
             'stops' => array_values(array_filter((array) $request->input('stops', []), fn ($st) => is_array($st) && ! empty($st['line1']) && ! empty($st['lat']))) ?: null,
             'visibility' => $request->filled('provider') ? 'direct' : 'open', 'operator_ids' => $request->filled('provider') ? [(int) $request->input('provider')] : null,
+            'driver_handle' => $request->input('driver') ?: null,
         ];
         $names = array_values(array_filter(array_map('trim', preg_split('/[,\n]/', (string) $request->input('authorised_receivers')))));
         if ($request->filled('proofs') || $names) {

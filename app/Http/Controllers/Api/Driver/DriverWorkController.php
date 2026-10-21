@@ -27,6 +27,54 @@ class DriverWorkController extends Controller
         ]);
     }
 
+    /**
+     * GET /v1/driver/handle: the @handle customers type to ask for this rider. A rider at a company has their own;
+     * an independent rider's handle is their business page's.
+     */
+    public function handle(Request $request, \App\Modules\Directory\DirectoryService $dir)
+    {
+        return response()->json($this->handleInfo($this->driver($request), $dir));
+    }
+
+    /** PUT /v1/driver/handle {handle} */
+    public function setHandle(Request $request, \App\Modules\Directory\DirectoryService $dir)
+    {
+        $d = $this->driver($request);
+        $request->validate(['handle' => 'required|string|max:31']);
+        $own = $this->ownPage($d);
+        try {
+            $h = $own ? $dir->validate((string) $request->input('handle'), null, (int) $d->operator_id) : $dir->validate((string) $request->input('handle'), (int) $d->id);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => 'invalid', 'message' => $e->getMessage()], 422);
+        }
+        $own
+            ? DB::table('provider_profiles')->where('operator_id', $d->operator_id)->update(['public_slug' => $h, 'updated_at' => now()])
+            : DB::table('driver_profiles')->where('id', $d->id)->update(['handle' => $h, 'updated_at' => now()]);
+
+        return response()->json($this->handleInfo($d, $dir) + ['message' => "Saved. Customers can now find you as @{$h}."]);
+    }
+
+    /** An independent rider with a public page uses that page's handle. */
+    private function ownPage(object $d): ?string
+    {
+        $type = DB::table('operators')->where('id', $d->operator_id)->value('type');
+
+        return $type === 'independent_driver' ? DB::table('provider_profiles')->where('operator_id', $d->operator_id)->value('public_slug') : null;
+    }
+
+    private function handleInfo(object $d, \App\Modules\Directory\DirectoryService $dir): array
+    {
+        $own = $this->ownPage($d);
+        $op = DB::table('operators as o')->leftJoin('provider_profiles as p', 'p.operator_id', '=', 'o.id')->where('o.id', $d->operator_id)->first(['o.display_name', 'p.listed']);
+
+        return [
+            'handle' => $own ?? $dir->ensureDriverHandle((int) $d->id),
+            'company' => $own ? null : $op?->display_name,
+            // Customers only find riders of businesses that are listed on the marketplace.
+            'findable' => (bool) ($op?->listed ?? false),
+        ];
+    }
+
     public function availability(Request $request)
     {
         $d = $this->driver($request);

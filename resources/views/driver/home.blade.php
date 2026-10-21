@@ -20,6 +20,14 @@
         @endif
     </x-cb.card>
 
+    <x-cb.card title="Your @handle" icon="ri-at-line" class="mt-3">
+        <p class="small text-muted mb-2">Customers who know you can type it in the app to ask for you. Your company gets the job and can give it to you.</p>
+        <form method="POST" action="{{ route('driver.handle') }}" class="d-flex gap-2">@csrf
+            <div class="input-group"><span class="input-group-text">@</span><input name="handle" class="form-control" value="{{ $handle }}" maxlength="30" required></div>
+            <button class="btn btn-outline-primary">Save</button>
+        </form>
+    </x-cb.card>
+
     @if(count($jobs))
     <x-cb.card title="Your job" icon="ri-route-line" :count="count($jobs)">
         @foreach($jobs as $j)
