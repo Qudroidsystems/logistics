@@ -56,33 +56,18 @@
     </div>
 </div>
 @unless($sent)
+@include('partials.address-search')
 <script>
 (function () {
-    var input = document.getElementById('ad'), box = document.getElementById('adSug'), timer, items = [];
-    var COUNTRY = @json(strtolower((string) config('region.country')));
-    function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
-    input.addEventListener('input', function () {
-        document.getElementById('lat').value = ''; document.getElementById('lng').value = '';
-        clearTimeout(timer);
-        var q = input.value.trim();
-        if (q.length < 5) { box.style.display = 'none'; return; }
-        timer = setTimeout(function () {
-            fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=' + COUNTRY + '&q=' + encodeURIComponent(q), {headers: {'Accept': 'application/json'}})
-                .then(function (r) { return r.json(); }).then(function (rows) {
-                    items = rows || [];
-                    box.innerHTML = items.map(function (r, i) { return '<button type="button" class="list-group-item list-group-item-action small" data-i="' + i + '">' + esc(r.display_name) + '</button>'; }).join('');
-                    box.style.display = items.length ? 'block' : 'none';
-                }).catch(function () { box.style.display = 'none'; });
-        }, 450);
-    });
-    box.addEventListener('click', function (e) {
-        var i = e.target.getAttribute('data-i'); if (i === null) return;
-        var r = items[+i], a = r.address || {};
-        input.value = [a.house_number, a.road].filter(Boolean).join(' ') || r.display_name.split(',')[0];
-        document.getElementById('ci').value = a.city || a.town || a.village || a.municipality || '';
-        if (a.postcode) document.getElementById('pc').value = a.postcode;
-        document.getElementById('lat').value = r.lat; document.getElementById('lng').value = r.lon;
-        box.style.display = 'none';
+    AddressSearch.attach(document.getElementById('ad'), document.getElementById('adSug'), {
+        item: 'button', itemClass: 'list-group-item list-group-item-action small',
+        onClear: function () { document.getElementById('lat').value = ''; document.getElementById('lng').value = ''; },
+        onPick: function (p) {
+            document.getElementById('ad').value = (p.label || '').split(',')[0];
+            if (p.city) document.getElementById('ci').value = p.city;
+            if (p.postal_code) document.getElementById('pc').value = p.postal_code;
+            document.getElementById('lat').value = p.lat; document.getElementById('lng').value = p.lng;
+        }
     });
 })();
 </script>

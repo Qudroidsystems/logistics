@@ -13,6 +13,9 @@ return [
     'sales_email' => env('SALES_EMAIL', env('MAIL_FROM_ADDRESS')),
     'sales_phone' => env('SALES_PHONE'),
 
+    // Most we pay for a lost or damaged item without extra cover (customer terms), in minor units.
+    'liability_limit' => (int) env('LIABILITY_LIMIT', strtoupper((string) env('REGION', 'NG')) === 'CA' ? 10_000 : 5_000_000),
+
     // Contact buttons on the website: a floating WhatsApp chat button (number in international form, e.g. 12265550123)
     // and the phone and email in the footer.
     'whatsapp' => env('WHATSAPP_NUMBER'),

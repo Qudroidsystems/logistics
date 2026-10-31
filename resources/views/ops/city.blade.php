@@ -83,7 +83,7 @@
     if (!la) return;
     var start = [parseFloat(la.value), parseFloat(ln.value)];
     var map = L.map('zone-map').setView(start, 11);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
+    L.tileLayer(@json(\App\Modules\Maps\Geocoder::tiles()['url']), {maxZoom: 19, attribution: @json(\App\Modules\Maps\Geocoder::tiles()['attribution'])}).addTo(map);
     var pin = L.marker(start).addTo(map);
     var ring = L.circle(start, {radius: (parseFloat(rd.value) || 5) * 1000}).addTo(map);
     var shape = 'circle', pts = [], poly = L.polygon([], {color: '#e8590c'}).addTo(map), dots = L.layerGroup().addTo(map);

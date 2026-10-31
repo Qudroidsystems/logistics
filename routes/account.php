@@ -54,6 +54,10 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::delete('/pay/{agreement}/gift-card', [Bk::class, 'removeGiftCard'])->name('pay.giftcard.remove');
     Route::get('/orders/{shipment}/receipt', [Bk::class, 'receipt'])->middleware('throttle:20,1')->name('order.receipt');
 
+    Route::get('/help', [\App\Http\Controllers\Customer\HelpController::class, 'index'])->name('help');
+    Route::post('/help', [\App\Http\Controllers\Customer\HelpController::class, 'store'])->middleware('throttle:10,1')->name('help.store');
+    Route::get('/help/{ticket}', [\App\Http\Controllers\Customer\HelpController::class, 'show'])->where('ticket', '[A-Za-z0-9]{26}')->name('help.show');
+    Route::post('/help/{ticket}', [\App\Http\Controllers\Customer\HelpController::class, 'reply'])->where('ticket', '[A-Za-z0-9]{26}')->middleware('throttle:20,1')->name('help.reply');
     Route::get('/book', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'book'])->name('book');
     Route::get('/recurring', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'recurring'])->name('recurring');
     Route::post('/recurring', [\App\Http\Controllers\Customer\BusinessBookingController::class, 'store'])->middleware('throttle:20,1')->name('recurring.store');

@@ -101,31 +101,17 @@
         </div>
     </div>
 </div></div></div>
+@include('partials.address-search')
 <script>
 (function () {
     var COUNTRY = @json(strtolower((string) config('region.country')));
     function $(id) { return document.getElementById(id); }
     function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
     function search(inputId, boxId, latId, lngId) {
-        var input = $(inputId), box = $(boxId), timer, items = [];
-        input.addEventListener('input', function () {
-            $(latId).value = ''; $(lngId).value = '';
-            clearTimeout(timer);
-            var q = input.value.trim();
-            if (q.length < 4) { box.style.display = 'none'; return; }
-            timer = setTimeout(function () {
-                fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=' + COUNTRY + '&q=' + encodeURIComponent(q), {headers: {'Accept': 'application/json'}})
-                    .then(function (r) { return r.json(); }).then(function (rows) {
-                        items = rows || [];
-                        box.innerHTML = items.map(function (r, i) { return '<button type="button" class="list-group-item list-group-item-action small" data-i="' + i + '">' + esc(r.display_name) + '</button>'; }).join('');
-                        box.style.display = items.length ? 'block' : 'none';
-                    }).catch(function () { box.style.display = 'none'; });
-            }, 450);
-        });
-        box.addEventListener('click', function (e) {
-            var i = e.target.getAttribute('data-i'); if (i === null) return;
-            var r = items[+i];
-            input.value = r.display_name; $(latId).value = r.lat; $(lngId).value = r.lon; box.style.display = 'none';
+        AddressSearch.attach($(inputId), $(boxId), {
+            item: 'button', itemClass: 'list-group-item list-group-item-action small',
+            onClear: function () { $(latId).value = ''; $(lngId).value = ''; },
+            onPick: function (p) { $(latId).value = p.lat; $(lngId).value = p.lng; }
         });
     }
     search('pAddr', 'pSug', 'pLat', 'pLng');

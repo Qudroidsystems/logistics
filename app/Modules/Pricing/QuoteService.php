@@ -92,6 +92,11 @@ class QuoteService
             );
         }
 
+        // A price for reference only (what a provider-priced request would cost at the instant price list): not saved.
+        if (! empty($request['dry_run'])) {
+            return ['quote_id' => null] + $result;
+        }
+
         $id = DB::table('quotes')->insertGetId([
             'public_id' => (string) Str::ulid(),
             'operator_id' => $request['operator_id'],

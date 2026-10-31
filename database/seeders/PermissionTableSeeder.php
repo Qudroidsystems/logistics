@@ -56,7 +56,7 @@ class PermissionTableSeeder extends Seeder
             'Reports'     => ['View reports', 'View operations report', 'View financial report', 'View geographic report', 'Export reports'],
 
             'System'      => ['View activity log', 'View online staff', 'Manage maintenance mode', 'Manage feature flags',
-                              'Manage backups', 'Manage notifications settings', 'Manage api keys', 'Manage webhooks'],
+                              'Manage backups', 'Manage notifications settings', 'Manage api keys', 'Manage webhooks', 'View system health'],
         ];
     }
 

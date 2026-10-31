@@ -182,6 +182,23 @@ class DriverApplicationService
         return $profileId;
     }
 
+    /** Removes the documents of applications declined more than $days ago (privacy policy: 90 days). Returns how many. */
+    public function pruneDeclined(int $days = 90): int
+    {
+        $rows = DB::table('driver_applications')->where('status', 'declined')->where('decided_at', '<', now()->subDays($days))
+            ->where(fn ($q) => $q->whereNotNull('licence_file')->orWhereNotNull('insurance_file')->orWhereNotNull('registration_file')->orWhereNotNull('abstract_file'))
+            ->limit(500)->get(['id', 'public_id']);
+        foreach ($rows as $r) {
+            Storage::disk('local')->deleteDirectory("driver-applications/{$r->public_id}");
+            DB::table('driver_applications')->where('id', $r->id)->update([
+                'licence_file' => null, 'insurance_file' => null, 'registration_file' => null, 'abstract_file' => null,
+                'licence_number_hash' => null, 'updated_at' => now(),
+            ]);
+        }
+
+        return $rows->count();
+    }
+
     public function decline(int $id, int $staffId, string $note, bool $tell = true): void
     {
         $a = DB::table('driver_applications')->where('id', $id)->first();

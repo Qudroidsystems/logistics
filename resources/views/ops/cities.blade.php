@@ -53,7 +53,7 @@
     var la = document.getElementById('lat'), ln = document.getElementById('lng');
     var start = [parseFloat(la.value) || {{ (float) config('region.map.lat') }}, parseFloat(ln.value) || {{ (float) config('region.map.lng') }}];
     var map = L.map('city-map').setView(start, la.value ? 11 : 6);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
+    L.tileLayer(@json(\App\Modules\Maps\Geocoder::tiles()['url']), {maxZoom: 19, attribution: @json(\App\Modules\Maps\Geocoder::tiles()['attribution'])}).addTo(map);
     var pin = la.value ? L.marker(start).addTo(map) : null;
     map.on('click', function (e) {
         if (pin) pin.setLatLng(e.latlng); else pin = L.marker(e.latlng).addTo(map);

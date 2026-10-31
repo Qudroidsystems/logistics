@@ -3,7 +3,7 @@
 @section('content')
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="ucfirst($req->type).' request'" icon="ri-chat-quote-line" :subtitle="($stops['pickup']['line1'] ?? '').' to '.($stops['dropoff']['line1'] ?? '')" :back="route('account.requests')" back-label="Requests">
-        <x-slot:pills><span class="cb-meta-pill">{{ $req->status }}</span>@if($req->distance_m)<span class="cb-meta-pill">{{ number_format($req->distance_m / 1000, 1) }} km</span>@endif</x-slot:pills>
+        <x-slot:pills><span class="cb-meta-pill">{{ $req->status }}</span>@if($req->distance_m)<span class="cb-meta-pill">{{ number_format($req->distance_m / 1000, 1) }} km by road</span>@endif @if($req->route_duration_s)<span class="cb-meta-pill">about {{ (int) ceil($req->route_duration_s / 60) }} min drive</span>@endif @if($req->reference_price)<span class="cb-meta-pill">Instant price {{ Money::format((int) $req->reference_price, true) }}</span>@endif</x-slot:pills>
     </x-cb.hero>
     @include('account._flash')
     @include('partials.booking-details', ['bookingRequest' => $req])
@@ -25,15 +25,16 @@
     </x-cb.card>
     @endif
     <x-cb.card title="Offers" icon="ri-price-tag-3-line" :count="count($offers)" :flush="true">
-        <table class="table align-middle mb-0"><thead><tr><th>Provider</th><th>Standing</th><th>Status</th><th></th></tr></thead><tbody>
+        <table class="table align-middle mb-0"><thead><tr><th>Provider</th><th>Standing</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>
         @forelse($offers as $o)
             <tr><td class="fw-semibold">{{ $o['provider'] }}
                     @if(!empty($o['proofs']['dropoff']))<div class="small text-muted fw-normal"><i class="ri-shield-check-line"></i> Hand-over: {{ implode(', ', $o['proofs']['dropoff']) }}</div>@endif</td>
                 <td class="small">{{ ucfirst($o['tier'] ?? 'verified') }} · {{ $o['rating_avg'] ? number_format($o['rating_avg'], 1).' ★' : 'New' }} · {{ $o['jobs_completed'] ?? 0 }} jobs</td>
+                <td>@if($o['latest_price']){{ Money::format((int) $o['latest_price'], true) }}@if($o['compared'])<div class="small text-muted">{{ $o['compared'] }}</div>@endif @else<span class="text-muted small">No price yet</span>@endif</td>
                 <td><span class="badge bg-light text-dark">{{ $o['status'] }}</span></td>
                 <td class="text-end"><a href="{{ route('account.thread', $o['thread']) }}" class="btn btn-sm btn-primary">View offer</a></td></tr>
         @empty
-            <tr><td colspan="4" class="text-center text-muted py-4">No offers yet. Providers have been told; this page updates as they reply.</td></tr>
+            <tr><td colspan="5" class="text-center text-muted py-4">No offers yet. Providers have been told; this page updates as they reply.</td></tr>
         @endforelse
         </tbody></table>
     </x-cb.card>

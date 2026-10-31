@@ -47,6 +47,14 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/etransfers', [Et::class, 'index'])->name('etransfers');
     Route::post('/etransfers/{intent}/confirm', [Et::class, 'confirm'])->whereNumber('intent')->middleware('throttle:60,1')->name('etransfer.confirm');
     Route::post('/etransfers/{intent}/reject', [Et::class, 'reject'])->whereNumber('intent')->middleware('throttle:60,1')->name('etransfer.reject');
+    Route::get('/support', [\App\Http\Controllers\Admin\SupportInboxController::class, 'index'])->name('support');
+    Route::get('/support/{ticket}', [\App\Http\Controllers\Admin\SupportInboxController::class, 'show'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.show');
+    Route::post('/support/{ticket}/reply', [\App\Http\Controllers\Admin\SupportInboxController::class, 'reply'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.reply');
+    Route::post('/support/{ticket}/status', [\App\Http\Controllers\Admin\SupportInboxController::class, 'status'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.status');
+    Route::post('/support/{ticket}/assign', [\App\Http\Controllers\Admin\SupportInboxController::class, 'assign'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.assign');
+    Route::get('/system', [\App\Http\Controllers\Admin\SystemController::class, 'index'])->name('system');
+    Route::post('/system/failed/{uuid}/retry', [\App\Http\Controllers\Admin\SystemController::class, 'retry'])->where('uuid', '[0-9a-f-]{36}')->name('system.retry');
+    Route::post('/system/failed/{uuid}/forget', [\App\Http\Controllers\Admin\SystemController::class, 'forget'])->where('uuid', '[0-9a-f-]{36}')->name('system.forget');
     Route::get('/driver-applications', [\App\Http\Controllers\Admin\DriverApplicationsController::class, 'index'])->name('driver-apps');
     Route::get('/driver-applications/{application}/files/{kind}', [\App\Http\Controllers\Admin\DriverApplicationsController::class, 'file'])->whereNumber('application')->name('driver-app.file');
     Route::post('/driver-applications/{application}/approve', [\App\Http\Controllers\Admin\DriverApplicationsController::class, 'approve'])->whereNumber('application')->name('driver-app.approve');

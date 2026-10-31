@@ -24,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
         // Column helpers used by the logistics migrations (publicId, money, geoPoint, operatorId).
         \App\Support\Database\SchemaMacros::register();
 
+        // Record every scheduled command's run for Ops > System (SystemHealth, system:watch).
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Console\Events\ScheduledTaskStarting::class, fn ($e) => \App\Modules\System\SystemHealth::started($e->task));
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Console\Events\ScheduledTaskFinished::class, fn ($e) => \App\Modules\System\SystemHealth::finished($e->task, (float) $e->runtime));
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Console\Events\ScheduledTaskFailed::class, fn ($e) => \App\Modules\System\SystemHealth::failed($e->task, $e->exception));
+
         // Render pagination with the Bootstrap 5 theme (matches the Velzon UI).
         Paginator::useBootstrapFive();
 

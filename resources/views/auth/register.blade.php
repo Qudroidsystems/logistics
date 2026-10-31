@@ -101,6 +101,7 @@
                                         </div>
                                     </div>
                                     <button class="btn btn-primary w-100 apple-button mt-4" type="submit">Create account</button>
+                                    <p class="small text-muted text-center mt-2 mb-0">By creating an account you agree to our <a href="{{ route('terms') }}" target="_blank">terms</a> and <a href="{{ route('privacy') }}" target="_blank">privacy policy</a>.</p>
                                 </form>
                                 <p class="text-center text-muted mt-4 mb-0">Already have an account? <a href="{{ route('login') }}">Sign in</a></p>
                             </div>

@@ -66,5 +66,11 @@ Schedule::command('etransfer:expire')->hourly()->withoutOverlapping(10);
 // Business plans: take next month's fee from the wallet, or mark the plan past due.
 Schedule::command('subscriptions:renew')->hourly()->withoutOverlapping(10);
 
+// Watches the other scheduled commands and the queue; tells staff when something stops (Ops > System).
+Schedule::command('system:watch')->everyTenMinutes()->withoutOverlapping(10);
+
+// Privacy: documents from declined driver applications go after 90 days.
+Schedule::call(fn () => app(\App\Modules\Drivers\DriverApplicationService::class)->pruneDeclined())->name('drivers:prune-declined')->dailyAt('03:40')->withoutOverlapping();
+
 // Recurring deliveries: book the trips coming up in the next day.
 Schedule::command('recurring:run')->everyFifteenMinutes()->withoutOverlapping(15);

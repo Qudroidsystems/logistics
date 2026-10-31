@@ -11,6 +11,16 @@ Route::get('/embed/quote', [\App\Http\Controllers\InstantBookingController::clas
 Route::get('/book/{quote}', [\App\Http\Controllers\InstantBookingController::class, 'details'])->where('quote', '[A-Za-z0-9]{26}')->name('book.details');
 Route::post('/book/{quote}', [\App\Http\Controllers\InstantBookingController::class, 'book'])->where('quote', '[A-Za-z0-9]{26}')->middleware(['auth', 'throttle:20,1'])->name('book.store');
 // Business plans (prices) and partner stores ("become a partner" and the counter screen).
+// Address search through the backend (config/maps.php), for the website forms.
+Route::get('/geo/search', [\App\Http\Controllers\GeoController::class, 'search'])->middleware('throttle:90,1')->name('geo.search');
+Route::get('/geo/place', [\App\Http\Controllers\GeoController::class, 'place'])->middleware('throttle:60,1')->name('geo.place');
+
+// Legal pages and deleting an account (the public page is the link the app stores ask for).
+Route::view('/privacy', 'public.privacy', [])->name('privacy');
+Route::view('/terms', 'public.terms', [])->name('terms');
+Route::get('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'info'])->name('delete-account');
+Route::post('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'destroy'])->middleware(['auth', 'throttle:5,1'])->name('delete-account.destroy');
+
 // Drive with us: apply, the terms, and checking on an application.
 Route::get('/drive', [\App\Http\Controllers\DriveController::class, 'show'])->name('drive');
 Route::post('/drive', [\App\Http\Controllers\DriveController::class, 'store'])->middleware('throttle:5,10')->name('drive.store');

@@ -90,12 +90,15 @@
             <div class="small text-muted mb-3" id="qfValid"></div>
             <a class="qf-btn d-block text-center text-decoration-none" id="qfBook" href="#" @if($embed) target="_blank" rel="noopener" @endif>Book this delivery</a>
             <div class="small text-muted mt-2 text-center">You pay on the next step{{ config('region.country') === 'CA' ? ', by card or Interac e-Transfer' : '' }}.</div>
+            @if($options['offers'] ?? false)<div class="small text-muted text-center">Prefer to compare? On the next step you can ask providers for their own offers instead.</div>@endif
         </div>
     </div>
     @endif
 </div>
 
 @if($options['enabled'])
+@include('partials.address-search')
+@php $tiles = \App\Modules\Maps\Geocoder::tiles(); @endphp
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function () {
@@ -104,7 +107,7 @@
     var points = {from: null, to: null}, markers = {};
     var CENTRES = @json($options['centres'] ?? []), useStore = false;
     var map = L.map('qfMap', {zoomControl: false, attributionControl: true}).setView(CENTRE, ZOOM);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
+    L.tileLayer(@json($tiles['url']), {maxZoom: 19, attribution: @json($tiles['attribution'])}).addTo(map);
     var $ = function (id) { return document.getElementById(id); };
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
 
@@ -121,31 +124,14 @@
     }
 
     function suggest(inputId, boxId, which) {
-        var input = $(inputId), box = $(boxId), timer, items = [];
-        input.addEventListener('input', function () {
-            points[which] = null; reset();
-            clearTimeout(timer);
-            var q = input.value.trim();
-            if (q.length < 4) { box.style.display = 'none'; return; }
-            timer = setTimeout(function () {
-                var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=0&q=' + encodeURIComponent(q) + (COUNTRY ? '&countrycodes=' + COUNTRY : '');
-                fetch(url, {headers: {'Accept': 'application/json'}}).then(function (r) { return r.json(); }).then(function (rows) {
-                    items = rows || [];
-                    box.innerHTML = items.length ? items.map(function (r, i) { return '<div data-i="' + i + '">' + esc(r.display_name) + '</div>'; }).join('') : '<div class="text-muted">No match. Try the street and city.</div>';
-                    box.style.display = 'block';
-                }).catch(function () { box.style.display = 'none'; });
-            }, 450);
+        AddressSearch.attach($(inputId), $(boxId), {
+            onClear: function () { points[which] = null; reset(); },
+            near: function () { var c = map.getCenter(); return [c.lat.toFixed(3), c.lng.toFixed(3)]; },
+            onPick: function (p) {
+                place(which, parseFloat(p.lat), parseFloat(p.lng), p.label);
+                if (which === 'to' && useStore) fillStores();
+            }
         });
-        box.addEventListener('click', function (e) {
-            var i = e.target.getAttribute('data-i');
-            if (i === null) return;
-            var r = items[+i];
-            input.value = r.display_name;
-            box.style.display = 'none';
-            place(which, parseFloat(r.lat), parseFloat(r.lon), r.display_name);
-            if (which === 'to' && useStore) fillStores();
-        });
-        document.addEventListener('click', function (e) { if (!box.contains(e.target) && e.target !== input) box.style.display = 'none'; });
     }
     suggest('qfFrom', 'qfFromSug', 'from');
     suggest('qfTo', 'qfToSug', 'to');

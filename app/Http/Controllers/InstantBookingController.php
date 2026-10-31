@@ -68,6 +68,16 @@ class InstantBookingController extends Controller
             'description' => 'required|string|max:200', 'pickup_instructions' => 'nullable|string|max:300', 'dropoff_instructions' => 'nullable|string|max:300',
             'pickup_at' => 'nullable|date',
         ]);
+        // "Get offers from providers instead": the same trip goes out for providers to price.
+        if ($request->input('mode') === 'offers') {
+            try {
+                $req = $this->instant->askProviders($request->user()->id, $quote, $d);
+            } catch (\InvalidArgumentException|RuntimeException $e) {
+                return back()->withInput()->with('error', $e->getMessage());
+            }
+
+            return redirect()->route('account.request', $req)->with('success', 'Sent to providers. Their offers appear here, with how each compares to the instant price.');
+        }
         try {
             $agreement = $this->instant->book($request->user()->id, $quote, $d);
         } catch (PriceChanged $e) {

@@ -18,6 +18,8 @@ class AppConfigController extends Controller
             'region' => \App\Support\Money::forClient() + [
                 'country' => config('region.country'), 'calling_code' => config('region.calling_code'), 'phone_example' => config('region.phone_example'),
                 'map' => config('region.map'), 'timezone' => config('app.timezone'),
+                // Map tiles the apps should draw (config/maps.php), and whether address search may run as you type.
+                'tiles' => \App\Modules\Maps\Geocoder::tiles(), 'address_type_ahead' => app(\App\Modules\Maps\Geocoder::class)->typeAhead(),
             ],
         ]);
     }

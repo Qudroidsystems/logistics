@@ -4,9 +4,13 @@ use App\Http\Controllers\Api\Customer\BookingController as B;
 use Illuminate\Support\Facades\Route;
 
 // Instant prices: public, and booking one when signed in.
+// Address search for the apps (same as the website's /geo/*).
+Route::get('v1/public/geo/search', [\App\Http\Controllers\GeoController::class, 'search'])->middleware('throttle:90,1');
+Route::get('v1/public/geo/place', [\App\Http\Controllers\GeoController::class, 'place'])->middleware('throttle:60,1');
 Route::get('v1/public/quote-options', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'options'])->middleware('throttle:60,1');
 Route::post('v1/public/quote', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'quote'])->middleware('throttle:30,1');
 Route::get('v1/public/dropoff-centres', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'centres'])->middleware('throttle:60,1');
+Route::post('v1/customer/instant-bookings/offers', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'offers'])->middleware(['auth:sanctum', 'throttle:10,1']);
 Route::post('v1/customer/instant-bookings', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'book'])->middleware(['auth:sanctum', 'throttle:20,1']);
 
 Route::middleware(['auth:sanctum', 'throttle:90,1'])->prefix('v1')->group(function () {
@@ -34,6 +38,12 @@ Route::middleware(['auth:sanctum', 'throttle:90,1'])->prefix('v1')->group(functi
         Route::post('/gift-cards/check', [\App\Http\Controllers\Api\Customer\RewardsController::class, 'check'])->middleware('throttle:10,1');
 
         Route::get('/orders/{shipment}/receipt', [B::class, 'receipt'])->middleware('throttle:20,1');
+
+        // Help requests
+        Route::get('/support', [\App\Http\Controllers\Api\Customer\SupportApiController::class, 'index']);
+        Route::post('/support', [\App\Http\Controllers\Api\Customer\SupportApiController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('/support/{ticket}', [\App\Http\Controllers\Api\Customer\SupportApiController::class, 'show'])->where('ticket', '[A-Za-z0-9]{26}');
+        Route::post('/support/{ticket}/reply', [\App\Http\Controllers\Api\Customer\SupportApiController::class, 'reply'])->where('ticket', '[A-Za-z0-9]{26}')->middleware('throttle:20,1');
 
         // Business plans
         Route::get('/plan', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'show']);

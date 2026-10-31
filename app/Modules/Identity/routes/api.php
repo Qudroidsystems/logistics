@@ -22,6 +22,9 @@ Route::prefix('v1/auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/logout-all', [AuthController::class, 'logoutAll']);
+        // Deleting the account (app stores require it in-app).
+        Route::get('/delete-account/check', [\App\Http\Controllers\AccountDeletionController::class, 'apiCheck']);
+        Route::post('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'apiDestroy'])->middleware('throttle:5,1');
         Route::post('/password', [AuthController::class, 'changePassword']);
         Route::post('/email/send-code', [EmailVerificationController::class, 'send']);
         Route::post('/email/verify', [EmailVerificationController::class, 'verify'])->middleware('throttle:10,1');

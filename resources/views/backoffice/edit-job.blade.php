@@ -67,7 +67,7 @@
     var pts = ['p', 'd'].filter(function (k) { return $(k + 'Lat') && $(k + 'Lat').value; });
     if (!pts.length) { return; }
     var map = L.map('map'), pins = {}, mode = null, bounds = [];
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+    L.tileLayer(@json(\App\Modules\Maps\Geocoder::tiles()['url']), {maxZoom: 19, attribution: @json(\App\Modules\Maps\Geocoder::tiles()['attribution'])}).addTo(map);
     pts.forEach(function (k) {
         var ll = [parseFloat($(k + 'Lat').value), parseFloat($(k + 'Lng').value)], c = k === 'p' ? '#198754' : '#dc3545';
         pins[k] = L.circleMarker(ll, {radius: 9, color: c, fillColor: c, fillOpacity: .8}).addTo(map); bounds.push(ll);

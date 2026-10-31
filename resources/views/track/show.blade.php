@@ -70,7 +70,7 @@
         delivered: 'Delivered', confirmed: 'Delivered', completed: 'Delivered', cancelled: 'Cancelled'
     };
     var map = L.map('map', {zoomControl: true}).setView([{{ (float) config('region.map.lat') }}, {{ (float) config('region.map.lng') }}], {{ (int) config('region.map.zoom') }});
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap'}).addTo(map);
+    L.tileLayer(@json(\App\Modules\Maps\Geocoder::tiles()['url']), {maxZoom: 19, attribution: @json(\App\Modules\Maps\Geocoder::tiles()['attribution'])}).addTo(map);
     var stopMarkers = [], rider = null, fitted = false, timer = null;
 
     function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }

@@ -9,8 +9,21 @@ return [
     |
     | If the engine is down or slow the app falls back to `straight`, so quoting never stops.
     | The public demo server (router.project-osrm.org) is for testing only and must not be used in production.
+    |
+    |   google    Google Routes API (GOOGLE_MAPS_KEY or ROUTING_GOOGLE_KEY, with "Routes API" enabled). Paid per request; results are cached.
+    |   mapbox    Mapbox Directions (MAPBOX_TOKEN). Paid per request above the free tier; results are cached.
     */
-    'driver' => env('ROUTING_DRIVER', 'straight'),
+    //   auto      (default) google or mapbox when that key is set for address search (config/maps.php), otherwise straight
+    'driver' => env('ROUTING_DRIVER', 'auto'),
+
+    'google' => [
+        'key' => env('ROUTING_GOOGLE_KEY'),
+        // Live traffic makes durations better and requests dearer.
+        'traffic' => (bool) env('ROUTING_TRAFFIC', false),
+    ],
+    'mapbox' => [
+        'traffic' => (bool) env('ROUTING_TRAFFIC', false),
+    ],
 
     'osrm' => [
         'base_url' => rtrim(env('OSRM_BASE_URL', 'http://osrm:5000'), '/'),

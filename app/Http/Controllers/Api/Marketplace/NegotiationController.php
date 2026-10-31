@@ -70,7 +70,7 @@ class NegotiationController extends Controller
     public function myRequests(Request $request)
     {
         return response()->json(DB::table('service_requests')->where('customer_id', $request->user()->id)->orderByDesc('id')->limit(50)
-            ->get(['public_id', 'type', 'status', 'visibility', 'distance_m', 'pickup_at', 'rush', 'expires_at', 'created_at'])
+            ->get(['public_id', 'type', 'status', 'visibility', 'distance_m', 'route_duration_s', 'reference_price', 'pickup_at', 'rush', 'expires_at', 'created_at'])
             ->map(fn ($r) => ['pickup_at' => \App\Modules\Booking\LocalTime::iso($r->pickup_at)] + (array) $r));
     }
 
@@ -92,7 +92,10 @@ class NegotiationController extends Controller
                 $o = (array) $o;
                 unset($o['operator_id']);
 
-                return $o + ['proofs' => ['pickup' => VerificationPolicy::describe($p['pickup']), 'dropoff' => VerificationPolicy::describe($p['dropoff'])]];
+                return $o + ['proofs' => ['pickup' => VerificationPolicy::describe($p['pickup']), 'dropoff' => VerificationPolicy::describe($p['dropoff'])],
+                    // Against the instant price for the same road trip, when there is one.
+                    'reference_price' => $req->reference_price !== null ? (int) $req->reference_price : null,
+                    'compared' => \App\Modules\Booking\ReferencePrice::compare($o['latest_price'] !== null ? (int) $o['latest_price'] : null, $req->reference_price !== null ? (int) $req->reference_price : null)];
             }));
     }
 
@@ -163,7 +166,7 @@ class NegotiationController extends Controller
         return response()->json(DB::table('request_invitations as i')->join('service_requests as r', 'r.id', '=', 'i.request_id')
             ->where('i.operator_id', $op)->whereIn('i.status', ['sent', 'viewed', 'countered'])->whereIn('r.status', ['open', 'negotiating'])->where('r.expires_at', '>', now())
             ->orderByDesc('r.id')->limit(50)
-            ->get(['r.public_id', 'r.type', 'r.distance_m', 'r.budget_min', 'r.budget_max', 'r.needed_by', 'r.pickup_at', 'r.rush', 'r.stops', 'i.status as invitation'])
+            ->get(['r.public_id', 'r.type', 'r.distance_m', 'r.route_duration_s', 'r.reference_price', 'r.budget_min', 'r.budget_max', 'r.needed_by', 'r.pickup_at', 'r.rush', 'r.stops', 'i.status as invitation'])
             ->map(fn ($r) => ['pickup_at' => \App\Modules\Booking\LocalTime::iso($r->pickup_at)] + (array) $r));
     }
 

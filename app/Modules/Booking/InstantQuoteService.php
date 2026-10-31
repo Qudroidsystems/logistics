@@ -62,6 +62,8 @@ class InstantQuoteService
             'vehicles' => collect((array) config('booking.vehicles'))->filter(fn ($c) => isset($vehicles[$c]))
                 ->map(fn ($c) => ['code' => $c, 'name' => $vehicles[$c]->name, 'max_kg' => (int) round($vehicles[$c]->max_weight_g / 1000)])->values()->all(),
             'currency' => Money::forClient(),
+            // Marketplace: the customer may ask providers to price the same trip instead (negotiation).
+            'offers' => \App\Support\Platform::marketplace(),
             // Partner stores a sender can hand the parcel in at instead of waiting for a pickup.
             'centres' => $this->dropoffs->list(),
         ];
@@ -265,6 +267,49 @@ class InstantQuoteService
         });
 
         return (string) DB::table('agreements')->where('id', $agreementId)->value('public_id');
+    }
+
+    /**
+     * "Get offers from providers instead": the same trip becomes a request that providers price themselves
+     * (negotiation). The instant price goes with it as the going rate. Returns the request's public id.
+     *
+     * @param  array{pickup_name?:?string, pickup_phone?:?string, dropoff_name:string, dropoff_phone:string, description:string, pickup_instructions?:?string, dropoff_instructions?:?string}  $d
+     */
+    public function askProviders(int $customerId, string $quotePublicId, array $d): string
+    {
+        if (! \App\Support\Platform::marketplace()) {
+            throw new RuntimeException('Offers from providers are not available here. Book at the instant price.');
+        }
+        $q = DB::table('quotes')->where('public_id', $quotePublicId)->first();
+        if (! $q || ! ($r = json_decode($q->request, true)) || empty($r['instant'])) {
+            throw new RuntimeException('That price is not available any more. Get a new one.');
+        }
+        if ($q->customer_id && (int) $q->customer_id !== $customerId) {
+            throw new RuntimeException('That price belongs to someone else. Get a new one.');
+        }
+        $i = $r['instant'];
+        if (! empty($i['dropoff_centre'])) {
+            throw new RuntimeException('Drop-off at a partner store works with the instant price only.');
+        }
+        if (trim((string) ($d['pickup_name'] ?? '')) === '' || trim((string) ($d['pickup_phone'] ?? '')) === '') {
+            throw new RuntimeException('Add the pickup contact name and phone.');
+        }
+        $phone = fn (string $p) => \App\Support\Phone::store($p) ?? throw new RuntimeException('Check the phone number '.$p.'. For example: '.config('region.phone_example').'.');
+        $stop = fn (array $point, string $name, string $tel, ?string $notes) => array_filter([
+            'line1' => $point['line1'] ?: 'Pinned location', 'lat' => (float) $point['lat'], 'lng' => (float) $point['lng'],
+            'contact_name' => mb_substr(trim($name), 0, 120), 'contact_phone' => $phone($tel), 'instructions' => $notes ? mb_substr(trim($notes), 0, 300) : null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $id = app(\App\Modules\Marketplace\NegotiationService::class)->createRequest($customerId, [
+            'type' => 'parcel', 'service_type_id' => (int) $q->service_type_id, 'city_id' => (int) $r['city_id'], 'vehicle_type_id' => $r['vehicle_type_id'] ?? null,
+            'pickup' => $stop($i['pickup'], (string) $d['pickup_name'], (string) $d['pickup_phone'], $d['pickup_instructions'] ?? null),
+            'dropoff' => $stop($i['dropoff'], (string) $d['dropoff_name'], (string) $d['dropoff_phone'], $d['dropoff_instructions'] ?? null),
+            'packages' => [array_filter(['description' => mb_substr(trim($d['description']), 0, 200), 'weight_g' => (int) ($r['weight_g'] ?? 0),
+                'fragile' => (bool) ($r['fragile'] ?? false), 'size' => $i['size'] ?? null], fn ($v) => $v !== null)],
+            'pickup_at' => $i['pickup_at'] ?? null, 'visibility' => 'open', 'origin' => 'instant',
+        ]);
+
+        return (string) DB::table('service_requests')->where('id', $id)->value('public_id');
     }
 
     // ---------------------------------------------------------------- rules

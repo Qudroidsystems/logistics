@@ -4,11 +4,14 @@
 @php $naira = fn ($k) => Money::symbol().number_format(((int) $k) / 100, ((int) $k) % 100 ? 2 : 0); @endphp
 <div class="main-content"><div class="page-content"><div class="container-fluid">
     <x-cb.hero :title="ucfirst($req->type).' request'" icon="ri-inbox-line" :subtitle="($stops['pickup']['line1'] ?? '').' to '.($stops['dropoff']['line1'] ?? '')" :back="route('provider.requests')" back-label="Requests">
-        <x-slot:pills><span class="cb-meta-pill">{{ $req->status }}</span>@if($req->distance_m)<span class="cb-meta-pill">{{ number_format($req->distance_m / 1000, 1) }} km</span>@endif</x-slot:pills>
+        <x-slot:pills><span class="cb-meta-pill">{{ $req->status }}</span>@if($req->distance_m)<span class="cb-meta-pill">{{ number_format($req->distance_m / 1000, 1) }} km by road</span>@endif @if($req->route_duration_s)<span class="cb-meta-pill">about {{ (int) ceil($req->route_duration_s / 60) }} min drive</span>@endif</x-slot:pills>
     </x-cb.hero>
     @include('provider._flash')
     @if(!empty($askedRider))
         <div class="cb-banner info"><i class="ri-user-star-line"></i><div><strong>The customer asked for {{ $askedRider->name }} ({{ '@'.$askedRider->handle }}).</strong> Assign them to this job if you can{{ in_array($askedRider->availability, ['online', 'on_job']) ? '' : ' (they are offline right now)' }}.</div></div>
+    @endif
+    @if($req->reference_price)
+        <div class="cb-banner info"><i class="ri-scales-3-line"></i><div><strong>Going rate: {{ $naira($req->reference_price) }}.</strong> That is the instant price for this trip on the road route. You set your own price; the customer sees how your offer compares.</div></div>
     @endif
     <div class="row g-3">
         <div class="col-lg-7">

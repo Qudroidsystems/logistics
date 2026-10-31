@@ -42,6 +42,11 @@
                     <button class="btn btn-primary w-100">Change password</button>
                 </form>
             </x-cb.card>
+            <x-cb.card title="Delete account" icon="ri-delete-bin-line" class="mt-3">
+                <p class="small text-muted mb-2">Removes your name, email, phone, photo and saved places for good. Past payment records are kept without your details.</p>
+                <a href="{{ route('delete-account') }}" class="btn btn-outline-danger w-100">Delete my account</a>
+                <div class="small mt-2"><a href="{{ route('privacy') }}">Privacy policy</a> · <a href="{{ route('terms') }}">Terms</a></div>
+            </x-cb.card>
         </div>
     </div>
 </div></div></div>

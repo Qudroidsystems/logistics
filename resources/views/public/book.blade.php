@@ -61,6 +61,11 @@
                 @endif
 
                 <button class="btn btn-brand btn-lg w-100 mt-2">Continue to payment</button>
+                @if(($options['offers'] ?? false) && ! $q['centre'])
+                    <div class="text-center small text-muted my-2">or</div>
+                    <button name="mode" value="offers" class="btn btn-outline-dark w-100">Get offers from providers instead</button>
+                    <div class="small text-muted text-center mt-1">Providers set their own price for this trip. You see each offer next to the {{ $q['total_text'] }} instant price and choose.</div>
+                @endif
                 <div class="small text-muted text-center mt-2">You won't be charged until you pay on the next page.</div>
             </form>
         </div>

@@ -128,7 +128,7 @@
     var $ = function (id) { return document.getElementById(id); };
     var start = [{{ $centre->lat ?? (float) config('region.map.lat') }}, {{ $centre->lng ?? (float) config('region.map.lng') }}];
     var map = L.map('map').setView(start, {{ $centre ? 13 : 6 }});
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+    L.tileLayer(@json(\App\Modules\Maps\Geocoder::tiles()['url']), {maxZoom: 19, attribution: @json(\App\Modules\Maps\Geocoder::tiles()['attribution'])}).addTo(map);
     var stops = [], marks = [], line = null;
     function redraw() {
         marks.forEach(function (m) { map.removeLayer(m); }); marks = [];

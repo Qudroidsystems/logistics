@@ -66,7 +66,7 @@
 @endif
 <footer class="pub container py-4 mt-4 border-top d-flex flex-wrap justify-content-between gap-2">
     <span>&copy; {{ date('Y') }} {{ $brand['name'] }}</span>
-    <span class="d-flex gap-3"><a href="{{ route('track.lookup') }}">Track a delivery</a><a href="{{ route('partners') }}">Become a drop-off partner</a><a href="{{ route('business') }}">Business plans</a><a href="{{ route('drive') }}">Drive with us</a></span>
+    <span class="d-flex flex-wrap gap-3"><a href="{{ route('track.lookup') }}">Track a delivery</a><a href="{{ route('partners') }}">Become a drop-off partner</a><a href="{{ route('business') }}">Business plans</a><a href="{{ route('drive') }}">Drive with us</a><a href="{{ route('privacy') }}">Privacy</a><a href="{{ route('terms') }}">Terms</a></span>
 </footer>
 @endunless
 </body>

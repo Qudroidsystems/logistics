@@ -47,6 +47,22 @@ class InstantQuoteApiController extends Controller
         }
     }
 
+    /** POST /v1/customer/instant-bookings/offers: the same trip, priced by providers instead (negotiation). Returns {request}. */
+    public function offers(Request $request)
+    {
+        $d = $request->validate([
+            'quote' => 'required|string|size:26',
+            'pickup_name' => 'required|string|max:120', 'pickup_phone' => 'required|string|max:24',
+            'dropoff_name' => 'required|string|max:120', 'dropoff_phone' => 'required|string|max:24',
+            'description' => 'required|string|max:200', 'pickup_instructions' => 'nullable|string|max:300', 'dropoff_instructions' => 'nullable|string|max:300',
+        ]);
+        try {
+            return response()->json(['request' => $this->instant->askProviders($request->user()->id, $d['quote'], $d)], 201);
+        } catch (\InvalidArgumentException|RuntimeException $e) {
+            return response()->json(['error' => 'cannot_ask', 'message' => $e->getMessage()], 422);
+        }
+    }
+
     public function book(Request $request)
     {
         $d = $request->validate([
