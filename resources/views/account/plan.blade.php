@@ -41,6 +41,26 @@
                 </x-cb.card>
             </div>
             <div class="col-lg-5">
+                @if($card || $canSaveCard)
+                <x-cb.card title="Card for renewals" icon="ri-bank-card-line" class="mb-3">
+                    @if($card)
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div><strong>{{ $card['brand'] }} ending {{ $card['last4'] }}</strong>@if($card['exp']) <span class="text-muted small">· expires {{ $card['exp'] }}</span>@endif
+                                @if($card['expired'])<div class="small text-danger">This card has expired. Save a new one with your next top-up.</div>
+                                @elseif($card['failing'])<div class="small text-danger">It was declined last time. We will try it again next month; top up your wallet now to keep your plan.</div>@endif</div>
+                            <form method="POST" action="{{ route('account.plan.card.remove', $card['id']) }}" onsubmit="return confirm('Remove this card?')">@csrf <button class="btn btn-sm btn-link text-danger">Remove</button></form>
+                        </div>
+                        <form method="POST" action="{{ route('account.plan.card', $card['id']) }}">@csrf
+                            <input type="hidden" name="auto_topup" value="{{ $card['auto_topup'] ? 0 : 1 }}">
+                            <div class="small mb-2">{{ $card['auto_topup'] ? 'When a renewal is due and your wallet is short, we take the difference from this card.' : 'Automatic top-up is off: renewals use your wallet only.' }}</div>
+                            <button class="btn btn-sm {{ $card['auto_topup'] ? 'btn-outline-secondary' : 'btn-primary' }}">{{ $card['auto_topup'] ? 'Turn off automatic top-up' : 'Turn on automatic top-up' }}</button>
+                        </form>
+                    @else
+                        <p class="small mb-2">Never miss a renewal: save a card when you top up, and we will use it only when your wallet is short on renewal day.</p>
+                        <a href="{{ route('account.wallet', ['save_card' => 1]) }}" class="btn btn-sm btn-outline-primary">Top up and save a card</a>
+                    @endif
+                </x-cb.card>
+                @endif
                 <x-cb.card title="This month's deliveries" icon="ri-list-check-2" :flush="true">
                     <div class="table-responsive"><table class="table table-sm mb-0">
                         @forelse($uses as $u)

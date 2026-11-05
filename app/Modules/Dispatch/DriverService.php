@@ -50,13 +50,58 @@ class DriverService
             ->all();
     }
 
+    /** The driver's live jobs, in the order to do them (see run()); each with its next stop. */
     public function jobs(int $driverId): array
     {
-        return DB::table('assignments as a')->join('shipments as s', 's.id', '=', 'a.shipment_id')
+        $jobs = DB::table('assignments as a')->join('shipments as s', 's.id', '=', 'a.shipment_id')
             ->where('a.driver_profile_id', $driverId)->whereIn('a.status', self::LIVE)
             ->orderBy('a.id')
             ->get(['s.id as shipment_id', 's.public_id as shipment', 's.status', 'a.status as assignment', 'a.payout_amount'])
             ->map(fn ($j) => $this->withEnds($j))->all();
+        if (count($jobs) < 2) {
+            return $jobs;
+        }
+        $run = $this->run($driverId);
+        $first = [];
+        foreach ($run as $i => $stop) {
+            $first[$stop['shipment']] ??= ['position' => $i + 1, 'type' => $stop['type'], 'line1' => $stop['line1']];
+        }
+        foreach ($jobs as &$j) {
+            $j['next_stop'] = $first[$j['shipment']] ?? null;
+        }
+        unset($j);
+        usort($jobs, fn ($a, $b) => ($a['next_stop']['position'] ?? PHP_INT_MAX) <=> ($b['next_stop']['position'] ?? PHP_INT_MAX));
+
+        return $jobs;
+    }
+
+    /** Every stop still to do across the driver's live jobs, in a sensible order (RunPlanner), from where the driver is now. */
+    public function run(int $driverId): array
+    {
+        $shipments = DB::table('assignments as a')->join('shipments as s', 's.id', '=', 'a.shipment_id')
+            ->where('a.driver_profile_id', $driverId)->whereIn('a.status', self::LIVE)->orderBy('a.id')->get(['s.id', 's.public_id', 's.status']);
+        if ($shipments->isEmpty()) {
+            return [];
+        }
+        $collected = ['picked_up', 'in_transit', 'at_dropoff', 'delivered'];
+        $byId = $shipments->keyBy('id');
+        $stops = DB::table('shipment_stops')->whereIn('shipment_id', $shipments->pluck('id'))->whereNotIn('status', ['completed', 'failed', 'skipped'])
+            ->orderBy('shipment_id')->orderBy('seq')
+            ->get(['id', 'shipment_id', 'seq', 'type', 'line1', DB::raw('ST_Y(point::geometry) AS lat'), DB::raw('ST_X(point::geometry) AS lng')])
+            // A pickup is done once the parcel is collected, even if the stop row was not closed.
+            ->reject(fn ($st) => $st->type === 'pickup' && in_array($byId[$st->shipment_id]->status, $collected, true))
+            ->keyBy('id');
+        $here = DB::table('driver_profiles')->where('id', $driverId)->whereNotNull('last_point')
+            ->selectRaw('ST_Y(last_point::geometry) AS lat, ST_X(last_point::geometry) AS lng')->first();
+        $order = RunPlanner::order($here?->lat !== null ? (float) $here->lat : null, $here?->lng !== null ? (float) $here->lng : null,
+            $stops->map(fn ($st) => ['key' => (string) $st->id, 'job' => (string) $st->shipment_id, 'seq' => (int) $st->seq,
+                'lat' => $st->lat !== null ? (float) $st->lat : null, 'lng' => $st->lng !== null ? (float) $st->lng : null])->values()->all());
+
+        return array_map(function ($key) use ($stops, $byId) {
+            $st = $stops[(int) $key];
+
+            return ['shipment' => $byId[$st->shipment_id]->public_id, 'type' => $st->type, 'line1' => $st->line1, 'lat' => (float) $st->lat, 'lng' => (float) $st->lng];
+        }, $order);
     }
 
     public function history(int $driverId, int $limit = 20): array

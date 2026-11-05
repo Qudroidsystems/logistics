@@ -1,5 +1,5 @@
 @php $brand ??= \App\Models\BrandSetting::forApp('customer'); @endphp
-@extends('public._layout', ['title' => 'Delete your account · '.$brand['name']])
+@extends('public._layout', ['title' => 'Delete your account · '.$brand['name'], 'noindex' => true])
 @section('content')
 <div class="container py-5" style="max-width: 640px">
 <div class="pub-card">

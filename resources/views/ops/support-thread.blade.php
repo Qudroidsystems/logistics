@@ -32,7 +32,8 @@
         </div>
         <div class="col-xl-4">
             <x-cb.card title="Customer" icon="ri-user-line" class="mb-3">
-                <div class="fw-semibold">{{ $ticket->customer }}</div>
+                @php $cp = \Illuminate\Support\Facades\DB::table('customer_profiles')->where('user_id', $ticket->requester_id)->value('public_id'); @endphp
+                <div class="fw-semibold">@if($cp)<a href="{{ route('ops.customer', $cp) }}">{{ $ticket->customer }}</a>@else{{ $ticket->customer }}@endif</div>
                 <div class="small">{{ $ticket->customer_email }}</div>
                 @if($ticket->customer_phone)<div class="small">{{ \App\Support\Phone::display($ticket->customer_phone) }}</div>@endif
                 @if($ticket->order_number)

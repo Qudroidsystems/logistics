@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 // Instant prices: public, and booking one when signed in.
 // Address search for the apps (same as the website's /geo/*).
 Route::get('v1/public/geo/search', [\App\Http\Controllers\GeoController::class, 'search'])->middleware('throttle:90,1');
+Route::get('v1/public/geo/reverse', [\App\Http\Controllers\GeoController::class, 'reverse'])->middleware('throttle:20,1');
 Route::get('v1/public/geo/place', [\App\Http\Controllers\GeoController::class, 'place'])->middleware('throttle:60,1');
 Route::get('v1/public/quote-options', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'options'])->middleware('throttle:60,1');
 Route::post('v1/public/quote', [\App\Http\Controllers\Api\InstantQuoteApiController::class, 'quote'])->middleware('throttle:30,1');
@@ -45,12 +46,21 @@ Route::middleware(['auth:sanctum', 'throttle:90,1'])->prefix('v1')->group(functi
         Route::get('/support/{ticket}', [\App\Http\Controllers\Api\Customer\SupportApiController::class, 'show'])->where('ticket', '[A-Za-z0-9]{26}');
         Route::post('/support/{ticket}/reply', [\App\Http\Controllers\Api\Customer\SupportApiController::class, 'reply'])->where('ticket', '[A-Za-z0-9]{26}')->middleware('throttle:20,1');
 
+        // Recurring deliveries
+        Route::get('/recurring', [\App\Http\Controllers\Api\Customer\RecurringApiController::class, 'index']);
+        Route::post('/recurring', [\App\Http\Controllers\Api\Customer\RecurringApiController::class, 'store'])->middleware('throttle:20,1');
+        Route::put('/recurring/{schedule}', [\App\Http\Controllers\Api\Customer\RecurringApiController::class, 'update'])->where('schedule', '[A-Za-z0-9]{26}')->middleware('throttle:20,1');
+        Route::post('/recurring/{schedule}', [\App\Http\Controllers\Api\Customer\RecurringApiController::class, 'update'])->where('schedule', '[A-Za-z0-9]{26}')->middleware('throttle:20,1');
+        Route::post('/recurring/{schedule}/status', [\App\Http\Controllers\Api\Customer\RecurringApiController::class, 'status'])->where('schedule', '[A-Za-z0-9]{26}');
+
         // Business plans
         Route::get('/plan', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'show']);
         Route::post('/plan', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'subscribe'])->middleware('throttle:10,1');
         Route::post('/plan/change', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'change'])->middleware('throttle:10,1');
         Route::post('/plan/cancel', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'cancel']);
         Route::post('/plan/resume', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'resume']);
+        Route::post('/card/{card}', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'cardAuto'])->where('card', '[A-Za-z0-9]{26}');
+        Route::delete('/card/{card}', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'cardRemove'])->where('card', '[A-Za-z0-9]{26}');
         Route::post('/plan/pay', [\App\Http\Controllers\Api\Customer\SubscriptionApiController::class, 'pay'])->middleware('throttle:10,1');
     });
 

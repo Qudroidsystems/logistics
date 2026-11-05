@@ -23,6 +23,7 @@ Route::middleware('auth')->prefix('provider')->name('provider.')->group(function
     Route::get('/', [W::class, 'dashboard'])->name('dashboard');
 
     Route::get('/dispatch', [W::class, 'board'])->name('dispatch');
+    Route::post('/dispatch/assign-group', [W::class, 'assignGroup'])->middleware('throttle:30,1')->name('dispatch.group');
     Route::get('/fleet', [Fl::class, 'index'])->name('fleet');
     Route::get('/vehicles', [Vh::class, 'index'])->name('vehicles');
     Route::put('/vehicles/{vehicle}/care', [Vh::class, 'care'])->where('vehicle', '[A-Za-z0-9]{26}')->name('vehicles.care');

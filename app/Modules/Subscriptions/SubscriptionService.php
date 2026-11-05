@@ -149,6 +149,7 @@ class SubscriptionService
         $ids = DB::table('subscriptions')->whereIn('status', self::LIVE)->where('current_period_end', '<=', $now)->limit(500)->pluck('id');
         foreach ($ids as $id) {
             try {
+                $this->autoTopUp((int) $id);
                 $this->renewOne((int) $id, $now, false);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning("Plan renewal {$id}: {$e->getMessage()}");
@@ -156,6 +157,27 @@ class SubscriptionService
         }
 
         return $ids->count();
+    }
+
+    /**
+     * Customers with a saved card and auto top-up on: if the wallet can't cover the fee, take the shortfall from the
+     * card first. At most one try per plan month, so a declined card is not charged again every hour.
+     */
+    private function autoTopUp(int $id): void
+    {
+        $s = DB::table('subscriptions')->where('id', $id)->first();
+        if (! $s || $s->cancel_at_period_end) {
+            return;
+        }
+        $price = (int) DB::table('subscription_plans')->where('id', $s->next_plan_id ?: $s->plan_id)->where('active', true)->where('contact_only', false)->value('price');
+        if ($price <= 0) {
+            return;
+        }
+        $result = app(\App\Modules\Payments\Cards\SavedCards::class)->topUpFor((int) $s->user_id, $price, "plan-{$id}-".CarbonImmutable::parse($s->current_period_end)->format('YmdHis'));
+        if ($result === 'failed') {
+            $card = app(\App\Modules\Payments\Cards\SavedCards::class)->current((int) $s->user_id);
+            $this->notifications->notify((int) $s->user_id, 'subscription.card_declined', ['card' => $card ? $card['brand'].' ending '.$card['last4'] : 'your card'], '/account/plan');
+        }
     }
 
     private function renewOne(int $id, CarbonImmutable $now, bool $strict): void

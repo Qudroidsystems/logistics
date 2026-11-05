@@ -38,6 +38,20 @@ class DropOffCentresController extends Controller
         ]);
     }
 
+    public function statement(Request $request, int $centre, string $month)
+    {
+        $this->check($request);
+        $c = DB::table('dropoff_centres')->where('id', $centre)->first();
+        abort_unless($c, 404);
+        try {
+            $s = app(\App\Modules\DropOff\StoreStatements::class)->build($centre, $month);
+        } catch (\InvalidArgumentException) {
+            abort(404);
+        }
+
+        return view('partner.statement', ['brand' => \App\Models\BrandSetting::forApp('customer'), 'centre' => $c, 's' => $s, 'back' => route('ops.dropoff')]);
+    }
+
     public function approve(Request $request, int $application)
     {
         $this->check($request);

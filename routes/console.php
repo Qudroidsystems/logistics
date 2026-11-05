@@ -38,6 +38,9 @@ Schedule::command('agreements:expire-unpaid')->hourly()->withoutOverlapping(10);
 // Business accounts: bill last month's finished deliveries on the 1st.
 Schedule::command('invoices:monthly')->monthlyOn(1, '06:00')->withoutOverlapping(60);
 
+// Partner stores: last month's statement (parcels, earned, paid, still owed) on the 1st.
+Schedule::command('dropoff:statements')->monthlyOn(1, '06:30')->withoutOverlapping(60);
+
 // Providers: refresh ratings, completion and dispute rates, score and tier every night.
 Schedule::command('providers:refresh-scores')->dailyAt('04:00')->withoutOverlapping(30);
 
@@ -68,6 +71,15 @@ Schedule::command('subscriptions:renew')->hourly()->withoutOverlapping(10);
 
 // Watches the other scheduled commands and the queue; tells staff when something stops (Ops > System).
 Schedule::command('system:watch')->everyTenMinutes()->withoutOverlapping(10);
+
+// Security: app sign-ins not used for 60 days (APP_TOKEN_IDLE_DAYS) are removed.
+Schedule::command('tokens:prune-idle')->dailyAt('03:50');
+
+// Price checks that were never booked are removed a week after they expire.
+Schedule::command('quotes:prune')->dailyAt('04:10');
+
+// Error reports not seen for 30 days are forgotten (Ops > System).
+Schedule::call(fn () => app(\App\Modules\System\ErrorReports::class)->prune())->name('errors:prune')->dailyAt('04:20')->withoutOverlapping();
 
 // Privacy: documents from declined driver applications go after 90 days.
 Schedule::call(fn () => app(\App\Modules\Drivers\DriverApplicationService::class)->pruneDeclined())->name('drivers:prune-declined')->dailyAt('03:40')->withoutOverlapping();

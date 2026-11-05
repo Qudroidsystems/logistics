@@ -18,7 +18,22 @@ class PlanController extends Controller
         return view('account.plan', $this->plans->summary($request->user()->id) + [
             'balance' => $wallet->balance($request->user()->id), 'pagetitle' => 'Business plan',
             'salesEmail' => config('booking.sales_email'),
+            'card' => app(\App\Modules\Payments\Cards\SavedCards::class)->current($request->user()->id),
+            'canSaveCard' => app(\App\Modules\Payments\Cards\SavedCards::class)->canSave(),
         ]);
+    }
+
+    public function cardAuto(Request $request, string $card)
+    {
+        $d = $request->validate(['auto_topup' => 'required|boolean']);
+
+        return $this->run(fn () => app(\App\Modules\Payments\Cards\SavedCards::class)->setAutoTopUp($request->user()->id, $card, (bool) $d['auto_topup']),
+            $d['auto_topup'] ? 'Renewals will top up from your card when your wallet is short.' : 'Automatic top-up is off.');
+    }
+
+    public function cardRemove(Request $request, string $card)
+    {
+        return $this->run(fn () => app(\App\Modules\Payments\Cards\SavedCards::class)->remove($request->user()->id, $card), 'Card removed.');
     }
 
     private function run(callable $fn, string $ok)

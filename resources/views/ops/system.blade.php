@@ -52,6 +52,23 @@
                 </table></div>
             </x-cb.card>
 
+            <x-cb.card title="Errors" icon="ri-bug-line" :count="count($errorReports)" :flush="true" class="mb-3">
+                <div class="table-responsive"><table class="table align-middle mb-0">
+                    @forelse($errorReports as $er)
+                        <tr>
+                            <td><div class="fw-semibold small">{{ class_basename($er->class) }} <span class="badge bg-light text-dark">{{ $er->count }}×</span></div>
+                                <div class="small text-danger">{{ \Illuminate\Support\Str::limit($er->message, 200) }}</div>
+                                <div class="small text-muted font-monospace">{{ $er->file }}:{{ $er->line }}@if($er->url) · {{ $er->url }}@endif</div>
+                                <div class="small text-muted">Last {{ \Illuminate\Support\Carbon::parse($er->last_seen_at)->diffForHumans() }} · first {{ \Illuminate\Support\Carbon::parse($er->first_seen_at)->diffForHumans() }}</div>
+                                @if($er->trace)<details class="small"><summary>Trace</summary><pre class="mb-0 small" style="white-space: pre-wrap">{{ $er->trace }}</pre></details>@endif</td>
+                            <td class="text-end"><form method="POST" action="{{ route('ops.system.error.resolve', $er->id) }}">@csrf <button class="btn btn-sm btn-outline-success">Fixed</button></form></td>
+                        </tr>
+                    @empty
+                        <tr><td class="text-center text-muted py-4">No errors. Unexpected errors in the website, the apps' API and background jobs show here, grouped by where they happen.</td></tr>
+                    @endforelse
+                </table></div>
+            </x-cb.card>
+
             <x-cb.card title="Failed background jobs" icon="ri-error-warning-line" :count="count($failed)" :flush="true">
                 <div class="table-responsive"><table class="table align-middle mb-0">
                     @forelse($failed as $f)

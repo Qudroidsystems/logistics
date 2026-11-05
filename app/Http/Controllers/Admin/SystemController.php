@@ -20,7 +20,7 @@ class SystemController extends Controller
     {
         $this->check($request);
 
-        return view('ops.system', $health->page() + ['pagetitle' => 'System']);
+        return view('ops.system', $health->page() + ['errorReports' => app(\App\Modules\System\ErrorReports::class)->open(), 'pagetitle' => 'System']);
     }
 
     public function retry(Request $request, string $uuid)
@@ -30,6 +30,14 @@ class SystemController extends Controller
         Artisan::call('queue:retry', ['id' => [$uuid]]);
 
         return back()->with('success', 'Sent back to the queue.');
+    }
+
+    public function resolveError(Request $request, int $error)
+    {
+        $this->check($request);
+        app(\App\Modules\System\ErrorReports::class)->resolve($error);
+
+        return back()->with('success', 'Marked as fixed. You will be told if it happens again.');
     }
 
     public function forget(Request $request, string $uuid)

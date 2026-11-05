@@ -27,6 +27,7 @@ class NotificationTemplates
         'offer.counter_to_customer' => ['title' => 'Provider countered', 'body' => '{provider} proposed {amount}. Accept or reply.', 'email' => false],
 
         // ---- delivery lifecycle (customer side)
+        'delivery.jobs_assigned' => ['title' => '{count} new jobs for you', 'body' => 'You have been given {count} jobs from the same pickup: {orders}. Collect them together.', 'email' => false],
         'delivery.job_assigned' => ['title' => 'New job for you', 'body' => 'You have been given order {order}. Open it for the pickup details.', 'email' => false],
         'delivery.job_updated' => ['title' => 'Job details changed', 'body' => 'Dispatch updated the details of order {order}. Open it to see the new address or instructions.', 'email' => false],
         'delivery.driver_issue' => ['title' => 'Driver reported a problem', 'body' => 'On order {order}: {reason}. Open the job to decide what to do.', 'email' => true],
@@ -44,6 +45,8 @@ class NotificationTemplates
         'subscription.past_due' => ['title' => 'We could not renew your {plan} plan', 'body' => 'Your wallet did not have {amount}. Top it up and press "Pay now" on your plan page. Until then deliveries are charged at the normal price.', 'email' => true],
         'subscription.cancelled' => ['title' => 'Your {plan} plan has ended', 'body' => 'Your business plan has ended. You can start a new one any time.', 'email' => true],
         'dropoff.bring_parcel' => ['title' => 'Take your parcel to the store', 'body' => 'Order {order} is booked. Take the parcel to {store}, {address} ({hours}) and give them code {code}. A driver collects it from there.', 'email' => true],
+        'subscription.card_declined' => ['title' => 'Your card was declined', 'body' => 'We tried to top up your wallet from {card} for your plan renewal, but the card was declined. Top up your wallet or update your card to keep your plan.', 'email' => true],
+        'dropoff.statement' => ['title' => 'Your {month} statement', 'body' => '{store}: {parcels} parcel(s) handed to drivers in {month}, earning {earned}. Paid to you that month: {paid}. Still owed today: {owed}.', 'email' => true],
         'dropoff.received_customer' => ['title' => 'The store has your parcel', 'body' => 'Your parcel for order {order} is at the store. A driver is on the way to collect it.', 'email' => false],
         'partner.approved' => ['title' => 'Your store is approved', 'body' => '{store} is now a drop-off point. Sign in and open the counter screen to receive parcels: {link}', 'email' => true],
         'payment.etransfer_instructions' => ['title' => 'Send your e-Transfer', 'body' => 'Send {amount} by Interac e-Transfer to {email} and put {reference} in the message. We hold your booking for {hours} hours.', 'email' => true],

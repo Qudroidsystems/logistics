@@ -30,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Who is acting, for the data-change audit trail; then two-step sign-in where it is required.
         $middleware->web(append: [\App\Http\Middleware\AuditContext::class, \App\Http\Middleware\RequireTwoFactor::class]);
+
+        // Browser security headers on every web page (HSTS, no framing by other sites, no MIME sniffing).
+        $middleware->web(append: [\App\Http\Middleware\SecurityHeaders::class]);
         $middleware->api(append: [\App\Http\Middleware\AuditContext::class]);
 
         $middleware->validateCsrfTokens(except: [
@@ -48,6 +51,11 @@ return Application::configure(basePath: dirname(__DIR__))
         );
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Built-in error tracking: grouped and counted on Ops > System, staff told about new ones.
+        $exceptions->report(function (\Throwable $e) {
+            app(\App\Modules\System\ErrorReports::class)->record($e);
+        });
+
         // Fallback for an expired session / CSRF token anywhere else.
         // Laravel turns TokenMismatchException into an HttpException(419)
         // before render callbacks run, so match the 419 status here.

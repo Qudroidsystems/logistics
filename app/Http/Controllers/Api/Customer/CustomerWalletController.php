@@ -27,9 +27,9 @@ class CustomerWalletController extends Controller
 
     public function topUp(Request $request, WalletService $wallet)
     {
-        $d = $request->validate(['amount' => 'required|integer|min:1', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe,etransfer']);
+        $d = $request->validate(['amount' => 'required|integer|min:1', 'gateway' => 'nullable|string|in:paystack,opay,monnify,stripe,etransfer', 'save_card' => 'nullable|boolean']);
 
-        return $this->run(fn () => $wallet->startTopUp($request->user()->id, (int) $d['amount'], $d['gateway'] ?? null), 201);
+        return $this->run(fn () => $wallet->startTopUp($request->user()->id, (int) $d['amount'], $d['gateway'] ?? null, (bool) ($d['save_card'] ?? false)), 201);
     }
 
     /** Online payment methods the customer can pick on the pay and top-up screens. */

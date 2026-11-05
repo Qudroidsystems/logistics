@@ -98,6 +98,28 @@ class RecurringDeliveriesTest extends TestCase
         $this->assertSame('ended', DB::table('recurring_deliveries')->value('status'));
     }
 
+    public function test_the_app_can_list_create_edit_and_pause_schedules(): void
+    {
+        $body = [
+            'name' => 'Daily bread', 'pickup' => ['lat' => 43.45, 'lng' => -80.49, 'line1' => '1 King St', 'contact_name' => 'Bakery', 'contact_phone' => '2265550123'],
+            'dropoff' => ['lat' => 43.47, 'lng' => -80.54, 'line1' => '200 University Ave', 'contact_name' => 'Cafe', 'contact_phone' => '5195550199'],
+            'size' => 'medium', 'description' => 'Bread', 'pattern' => 'weekly', 'days' => [1, 3], 'time' => '10:00', 'starts_on' => now()->toDateString(),
+        ];
+        $this->actingAs($this->biz, 'sanctum')->getJson('/api/v1/customer/recurring')->assertOk()->assertJsonPath('schedules', [])->assertJsonPath('days.1', 'Mon');
+        $this->actingAs($this->biz, 'sanctum')->postJson('/api/v1/customer/recurring', ['days' => []] + $body)->assertStatus(422);
+        $id = $this->actingAs($this->biz, 'sanctum')->postJson('/api/v1/customer/recurring', $body)->assertCreated()
+            ->assertJsonPath('schedule.when', 'Mon, Wed at 10:00 am')->json('schedule.id');
+        $this->actingAs($this->biz, 'sanctum')->putJson("/api/v1/customer/recurring/{$id}", ['time' => '14:30', 'pattern' => 'weekdays'] + $body)->assertOk()
+            ->assertJsonPath('schedule.when', 'Weekdays at 2:30 pm');
+        $this->actingAs($this->biz, 'sanctum')->postJson("/api/v1/customer/recurring/{$id}/status", ['status' => 'paused'])->assertOk();
+        $this->assertSame('paused', DB::table('recurring_deliveries')->value('status'));
+
+        // Someone else's schedule is not found.
+        $other = $this->makeUser('Other');
+        $this->actingAs($other, 'sanctum')->postJson("/api/v1/customer/recurring/{$id}/status", ['status' => 'ended'])->assertStatus(422);
+        $this->actingAs($other, 'sanctum')->getJson('/api/v1/customer/recurring')->assertJsonPath('schedules', []);
+    }
+
     public function test_weekly_needs_days_and_addresses(): void
     {
         $this->actingAs($this->biz)->post('/account/recurring', ['name' => 'x', 'from' => 'address', 'dropoff_lat' => 43.47, 'dropoff_lng' => -80.54, 'dropoff_line1' => 'a',

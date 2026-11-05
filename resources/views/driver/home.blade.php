@@ -29,11 +29,12 @@
     </x-cb.card>
 
     @if(count($jobs))
-    <x-cb.card title="Your job" icon="ri-route-line" :count="count($jobs)">
+    <x-cb.card :title="count($jobs) > 1 ? 'Your jobs, in the order to do them' : 'Your job'" icon="ri-route-line" :count="count($jobs)">
         @foreach($jobs as $j)
             <a href="{{ route('driver.job', $j['shipment']) }}" class="d-block p-3 border rounded mb-2 text-decoration-none text-reset">
                 <div class="d-flex justify-content-between"><strong>{{ str_replace('_', ' ', ucfirst($j['status'])) }}</strong>@if($j['payout_amount'])<span>{{ $naira($j['payout_amount']) }}</span>@endif</div>
                 <div class="small text-muted">{{ $j['pickup'] }} to {{ $j['dropoff'] }}</div>
+                @if(! empty($j['next_stop']))<div class="small"><span class="badge bg-primary-subtle text-primary">{{ $j['next_stop']['position'] }}</span> Next: {{ $j['next_stop']['type'] === 'pickup' ? 'pick up at' : 'drop off at' }} {{ $j['next_stop']['line1'] }}</div>@endif
             </a>
         @endforeach
     </x-cb.card>

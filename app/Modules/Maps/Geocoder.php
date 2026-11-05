@@ -101,6 +101,47 @@ class Geocoder
         });
     }
 
+    /** The street address at a point ("Use my location"). Never cached: it is one person's position. Null when nothing is found. */
+    public function reverse(float $lat, float $lng): ?string
+    {
+        $driver = $this->driver();
+        try {
+            if ($driver === 'google') {
+                $r = Http::timeout(6)->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                    'latlng' => "{$lat},{$lng}", 'result_type' => 'street_address|premise', 'key' => (string) config('maps.google.key'),
+                ]);
+
+                return $r->successful() ? ($r->json('results.0.formatted_address') ?: null) : null;
+            }
+            if ($driver === 'mapbox') {
+                $r = Http::timeout(6)->get('https://api.mapbox.com/search/geocode/v6/reverse', [
+                    'longitude' => $lng, 'latitude' => $lat, 'types' => 'address', 'limit' => 1, 'access_token' => (string) config('maps.mapbox.token'),
+                ]);
+
+                return $r->successful() ? ($r->json('features.0.properties.full_address') ?: null) : null;
+            }
+            $lock = Cache::lock('geo:nominatim', 5);
+            $lock->block(5);
+            try {
+                $wait = 1.05 - (microtime(true) - (float) Cache::get('geo:nominatim:last', 0));
+                if ($wait > 0) {
+                    usleep((int) ($wait * 1_000_000));
+                }
+                $r = Http::timeout(6)->withHeaders(['User-Agent' => config('app.name').' ('.(config('booking.contact_email') ?: config('mail.from.address')).')'])
+                    ->get(config('maps.nominatim.url').'/reverse', ['format' => 'jsonv2', 'lat' => $lat, 'lon' => $lng, 'zoom' => 18]);
+                Cache::put('geo:nominatim:last', microtime(true), 60);
+            } finally {
+                $lock->release();
+            }
+
+            return $r->successful() ? ($r->json('display_name') ?: null) : null;
+        } catch (Throwable $e) {
+            Log::warning("Reverse geocoding ({$driver}) failed: {$e->getMessage()}");
+
+            return null;
+        }
+    }
+
     private function google(string $q, string $country, ?float $lat, ?float $lng, ?string $session): array
     {
         $body = array_filter([

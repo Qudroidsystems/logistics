@@ -1,6 +1,21 @@
 <?php
 
 return [
+    // Database backups (Admin > Database Backups): copy each one off the server, and whether emails may carry the file.
+    // Bot check on the public price form (App\Support\BotCheck); off when empty.
+    'turnstile' => ['site_key' => env('TURNSTILE_SITE_KEY'), 'secret_key' => env('TURNSTILE_SECRET_KEY')],
+
+    // Website analytics (partials/analytics): plausible (no cookies) | ga4 (after consent) | empty = off.
+    'analytics' => ['driver' => env('ANALYTICS'), 'plausible_domain' => env('PLAUSIBLE_DOMAIN'), 'ga_id' => env('GA_MEASUREMENT_ID')],
+
+    // App sign-ins unused this many days are removed (tokens:prune-idle).
+    'app_tokens' => ['idle_days' => (int) env('APP_TOKEN_IDLE_DAYS', 60)],
+
+    'backup' => [
+        'copy_command' => env('BACKUP_COPY_COMMAND'),
+        'email_attach' => (bool) env('BACKUP_EMAIL_ATTACH', false),
+    ],
+
 
     /*
     |--------------------------------------------------------------------------

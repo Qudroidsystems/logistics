@@ -108,6 +108,7 @@ class ProcessGatewayEvent implements ShouldQueue
 
         if (! $intent->agreement_id) {
             app(\App\Modules\Payments\WalletService::class)->creditTopUp((int) $intent->id); // wallet top-up
+            app(\App\Modules\Payments\Cards\SavedCards::class)->afterTopUp((int) $intent->id);
 
             return null;
         }

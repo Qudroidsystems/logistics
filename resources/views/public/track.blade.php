@@ -1,4 +1,4 @@
-@extends('public._layout', ['title' => 'Track a delivery'])
+@extends('public._layout', ['title' => 'Track a delivery', 'description' => 'Track your delivery with its tracking code: status, live driver location and proof of delivery.'])
 @section('content')
 <div class="container py-5" style="max-width: 560px">
     <div class="pub-card">

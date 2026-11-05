@@ -67,6 +67,8 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::post('/plan/change', [\App\Http\Controllers\Customer\PlanController::class, 'change'])->middleware('throttle:10,1')->name('plan.change');
     Route::post('/plan/cancel', [\App\Http\Controllers\Customer\PlanController::class, 'cancel'])->name('plan.cancel');
     Route::post('/plan/resume', [\App\Http\Controllers\Customer\PlanController::class, 'resume'])->name('plan.resume');
+    Route::post('/plan/card/{card}', [\App\Http\Controllers\Customer\PlanController::class, 'cardAuto'])->where('card', '[A-Za-z0-9]{26}')->name('plan.card');
+    Route::post('/plan/card/{card}/remove', [\App\Http\Controllers\Customer\PlanController::class, 'cardRemove'])->where('card', '[A-Za-z0-9]{26}')->name('plan.card.remove');
     Route::post('/plan/pay', [\App\Http\Controllers\Customer\PlanController::class, 'payNow'])->middleware('throttle:10,1')->name('plan.pay');
     Route::get('/wallet', [A::class, 'walletPage'])->name('wallet');
     Route::post('/wallet/top-up', [A::class, 'topUp'])->middleware('throttle:10,1')->name('wallet.topup');

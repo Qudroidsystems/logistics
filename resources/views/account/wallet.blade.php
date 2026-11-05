@@ -18,6 +18,10 @@
                     @if(count($methods) > 1)
                         <select name="gateway" class="form-select mb-2" aria-label="Pay with">@foreach($methods as $m)<option value="{{ $m['key'] }}" @selected($m['default'])>{{ $m['name'] }}</option>@endforeach</select>
                     @endif
+                    @if(app(\App\Modules\Payments\Cards\SavedCards::class)->canSave())
+                        <div class="form-check small mb-2"><input class="form-check-input" type="checkbox" name="save_card" value="1" id="saveCard" @checked(request('save_card'))>
+                            <label class="form-check-label" for="saveCard">Save this card to top up automatically when a plan renewal is due and my wallet is short</label></div>
+                    @endif
                     <button class="btn btn-primary w-100">Continue to payment</button>
                 </form>
             </x-cb.card>

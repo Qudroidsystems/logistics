@@ -47,6 +47,10 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::get('/etransfers', [Et::class, 'index'])->name('etransfers');
     Route::post('/etransfers/{intent}/confirm', [Et::class, 'confirm'])->whereNumber('intent')->middleware('throttle:60,1')->name('etransfer.confirm');
     Route::post('/etransfers/{intent}/reject', [Et::class, 'reject'])->whereNumber('intent')->middleware('throttle:60,1')->name('etransfer.reject');
+    Route::get('/customers', [\App\Http\Controllers\Admin\CustomersController::class, 'index'])->name('customers');
+    Route::get('/customers/{customer}', [\App\Http\Controllers\Admin\CustomersController::class, 'show'])->where('customer', '[A-Za-z0-9]{26}')->name('customer');
+    Route::post('/customers/{customer}/notes', [\App\Http\Controllers\Admin\CustomersController::class, 'note'])->where('customer', '[A-Za-z0-9]{26}')->name('customer.note');
+    Route::post('/customers/{customer}/suspend', [\App\Http\Controllers\Admin\CustomersController::class, 'suspend'])->where('customer', '[A-Za-z0-9]{26}')->name('customer.suspend');
     Route::get('/support', [\App\Http\Controllers\Admin\SupportInboxController::class, 'index'])->name('support');
     Route::get('/support/{ticket}', [\App\Http\Controllers\Admin\SupportInboxController::class, 'show'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.show');
     Route::post('/support/{ticket}/reply', [\App\Http\Controllers\Admin\SupportInboxController::class, 'reply'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.reply');
@@ -54,6 +58,7 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::post('/support/{ticket}/assign', [\App\Http\Controllers\Admin\SupportInboxController::class, 'assign'])->where('ticket', '[A-Za-z0-9]{26}')->name('support.assign');
     Route::get('/system', [\App\Http\Controllers\Admin\SystemController::class, 'index'])->name('system');
     Route::post('/system/failed/{uuid}/retry', [\App\Http\Controllers\Admin\SystemController::class, 'retry'])->where('uuid', '[0-9a-f-]{36}')->name('system.retry');
+    Route::post('/system/errors/{error}/resolve', [\App\Http\Controllers\Admin\SystemController::class, 'resolveError'])->whereNumber('error')->name('system.error.resolve');
     Route::post('/system/failed/{uuid}/forget', [\App\Http\Controllers\Admin\SystemController::class, 'forget'])->where('uuid', '[0-9a-f-]{36}')->name('system.forget');
     Route::get('/driver-applications', [\App\Http\Controllers\Admin\DriverApplicationsController::class, 'index'])->name('driver-apps');
     Route::get('/driver-applications/{application}/files/{kind}', [\App\Http\Controllers\Admin\DriverApplicationsController::class, 'file'])->whereNumber('application')->name('driver-app.file');
@@ -66,6 +71,7 @@ Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
     Route::post('/dropoff-centres/applications/{application}/decline', [Dc::class, 'decline'])->whereNumber('application')->name('dropoff.decline');
     Route::post('/dropoff-centres/{centre}', [Dc::class, 'update'])->whereNumber('centre')->name('dropoff.update');
     Route::post('/dropoff-centres/{centre}/paid', [Dc::class, 'paid'])->whereNumber('centre')->name('dropoff.paid');
+    Route::get('/dropoff-centres/{centre}/statement/{month}', [Dc::class, 'statement'])->whereNumber('centre')->where('month', '\d{4}-\d{2}')->name('dropoff.statement');
     Route::post('/dropoff-centres/{centre}/staff', [Dc::class, 'staff'])->whereNumber('centre')->name('dropoff.staff');
     Route::get('/refunds', [C::class, 'refunds'])->middleware('can:View payment')->name('refunds');
     Route::get('/settlements', [C::class, 'settlements'])->middleware('can:View settlement')->name('settlements');

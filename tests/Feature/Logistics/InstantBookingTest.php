@@ -65,7 +65,7 @@ class InstantBookingTest extends TestCase
     public function test_a_guest_signs_up_then_books_and_lands_on_the_pay_page(): void
     {
         $q = $this->postJson('/api/v1/public/quote', $this->body())->json('quote');
-        $this->get("/book/$q")->assertRedirect(route('register', ['as' => 'customer']));
+        $this->get("/book/$q")->assertOk()->assertSee('About you');
 
         $this->actingAs($this->customer)->get("/book/$q")->assertOk()->assertSee('Continue to payment');
         $details = ['pickup_name' => 'Ada', 'pickup_phone' => '(226) 555-0123', 'dropoff_name' => 'Bo', 'dropoff_phone' => '519 555 0199', 'description' => 'A box of books'];
@@ -83,6 +83,27 @@ class InstantBookingTest extends TestCase
 
         // Someone else cannot book this customer's price.
         $this->actingAs($this->makeUser('Eve'))->post("/book/$q", $details)->assertSessionHas('error');
+    }
+
+    public function test_a_guest_books_without_signing_up_first(): void
+    {
+        \Illuminate\Support\Facades\Bus::fake([\App\Jobs\SendPlainEmail::class]);
+        $q = $this->postJson('/api/v1/public/quote', $this->body())->json('quote');
+        $details = ['dropoff_name' => 'Bo', 'dropoff_phone' => '519 555 0199', 'description' => 'A box of books'];
+
+        // An email that already has an account must sign in.
+        $this->post("/book/$q", $details + ['guest_name' => 'Ada', 'guest_email' => $this->customer->email, 'guest_phone' => '2265550123', 'terms' => '1'])
+            ->assertSessionHas('error')->assertSessionHas('sign_in');
+        $this->assertGuest();
+
+        $res = $this->post("/book/$q", $details + ['guest_name' => 'Gina Guest', 'guest_email' => 'gina@example.test', 'guest_phone' => '(226) 555-0177', 'terms' => '1']);
+        $gina = User::where('email', 'gina@example.test')->firstOrFail();
+        $this->assertAuthenticatedAs($gina);
+        $agreement = DB::table('agreements')->where('customer_id', $gina->id)->first();
+        $res->assertRedirect(route('account.pay', $agreement->public_id));
+        $this->assertSame('Gina Guest', json_decode($agreement->terms, true)['pickup']['contact_name']);
+        $this->assertTrue(DB::table('customer_profiles')->where('user_id', $gina->id)->exists());
+        \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\SendPlainEmail::class, fn ($j) => $j->to === 'gina@example.test' && str_contains($j->body, '/password/reset/'));
     }
 
     public function test_the_app_books_through_the_api(): void

@@ -131,18 +131,67 @@ class BusinessPlansTest extends TestCase
         $this->assertNull($this->plans->live($this->biz->id));
     }
 
-    public function test_staff_edit_plans(): void
+    public function test_a_saved_card_tops_up_a_short_wallet_once_per_month(): void
+    {
+        $gw = \App\Models\PaymentGateway::firstOrCreate(['provider_key' => 'paystack'], ['name' => 'Paystack', 'mode' => 'test', 'is_active' => true, 'config' => []]);
+        $gw->update(['mode' => 'test', 'is_active' => true]);
+        foreach (['secret_key' => 'sk_test_x', 'public_key' => 'pk_test_x'] as $k => $v) {
+            $gw->putCredential($k, 'test', $v);
+        }
+        $gw->save();
+        $cards = app(\App\Modules\Payments\Cards\SavedCards::class);
+        $cards->store($this->biz->id, 'paystack', ['token' => 'AUTH_ok', 'customer_ref' => null, 'email' => 'shop@test', 'brand' => 'Visa', 'last4' => '4081', 'exp_month' => 12, 'exp_year' => 2099]);
+        $this->actingAs($this->biz)->get('/account/plan')->assertOk();
+
+        $start = CarbonImmutable::parse('2026-10-01 10:00');
+        $this->fundCustomer($this->biz->id, 20_000);
+        $this->plans->subscribe($this->biz->id, 'starter', $start);
+        $price = (int) DB::table('subscription_plans')->where('code', 'starter')->value('price');
+        $short = $price - app(\App\Modules\Payments\WalletService::class)->balance($this->biz->id);
+
+        \Illuminate\Support\Facades\Http::fake(['api.paystack.co/transaction/charge_authorization' => \Illuminate\Support\Facades\Http::sequence()
+            ->push(['status' => true, 'data' => ['status' => 'success', 'amount' => max($short, 1_000), 'currency' => 'CAD']])
+            ->push(['status' => true, 'data' => ['status' => 'failed', 'gateway_response' => 'Insufficient Funds', 'amount' => $price, 'currency' => 'CAD']])]);
+
+        // Month 2: the wallet is short, the card covers the difference, the plan renews.
+        $this->plans->renewDue($start->addMonthNoOverflow()->addMinute());
+        $this->assertSame('active', $this->plans->live($this->biz->id)->status);
+        $this->assertSame('succeeded', DB::table('card_charges')->value('status'));
+        $this->assertTrue(DB::table('wallet_topups')->where('status', 'completed')->where('amount', max($short, 1_000))->exists());
+        $this->assertLedgerBalanced();
+
+        // Month 3: declined. Past due, the customer is told, and the card is not tried again every hour.
+        $end = CarbonImmutable::parse($this->plans->live($this->biz->id)->current_period_end);
+        $this->plans->renewDue($end->addMinute());
+        $this->plans->renewDue($end->addHours(2));
+        $this->assertSame('past_due', $this->plans->live($this->biz->id)->status);
+        $this->assertSame(2, DB::table('card_charges')->count());
+        \Illuminate\Support\Facades\Http::assertSentCount(2);
+        $this->assertTrue(DB::table('notifications')->where(['notifiable_id' => $this->biz->id, 'type' => 'subscription.card_declined'])->exists());
+        $this->assertTrue($cards->current($this->biz->id)['failing']);
+
+        // The customer turns it off and removes it; another customer can't touch it.
+        $id = $cards->current($this->biz->id)['id'];
+        $this->actingAs($this->makeUser('Other'))->post("/account/plan/card/{$id}/remove")->assertSessionHas('error');
+        $this->actingAs($this->biz, 'sanctum')->postJson("/api/v1/customer/card/{$id}", ['auto_topup' => false])->assertOk()->assertJsonPath('card.auto_topup', false);
+        $this->actingAs($this->biz)->post("/account/plan/card/{$id}/remove")->assertSessionHas('success');
+        $this->assertNull($cards->current($this->biz->id));
+    }
+
+        public function test_staff_edit_plans(): void
     {
         $staff = $this->makeUser('Ops');
         \Spatie\Permission\Models\Permission::findOrCreate('Manage business plans', 'web');
         $this->actingAs($this->biz)->get('/ops/plans')->assertForbidden();
         $staff->givePermissionTo('Manage business plans');
-        $this->actingAs($staff)->get('/ops/plans')->assertOk()->assertSee('Growth');
+        $this->actingAs($staff)->get('/ops/plans')->assertOk()->assertSee('Growth')->assertSee('Check the prices before selling plans');
         $id = DB::table('subscription_plans')->where('code', 'starter')->value('id');
+        $this->travel(5)->seconds();
         $this->actingAs($staff)->post("/ops/plans/{$id}", ['name' => 'Starter', 'price' => '149', 'included_deliveries' => 15, 'overage_price' => '', 'active' => 1, 'features' => "One\nTwo"])
             ->assertSessionHas('success');
         $p = DB::table('subscription_plans')->where('id', $id)->first();
         $this->assertSame(14_900, (int) $p->price);
         $this->assertNull($p->overage_price);
+        $this->actingAs($staff)->get('/ops/plans')->assertOk()->assertSee('Growth still has the starter prices');
     }
 }

@@ -6,7 +6,7 @@ use App\Modules\Payments\Gateways\Concerns\UsesAdminCredentials;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-class PaystackGateway implements CollectionGateway
+class PaystackGateway implements CollectionGateway, SavesCards
 {
     use UsesAdminCredentials;
 
@@ -88,6 +88,44 @@ class PaystackGateway implements CollectionGateway
         }
 
         return $res->json('data') + ['gateway_ref' => $res->json('data.access_code')];
+    }
+
+    // ---------------------------------------------------------------- saved cards
+
+    public function saveCardOptions(): array
+    {
+        return []; // Paystack returns a reusable authorization with every card payment.
+    }
+
+    /** Pure: the reusable card from a verified Paystack transaction (data.authorization). */
+    public function savedCard(array $verifiedRaw): ?array
+    {
+        $a = (array) ($verifiedRaw['authorization'] ?? []);
+        if (empty($a['authorization_code']) || empty($a['reusable']) || ($a['channel'] ?? 'card') !== 'card') {
+            return null;
+        }
+
+        return ['token' => (string) $a['authorization_code'], 'customer_ref' => $verifiedRaw['customer']['customer_code'] ?? null,
+            'email' => $verifiedRaw['customer']['email'] ?? null, 'brand' => isset($a['brand']) ? ucfirst(trim((string) $a['brand'])) : null,
+            'last4' => $a['last4'] ?? null, 'exp_month' => isset($a['exp_month']) ? (int) $a['exp_month'] : null,
+            'exp_year' => isset($a['exp_year']) ? (int) $a['exp_year'] : null, 'fingerprint' => $a['signature'] ?? null];
+    }
+
+    public function chargeSaved(array $card, int $amount, string $reference, string $email): array
+    {
+        $res = Http::withToken($this->secret())->acceptJson()->timeout(30)->post('https://api.paystack.co/transaction/charge_authorization', [
+            // The authorization belongs to the email it was made with.
+            'email' => $card['email'] ?: $email, 'amount' => $amount, 'authorization_code' => $card['token'], 'reference' => $reference, 'currency' => \App\Support\Money::code(),
+        ]);
+        if ($res->serverError()) {
+            return ['status' => 'pending', 'amount' => 0, 'currency' => 'NGN', 'raw' => [], 'message' => null];
+        }
+        $d = (array) $res->json('data');
+        $st = (string) ($d['status'] ?? '');
+        $state = $st === 'success' ? 'success' : (in_array($st, ['failed', 'abandoned', 'reversed'], true) || ! $res->json('status') ? 'failed' : 'pending');
+
+        return ['status' => $state, 'amount' => (int) ($d['amount'] ?? 0), 'currency' => (string) ($d['currency'] ?? 'NGN'), 'raw' => $d,
+            'message' => $state === 'failed' ? (string) ($d['gateway_response'] ?? $res->json('message') ?? 'The card was declined.') : null];
     }
 
     /** @return string the transfer recipient code */

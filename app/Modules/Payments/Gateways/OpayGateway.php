@@ -47,6 +47,21 @@ class OpayGateway implements CollectionGateway
         return json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
+    /** Ops > Payment gateways "Test": OPay answers a status query for an unknown reference only when the keys are right. */
+    public static function testKeys(string $mode, ?string $merchantId, ?string $secret): array
+    {
+        $json = self::body(['country' => 'NG', 'reference' => 'KEYTEST-'.time()]);
+        $res = Http::withToken(hash_hmac('sha512', $json, (string) $secret))->withHeaders(['MerchantId' => (string) $merchantId])
+            ->acceptJson()->timeout(20)->withBody($json, 'application/json')
+            ->post(($mode === 'live' ? 'https://liveapi.opaycheckout.com' : 'https://testapi.opaycheckout.com').'/api/v1/international/cashier/status');
+        $code = (string) ($res->json('code') ?? '');
+        if (in_array($code, ['00000', '02006'], true)) {
+            return ['success' => true];
+        }
+
+        return ['success' => false, 'plain' => true, 'message' => 'OPay refused the keys'.($res->json('message') ? ': '.$res->json('message') : ' (HTTP '.$res->status().').')];
+    }
+
     public function initialize(string $email, int $amountKobo, string $reference, string $callbackUrl, array $meta = []): array
     {
         $sep = str_contains($callbackUrl, '?') ? '&' : '?';

@@ -36,6 +36,19 @@ class CounterController extends Controller
         ]);
     }
 
+    /** A month's statement, printable. */
+    public function statement(Request $request, string $month)
+    {
+        $c = $this->centre($request);
+        try {
+            $s = app(\App\Modules\DropOff\StoreStatements::class)->build((int) $c->id, $month);
+        } catch (\InvalidArgumentException) {
+            abort(404);
+        }
+
+        return view('partner.statement', ['brand' => BrandSetting::forApp('customer'), 'centre' => $c, 's' => $s, 'back' => route('counter')]);
+    }
+
     public function receive(Request $request)
     {
         $c = $this->centre($request);

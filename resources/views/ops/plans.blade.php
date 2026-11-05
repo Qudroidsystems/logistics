@@ -11,6 +11,9 @@
         </x-slot:pills>
     </x-cb.hero>
     @include('ops._flash')
+    @if(count($unreviewed))
+        <div class="cb-banner warning"><i class="ri-error-warning-line"></i><div><strong>Check the prices before selling plans.</strong> {{ implode(', ', $unreviewed) }} still {{ count($unreviewed) === 1 ? 'has' : 'have' }} the starter prices set at install, which were chosen for Canada. Set each price in {{ config('region.currency', 'your currency') }} and save it once (even unchanged) to confirm it; this notice then goes away.</div></div>
+    @endif
 
     <div class="row g-3 mb-3">
         @foreach($plans as $p)

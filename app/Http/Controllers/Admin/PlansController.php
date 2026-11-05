@@ -29,6 +29,8 @@ class PlansController extends Controller
                 ->get(['s.*', 'p.name as plan', 'u.name as customer', 'u.email']),
             'counts' => DB::table('subscriptions')->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status'),
             'mrr' => (int) DB::table('subscriptions')->where('status', 'active')->sum('period_price'),
+            // Plans still at the prices the install seeded (written for Canada): staff should set their own before selling them.
+            'unreviewed' => DB::table('subscription_plans')->where('active', true)->where('contact_only', false)->whereColumn('updated_at', 'created_at')->pluck('name')->all(),
             'status' => $status, 'pagetitle' => 'Business plans',
         ]);
     }

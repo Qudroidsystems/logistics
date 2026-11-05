@@ -78,8 +78,24 @@ class DatabaseBackupService
         $settings = BackupSetting::current();
         $this->prune((int) $settings->keep_last);
 
+        // Off this server: a copy kept only next to the database is lost with it. BACKUP_COPY_COMMAND runs after each
+        // backup with {file} replaced by its full path, e.g. `rclone copy {file} b2:my-backups` or `aws s3 cp {file} s3://bucket/`.
+        if ($cmd = (string) config('services.backup.copy_command')) {
+            try {
+                $r = \Illuminate\Support\Facades\Process::timeout(900)->run(str_replace('{file}', escapeshellarg($abs), $cmd));
+                $backup->note = $r->successful() ? 'Copied off the server.' : mb_substr('Off-server copy failed: '.trim($r->errorOutput() ?: $r->output()), 0, 500);
+                $backup->save();
+                if (! $r->successful()) {
+                    Log::error('Backup copy failed: '.$r->errorOutput());
+                }
+            } catch (\Throwable $e) {
+                Log::error('Backup copy failed: '.$e->getMessage());
+            }
+        }
+
         if ($email && $settings->email) {
-            $sent = $this->email($backup, $settings->email, (bool) $settings->email_attach);
+            // The dump holds every customer's details: it is attached only when BACKUP_EMAIL_ATTACH=true.
+            $sent = $this->email($backup, $settings->email, (bool) $settings->email_attach && (bool) config('services.backup.email_attach'));
             if ($sent) { $backup->emailed_to = $settings->email; $backup->save(); }
         }
 

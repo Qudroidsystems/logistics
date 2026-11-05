@@ -24,12 +24,14 @@ class WalletService
     }
 
     /** Starts an online top-up. The wallet is only credited once the gateway confirms the exact amount. */
-    public function startTopUp(int $userId, int $amount, ?string $gateway = null): array
+    /** $saveCard: keep the card for plan renewals (only on gateways that can). */
+    public function startTopUp(int $userId, int $amount, ?string $gateway = null, bool $saveCard = false): array
     {
         if ($amount < self::MIN_TOPUP_KOBO || $amount > self::MAX_TOPUP_KOBO) {
             throw new RuntimeException('Top-up must be between '.\App\Support\Money::whole(self::MIN_TOPUP_KOBO).' and '.\App\Support\Money::whole(self::MAX_TOPUP_KOBO).'.');
         }
         $gw = $this->gateways->choose($gateway);
+        $saveCard = $saveCard && $gw instanceof Gateways\SavesCards;
         $walletId = $this->ensureWallet($userId);
         $ref = 'WT-'.strtoupper(Str::random(18));
 
@@ -40,8 +42,9 @@ class WalletService
         DB::table('wallet_topups')->insert(['wallet_id' => $walletId, 'payment_intent_id' => $intentId, 'amount' => $amount, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
 
         $user = DB::table('users')->where('id', $userId)->first(['email', 'name']);
-        $init = $gw->initialize((string) $user->email, $amount, $ref, route('payments.callback'), ['purpose' => 'wallet_topup', 'user_name' => $user->name, 'product_name' => 'Wallet top-up']);
-        DB::table('payment_intents')->where('id', $intentId)->update(['raw' => json_encode(['gateway_ref' => $init['gateway_ref'] ?? null]), 'updated_at' => now()]);
+        $meta = ['purpose' => 'wallet_topup', 'user_name' => $user->name, 'product_name' => 'Wallet top-up'] + ($saveCard ? $gw->saveCardOptions() : []);
+        $init = $gw->initialize((string) $user->email, $amount, $ref, route('payments.callback'), $meta);
+        DB::table('payment_intents')->where('id', $intentId)->update(['raw' => json_encode(['gateway_ref' => $init['gateway_ref'] ?? null] + ($saveCard ? ['save_card' => true] : [])), 'updated_at' => now()]);
 
         return ['reference' => $ref, 'authorization_url' => $init['authorization_url'], 'amount' => $amount, 'gateway' => $gw->key()];
     }

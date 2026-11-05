@@ -1,4 +1,4 @@
-@extends('public._layout', ['title' => 'Drive with us · '.$brand['name']])
+@extends('public._layout', ['title' => 'Drive with us · '.$brand['name'], 'description' => 'Deliver parcels on your own schedule with your own car. Apply online in a few minutes.'])
 @section('content')
 <section style="background: linear-gradient(135deg, var(--brand2), var(--brand));" class="text-white">
     <div class="container py-5" style="max-width: 980px">

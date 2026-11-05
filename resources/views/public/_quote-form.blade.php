@@ -12,7 +12,9 @@
     .qf .qf-sug div { padding: 8px 12px; cursor: pointer; font-size: 14px; }
     .qf .qf-sug div:hover, .qf .qf-sug div.on { background: #f1f5f9; }
     .qf .qf-seg { display: flex; flex-wrap: wrap; gap: 8px; }
-    .qf .qf-seg input { display: none; }
+    /* Hidden visually but still focusable, so the choices work with a keyboard and a screen reader. */
+    .qf .qf-seg input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+    .qf .qf-seg input:focus-visible + label { outline: 2px solid var(--qf-accent); outline-offset: 2px; }
     .qf .qf-seg label { border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; cursor: pointer; font-size: 14px; flex: 1 1 0; min-width: 90px; text-align: center; margin: 0; }
     .qf .qf-seg label small { display: block; color: #64748b; font-size: 11px; }
     .qf .qf-seg input:checked + label { border-color: var(--qf-accent); background: color-mix(in srgb, var(--qf-accent) 8%, white); color: #0f172a; }
@@ -41,7 +43,8 @@
         </div>
         @endif
         <div class="mb-3 qf-addr" id="qfFromBox">
-            <label class="qf-l" for="qfFrom">Pickup address</label>
+            <div class="d-flex justify-content-between align-items-baseline"><label class="qf-l" for="qfFrom">Pickup address</label>
+                <button type="button" class="btn btn-link btn-sm p-0 small" id="qfLocate"><i class="ri-crosshair-2-line"></i> Use my location</button></div>
             <input id="qfFrom" class="form-control" autocomplete="off" placeholder="Start typing an address">
             <div class="qf-sug" id="qfFromSug"></div>
         </div>
@@ -78,6 +81,7 @@
 
         <div class="form-check form-switch my-3"><input class="form-check-input" type="checkbox" id="qfFragile"><label class="form-check-label" for="qfFragile">Fragile, handle with care</label></div>
 
+        <div id="qfBot" class="my-2" hidden></div>
         <button class="qf-btn" id="qfGo" type="button">Get my price</button>
         <div class="qf-err" id="qfErr" hidden></div>
 
@@ -103,7 +107,7 @@
 <script>
 (function () {
     var API = @json(url('/api/v1/public/quote')), BOOK = @json(url('/book')), COUNTRY = @json(strtolower((string) config('region.country')));
-    var CENTRE = [{{ (float) config('region.map.lat') }}, {{ (float) config('region.map.lng') }}], ZOOM = {{ (int) config('region.map.zoom') }};
+    var CENTRE = [{{ (float) ($mapCentre['lat'] ?? config('region.map.lat')) }}, {{ (float) ($mapCentre['lng'] ?? config('region.map.lng')) }}], ZOOM = {{ (int) ($mapCentre['zoom'] ?? config('region.map.zoom')) }};
     var points = {from: null, to: null}, markers = {};
     var CENTRES = @json($options['centres'] ?? []), useStore = false;
     var map = L.map('qfMap', {zoomControl: false, attributionControl: true}).setView(CENTRE, ZOOM);
@@ -123,8 +127,11 @@
         reset();
     }
 
+    // Signed-in customers see their saved places when the box is empty.
+    var SAVED = @json(auth()->check() && ! ($embed ?? false) ? collect(app(\App\Modules\Booking\SavedAddresses::class)->list((int) auth()->id()))->take(8)->map(fn ($a) => ['label' => $a['label'], 'line1' => $a['line1'], 'lat' => $a['lat'], 'lng' => $a['lng']])->values() : []);
     function suggest(inputId, boxId, which) {
         AddressSearch.attach($(inputId), $(boxId), {
+            saved: SAVED,
             onClear: function () { points[which] = null; reset(); },
             near: function () { var c = map.getCenter(); return [c.lat.toFixed(3), c.lng.toFixed(3)]; },
             onPick: function (p) {
@@ -135,6 +142,14 @@
     }
     suggest('qfFrom', 'qfFromSug', 'from');
     suggest('qfTo', 'qfToSug', 'to');
+    $('qfLocate').addEventListener('click', function () {
+        var b = this; b.disabled = true; b.textContent = 'Finding you…';
+        AddressSearch.locate(function (p) {
+            b.disabled = false; b.innerHTML = '<i class="ri-crosshair-2-line"></i> Use my location';
+            $('qfFrom').value = p.label || 'My location (check the pin)';
+            place('from', p.lat, p.lng, p.label || 'Pinned location');
+        }, function (m) { b.disabled = false; b.innerHTML = '<i class="ri-crosshair-2-line"></i> Use my location'; error(m); });
+    });
 
     // "I'll drop it at a store": the trip starts at the chosen store; nearest to the drop-off first.
     function km(a, b) { var r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos((a.lat + b.lat) * r / 2), y = (b.lat - a.lat) * r; return Math.sqrt(x * x + y * y) * 6371; }
@@ -174,11 +189,24 @@
         if (!points.from) return error(useStore ? 'Choose a store.' : 'Choose the pickup address from the list.');
         if (!points.to) return error('Choose the drop-off address from the list.');
         if (val('qfService') === 'scheduled' && !$('qfAt').value) return error('Choose the pickup date and time.');
-        var body = {pickup: useStore ? null : points.from, dropoff_centre: useStore ? $('qfStore').value : null, dropoff: points.to, service: val('qfService'), size: val('qfSize'), fragile: $('qfFragile').checked, vehicle: val('qfVehicle'), pickup_at: val('qfService') === 'scheduled' ? $('qfAt').value : null};
+        getPrice(null);
+    });
+    // Bot check (Cloudflare Turnstile): only after several prices from one visitor; the server says when.
+    var BOT_KEY = @json(\App\Support\BotCheck::enabled() ? (string) config('services.turnstile.site_key') : null);
+    function challenge() {
+        if (!BOT_KEY) return error('Too many price checks. Try again in a few minutes.');
+        var box = $('qfBot'); box.hidden = false; box.innerHTML = '';
+        var go = function () { window.turnstile.render(box, {sitekey: BOT_KEY, callback: function (t) { box.hidden = true; getPrice(t); }}); };
+        if (window.turnstile) return go();
+        var s = document.createElement('script'); s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'; s.async = true; s.onload = go; document.head.appendChild(s);
+    }
+    function getPrice(token) {
+        var body = {pickup: useStore ? null : points.from, dropoff_centre: useStore ? $('qfStore').value : null, dropoff: points.to, service: val('qfService'), size: val('qfSize'), fragile: $('qfFragile').checked, vehicle: val('qfVehicle'), pickup_at: val('qfService') === 'scheduled' ? $('qfAt').value : null, cf_token: token};
         $('qfGo').disabled = true; $('qfGo').textContent = 'Working out your price…'; reset();
         fetch(API, {method: 'POST', headers: {'Accept': 'application/json', 'Content-Type': 'application/json'}, body: JSON.stringify(body)})
             .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
             .then(function (res) {
+                if (!res.ok && res.j.error === 'challenge') return challenge();
                 if (!res.ok) return error(res.j.message || 'We could not price this. Check the addresses.');
                 var q = res.j;
                 $('qfTotal').textContent = q.total_text;
@@ -188,10 +216,12 @@
                 $('qfValid').textContent = 'This price is held for 10 minutes.' + (q.pickup_at ? ' Pickup ' + new Date(q.pickup_at).toLocaleString() + '.' : '');
                 $('qfBook').href = BOOK + '/' + encodeURIComponent(q.quote);
                 $('qfResult').hidden = false;
+                if (window.cbTrack) window.cbTrack('price_shown', {service: body.service, size: body.size});
             })
             .catch(function () { error('We could not reach the server. Try again.'); })
             .finally(function () { $('qfGo').disabled = false; $('qfGo').textContent = 'Get my price'; });
-    });
+    }
+    $('qfBook').addEventListener('click', function () { if (window.cbTrack) window.cbTrack('book_clicked'); });
     function formatMoney(minor) { return @json(\App\Support\Money::symbol()) + (minor / 100).toLocaleString(@json((string) config('region.locale')), {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 })();
 </script>

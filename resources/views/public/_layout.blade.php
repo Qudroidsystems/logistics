@@ -5,6 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>{{ $title ?? $brand['name'] }}</title>
+@php
+    $metaDescription = $description ?? ($brand['tagline'] ?: 'Same-day, next-day and scheduled deliveries in '.config('region.country_name').'. Instant price, live tracking, proof of delivery.');
+    $canonical = $canonical ?? url()->current();
+@endphp
+<meta name="description" content="{{ $metaDescription }}">
+@if($noindex ?? false)<meta name="robots" content="noindex, nofollow">@else<link rel="canonical" href="{{ $canonical }}">@endif
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ $brand['name'] }}">
+<meta property="og:title" content="{{ $title ?? $brand['name'] }}">
+<meta property="og:description" content="{{ $metaDescription }}">
+<meta property="og:url" content="{{ $canonical }}">
+@if($brand['logo_url'])<meta property="og:image" content="{{ $brand['logo_url'] }}">@endif
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="{{ asset('favicon.ico') }}">
+@include('partials.analytics')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <style>
     :root { --brand: {{ $brand['primary_color'] }}; --brand2: {{ $brand['secondary_color'] }}; }

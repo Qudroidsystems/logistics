@@ -15,6 +15,8 @@
     .dz-lane { border: 1px solid var(--vz-border-color, #e9ebec); border-radius: 10px; height: 100%; }
     .dz-lane-head { padding: 8px 10px; border-bottom: 1px solid var(--vz-border-color, #e9ebec); }
     .dz-list[data-lane="driver"]:empty::before { content: 'Drop a job here'; display: block; text-align: center; color: #878a99; font-size: 12px; padding: 18px 0; }
+    .dz-group-head { border-left: 3px solid #0ab39c; background: rgba(10, 179, 156, .06); border-radius: 6px; padding: 6px 8px; margin: 4px 0 6px; }
+    .dz-job.dz-in-group { border-left: 3px solid #0ab39c; margin-left: 6px; }
     .dz-lane.full .dz-lane-head { background: rgba(240, 101, 72, .07); }
 </style>
 <div class="main-content"><div class="page-content"><div class="container-fluid">
@@ -28,8 +30,22 @@
         <div class="col-lg-4">
             <x-cb.card title="Needs a driver" icon="ri-user-received-line" :count="count($waiting)">
                 <div class="dz-list" id="dzWaiting" data-lane="waiting">
-                @forelse($waiting as $j)
-                    <div class="dz-job" data-job="{{ $j->public_id }}" data-assign="{{ route('provider.job.assign', $j->public_id) }}">
+                @forelse($waitingGroups as $group)
+                    @if(count($group) > 1)
+                    <div class="dz-group-head" data-group-size="{{ count($group) }}">
+                        <div class="fw-semibold small"><i class="ri-stack-line"></i> {{ count($group) }} jobs from {{ $line($group[0]->id, 'pickup') }}</div>
+                        <form method="POST" action="{{ route('provider.dispatch.group') }}" class="d-flex gap-1 mt-1">@csrf
+                            @foreach($group as $g)<input type="hidden" name="jobs[]" value="{{ $g->public_id }}">@endforeach
+                            <select name="driver_user_id" class="form-select form-select-sm" required aria-label="Give all {{ count($group) }} to">
+                                <option value="">Give all to…</option>
+                                @foreach($drivers as $d)<option value="{{ $d['user_id'] }}" @disabled($d['active_jobs'] + count($group) > $d['max_active_jobs'])>{{ $d['name'] }} · {{ $d['active_jobs'] }}/{{ $d['max_active_jobs'] }}</option>@endforeach
+                            </select>
+                            <button class="btn btn-sm btn-primary">Assign all</button>
+                        </form>
+                    </div>
+                    @endif
+                    @foreach($group as $j)
+                    <div class="dz-job {{ count($group) > 1 ? 'dz-in-group' : '' }}" data-job="{{ $j->public_id }}" data-assign="{{ route('provider.job.assign', $j->public_id) }}">
                         <div class="d-flex justify-content-between"><a href="{{ route('provider.job', $j->public_id) }}" class="fw-semibold">{{ $j->order_number }}</a>
                             <span class="small text-muted">{{ \Illuminate\Support\Carbon::parse($j->updated_at)->diffForHumans(null, true) }}</span></div>
                         <div class="small">{{ $line($j->id, 'pickup') }} to {{ $line($j->id, 'dropoff') }}</div>
@@ -43,6 +59,7 @@
                             <button class="btn btn-sm btn-outline-primary">Assign</button>
                         </form>
                     </div>
+                    @endforeach
                 @empty
                     <div class="text-center text-muted py-4 dz-empty">Nothing is waiting for a driver.</div>
                 @endforelse

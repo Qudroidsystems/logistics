@@ -138,10 +138,21 @@ class SystemHealth
     public function queue(?CarbonImmutable $now = null): array
     {
         $now ??= CarbonImmutable::now();
-        $oldest = DB::table('jobs')->whereNull('reserved_at')->min('available_at');
+        // With the database queue the age of the oldest job is known; with Redis only how many are waiting.
+        if (config('queue.default') === 'database') {
+            $oldest = DB::table('jobs')->whereNull('reserved_at')->min('available_at');
+            $waiting = (int) DB::table('jobs')->count();
+        } else {
+            $oldest = null;
+            try {
+                $waiting = (int) \Illuminate\Support\Facades\Queue::size();
+            } catch (\Throwable) {
+                $waiting = 0;
+            }
+        }
 
         return [
-            'waiting' => (int) DB::table('jobs')->count(),
+            'waiting' => $waiting,
             'oldest_minutes' => $oldest ? max(0, (int) floor(($now->timestamp - (int) $oldest) / 60)) : null,
             'failed_24h' => (int) DB::table('failed_jobs')->where('failed_at', '>', $now->subDay())->count(),
             'failed_total' => (int) DB::table('failed_jobs')->count(),

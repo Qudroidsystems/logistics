@@ -31,6 +31,9 @@ Route::view('/platform', 'landing')->name('platform.demo');
 
 // Sign-up is open: customers, providers and invited drivers/staff all start with one account (see RegisterController).
 Auth::routes(['register' => true]);
+// The same reset routes again, rate-limited (a later route with the same method and path wins).
+Route::post('password/email', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'sendResetLinkEmail'])->middleware('throttle:6,1')->name('password.email');
+Route::post('password/reset', [\App\Http\Controllers\Auth\ResetPasswordController::class, 'reset'])->middleware('throttle:6,1')->name('password.update');
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 // Maintenance page is always reachable.
@@ -47,7 +50,7 @@ Route::get('/refresh-csrf', function () {
 })->name('csrf.refresh');
 
 // Payment provider webhooks / return URL (public; CSRF-exempt in bootstrap/app.php)
-Route::post('/webhook/paystack', [PaymentWebhookController::class, 'paystack'])->name('webhook.paystack');
+Route::post('/webhook/paystack', [PaymentWebhookController::class, 'paystack'])->middleware('throttle:120,1')->name('webhook.paystack');
 Route::post('/webhook/opay', [PaymentWebhookController::class, 'opay'])->middleware('throttle:120,1')->name('webhook.opay');
 Route::post('/webhook/monnify', [PaymentWebhookController::class, 'monnify'])->middleware('throttle:120,1')->name('webhook.monnify');
 Route::post('/webhook/stripe', [PaymentWebhookController::class, 'stripe'])->middleware('throttle:120,1')->name('webhook.stripe');

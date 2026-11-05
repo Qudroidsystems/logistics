@@ -17,6 +17,14 @@ class GeoController extends Controller
             'type_ahead' => $geo->typeAhead()]);
     }
 
+    /** GET /geo/reverse?lat=&lng= : the address at the person's position ("Use my location"). */
+    public function reverse(Request $request, Geocoder $geo)
+    {
+        $d = $request->validate(['lat' => 'required|numeric|between:-90,90', 'lng' => 'required|numeric|between:-180,180']);
+
+        return response()->json(['label' => $geo->reverse((float) $d['lat'], (float) $d['lng'])]);
+    }
+
     public function place(Request $request, Geocoder $geo)
     {
         $d = $request->validate(['id' => 'required|string|max:300', 'session' => 'nullable|string|max:64']);

@@ -1,0 +1,58 @@
+# Runs on every push and pull request: the full test suite against PostgreSQL with PostGIS (as in production),
+# then a check of PHP packages for known security problems.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: logistics_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: logistics_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REGION: CA
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pgsql, gd, zip, intl, bcmath
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan view:cache
+
+      - name: Tests
+        run: php artisan test
+
+      - name: Package security check
+        run: composer audit --locked

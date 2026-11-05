@@ -340,8 +340,8 @@ class AccountController extends Controller
 
     public function topUp(Request $request, WalletService $wallet)
     {
-        $request->validate(['amount_naira' => 'required|numeric|min:0.01', 'gateway' => 'nullable|string|max:20']);
-        $res = $this->wallet->topUp($request->merge(['amount' => self::kobo($request->input('amount_naira'))]), $wallet);
+        $request->validate(['amount_naira' => 'required|numeric|min:0.01', 'gateway' => 'nullable|string|max:20', 'save_card' => 'nullable|boolean']);
+        $res = $this->wallet->topUp($request->merge(['amount' => self::kobo($request->input('amount_naira')), 'save_card' => $request->boolean('save_card')]), $wallet);
         if ($res->getStatusCode() >= 400) {
             return back()->withInput()->with('error', $res->getData(true)['message'] ?? 'That could not be done.');
         }

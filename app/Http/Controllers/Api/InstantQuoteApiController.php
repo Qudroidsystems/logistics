@@ -40,6 +40,9 @@ class InstantQuoteApiController extends Controller
             'service' => 'required|string|max:24', 'size' => 'required|string|max:12', 'fragile' => 'nullable|boolean',
             'vehicle' => 'nullable|string|max:24', 'pickup_at' => 'nullable|date',
         ]);
+        if (! \App\Support\BotCheck::allows($request, auth('sanctum')->id())) {
+            return response()->json(['error' => 'challenge', 'message' => 'Please confirm you are not a robot to see more prices.'], 429);
+        }
         try {
             return response()->json($this->instant->quote($d, auth('sanctum')->id()));
         } catch (RuntimeException $e) {

@@ -53,7 +53,8 @@
                         <div class="small text-muted">{{ $c->line1 }}@if($c->city) · {{ $c->city }}@endif</div></td>
                     <td class="small">{{ \App\Modules\DropOff\DropOffService::describeCommission((int) $c->commission_flat, (int) $c->commission_bp) }}</td>
                     <td class="text-center">{{ $c->expected }}</td><td class="text-center">{{ $c->at_counter }}</td><td class="text-center">{{ $c->handled }}</td>
-                    <td class="text-end fw-semibold">{{ Money::format((int) $c->owed, true) }}</td>
+                    <td class="text-end fw-semibold">{{ Money::format((int) $c->owed, true) }}
+                        <div class="small fw-normal"><a href="{{ route('ops.dropoff.statement', [$c->id, \App\Modules\DropOff\StoreStatements::lastMonth()]) }}">Last month</a> · <a href="{{ route('ops.dropoff.statement', [$c->id, now(config('app.timezone'))->format('Y-m')]) }}">This month</a></div></td>
                     <td>
                         @if($c->owed > 0)
                         <form method="post" action="{{ route('ops.dropoff.paid', $c->id) }}" class="d-flex gap-1 mb-1" onsubmit="return confirm('Mark everything owed to this store as paid?')">@csrf

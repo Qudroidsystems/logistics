@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /** Stripe Checkout (hosted page). Keys: secret_key and webhook_secret from Finance > Payment Gateways. */
-class StripeGateway implements CollectionGateway
+class StripeGateway implements CollectionGateway, SavesCards
 {
     use UsesAdminCredentials;
 
@@ -55,9 +55,9 @@ class StripeGateway implements CollectionGateway
                     'product_data' => ['name' => (string) ($meta['product_name'] ?? 'Delivery payment')],
                 ],
             ]],
-            'payment_intent_data' => ['metadata' => ['reference' => $reference]],
+            'payment_intent_data' => ['metadata' => ['reference' => $reference]] + (! empty($meta['save_card']) ? ['setup_future_usage' => 'off_session'] : []),
             'metadata' => ['reference' => $reference],
-        ]);
+        ] + (! empty($meta['save_card']) ? ['customer_creation' => 'always'] : []));
         if (! $res->successful() || ! $res->json('url')) {
             throw new RuntimeException('Stripe could not start the payment: '.$res->json('error.message', $res->status()));
         }
@@ -67,6 +67,10 @@ class StripeGateway implements CollectionGateway
 
     public function verify(string $reference, ?array $intentRaw = null): array
     {
+        // A charge on a saved card has no Checkout session: ask about the PaymentIntent itself.
+        if (! empty($intentRaw['off_session'])) {
+            return $this->verifyOffSession($reference, $intentRaw);
+        }
         $session = $intentRaw['gateway_ref'] ?? null;
         if (! $session) {
             return ['status' => 'pending', 'amount' => 0, 'currency' => \App\Support\Money::code(), 'channel' => null, 'raw' => []];
@@ -82,6 +86,91 @@ class StripeGateway implements CollectionGateway
             'status' => $status, 'amount' => (int) ($d['amount_total'] ?? 0), 'currency' => strtoupper((string) ($d['currency'] ?? '')), 'channel' => 'card',
             'raw' => ['payment_intent' => $d['payment_intent'] ?? null, 'gateway_ref' => $session],
         ];
+    }
+
+    // ---------------------------------------------------------------- saved cards
+
+    public function saveCardOptions(): array
+    {
+        return ['save_card' => true];
+    }
+
+    public function savedCard(array $verifiedRaw): ?array
+    {
+        $pi = $verifiedRaw['payment_intent'] ?? null;
+        if (! $pi) {
+            return null;
+        }
+        $res = Http::withToken((string) $this->credential('secret_key'))->acceptJson()->timeout(20)
+            ->get(self::BASE.'/payment_intents/'.rawurlencode((string) $pi), ['expand' => ['payment_method']]);
+
+        return $res->successful() ? self::cardFromIntent((array) $res->json()) : null;
+    }
+
+    /** Pure: the card on a PaymentIntent that was set up for later use. */
+    public static function cardFromIntent(array $pi): ?array
+    {
+        $pm = $pi['payment_method'] ?? null;
+        $customer = $pi['customer'] ?? null;
+        if (! is_array($pm) || ! $customer || ($pi['setup_future_usage'] ?? null) !== 'off_session' || ($pm['type'] ?? '') !== 'card') {
+            return null;
+        }
+        $c = (array) ($pm['card'] ?? []);
+
+        return ['token' => (string) $pm['id'], 'customer_ref' => is_array($customer) ? (string) $customer['id'] : (string) $customer, 'email' => $pi['receipt_email'] ?? null,
+            'brand' => isset($c['brand']) ? ucfirst((string) $c['brand']) : null, 'last4' => $c['last4'] ?? null,
+            'exp_month' => isset($c['exp_month']) ? (int) $c['exp_month'] : null, 'exp_year' => isset($c['exp_year']) ? (int) $c['exp_year'] : null,
+            'fingerprint' => $c['fingerprint'] ?? null];
+    }
+
+    public function chargeSaved(array $card, int $amount, string $reference, string $email): array
+    {
+        // The reference is the idempotency key: a retry after a timeout returns the same charge, never a second one.
+        $res = $this->http()->withHeaders(['Idempotency-Key' => $reference])->post(self::BASE.'/payment_intents', [
+            'amount' => $amount, 'currency' => (string) config('payments.stripe_currency', 'ngn'),
+            'customer' => $card['customer_ref'], 'payment_method' => $card['token'],
+            'off_session' => 'true', 'confirm' => 'true', 'description' => 'Wallet top-up for plan renewal',
+            'metadata' => ['reference' => $reference],
+        ]);
+
+        return self::offSessionResult((array) $res->json(), $res->status());
+    }
+
+    /** Pure: what an off-session PaymentIntent answer means. A decline comes back as HTTP 402 with the intent inside the error. */
+    public static function offSessionResult(array $body, int $http): array
+    {
+        $pi = $body['error']['payment_intent'] ?? $body;
+        $status = (string) ($pi['status'] ?? '');
+        $state = match (true) {
+            $status === 'succeeded' => 'success',
+            $status === 'processing' => 'pending',
+            $http >= 500 => 'pending',
+            default => 'failed',
+        };
+
+        return ['status' => $state, 'amount' => (int) ($pi['amount_received'] ?? $pi['amount'] ?? 0), 'currency' => strtoupper((string) ($pi['currency'] ?? '')),
+            'raw' => ['payment_intent' => $pi['id'] ?? null, 'off_session' => true],
+            'message' => $state === 'failed' ? (string) ($body['error']['message'] ?? 'The card was declined.') : null];
+    }
+
+    private function verifyOffSession(string $reference, array $raw): array
+    {
+        $http = Http::withToken((string) $this->credential('secret_key'))->acceptJson()->timeout(20);
+        $pi = $raw['payment_intent'] ?? null;
+        if (! $pi) {
+            $found = $http->get(self::BASE.'/payment_intents/search', ['query' => "metadata['reference']:'".str_replace("'", '', $reference)."'"]);
+            $pi = $found->successful() ? ($found->json('data.0.id') ?? null) : null;
+            if (! $pi) {
+                return ['status' => 'pending', 'amount' => 0, 'currency' => \App\Support\Money::code(), 'channel' => null, 'raw' => []];
+            }
+        }
+        $res = $http->get(self::BASE.'/payment_intents/'.rawurlencode((string) $pi));
+        if (! $res->successful()) {
+            return ['status' => 'pending', 'amount' => 0, 'currency' => \App\Support\Money::code(), 'channel' => null, 'raw' => []];
+        }
+        $r = self::offSessionResult((array) $res->json(), 200);
+
+        return ['status' => $r['status'], 'amount' => $r['amount'], 'currency' => $r['currency'], 'channel' => 'card', 'raw' => $r['raw']];
     }
 
     public function refund(string $reference, int $amountKobo, ?array $intentRaw = null): string

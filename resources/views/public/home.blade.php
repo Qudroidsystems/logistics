@@ -35,4 +35,16 @@
         <div class="col-md-4"><div class="pub-card h-100"><h5 class="fw-bold">Drive with us</h5><p class="text-muted">Have a car and a licence? Pick up deliveries on your own schedule.</p><a class="btn btn-outline-dark" href="{{ route('drive') }}">Apply to drive</a></div></div>
     </div>
 </section>
+@php $cities = \App\Http\Controllers\SeoController::cities(); @endphp
+@if($cities->count())
+<section class="container pb-4">
+    <h2 class="h6 fw-bold text-muted text-uppercase">Where we deliver</h2>
+    <div class="d-flex flex-wrap gap-2">@foreach($cities as $c)<a class="btn btn-sm btn-outline-secondary" href="{{ route('city', $c->slug) }}">{{ $c->name }}</a>@endforeach</div>
+</section>
+@endif
+<script type="application/ld+json">
+{!! json_encode(['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => $brand['name'], 'url' => route('landing'),
+    'logo' => $brand['logo_url'], 'contactPoint' => array_filter(['@type' => 'ContactPoint', 'contactType' => 'customer service',
+    'telephone' => config('booking.contact_phone'), 'email' => config('booking.contact_email')])], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
+</script>
 @endsection

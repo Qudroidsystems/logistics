@@ -24,7 +24,22 @@ class SubscriptionApiController extends Controller
         $s = $this->plans->summary($request->user()->id);
         $s['uses'] = collect($s['uses'])->map(fn ($u) => ['kind' => $u->kind, 'discount' => (int) $u->discount, 'returned' => (bool) $u->returned, 'order' => $u->order_number, 'at' => $u->created_at])->all();
 
-        return response()->json($s + ['wallet_balance' => $wallet->balance($request->user()->id)]);
+        $cards = app(\App\Modules\Payments\Cards\SavedCards::class);
+
+        return response()->json($s + ['wallet_balance' => $wallet->balance($request->user()->id), 'card' => $cards->current($request->user()->id), 'can_save_card' => $cards->canSave()]);
+    }
+
+    /** POST /v1/customer/card/{card} {auto_topup}  ·  DELETE /v1/customer/card/{card} */
+    public function cardAuto(Request $request, string $card, WalletService $wallet)
+    {
+        $d = $request->validate(['auto_topup' => 'required|boolean']);
+
+        return $this->run($request, fn () => app(\App\Modules\Payments\Cards\SavedCards::class)->setAutoTopUp($request->user()->id, $card, (bool) $d['auto_topup']), $wallet);
+    }
+
+    public function cardRemove(Request $request, string $card, WalletService $wallet)
+    {
+        return $this->run($request, fn () => app(\App\Modules\Payments\Cards\SavedCards::class)->remove($request->user()->id, $card), $wallet);
     }
 
     private function run(Request $request, callable $fn, WalletService $wallet)

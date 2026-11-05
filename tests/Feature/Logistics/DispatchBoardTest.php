@@ -61,6 +61,32 @@ class DispatchBoardTest extends TestCase
         $this->actingAs($this->owner)->get('/provider/dispatch')->assertSee('Handed back or no match');
     }
 
+    public function test_jobs_from_the_same_pickup_are_grouped_and_given_out_together(): void
+    {
+        $customer = $this->makeUser('Shop');
+        $this->fundCustomer($customer->id, 1_000_000);
+        app(\App\Modules\Payments\PaymentService::class)->payWithWallet($this->lockedAgreement($customer->id, $this->op, $this->owner->id), $customer->id);
+        $jobs = DB::table('shipments')->where('operator_id', $this->op)->pluck('public_id')->all();
+        $this->assertCount(2, $jobs);
+        $d = $this->driver('Bola Driver');
+
+        $this->actingAs($this->owner)->get('/provider/dispatch')->assertOk()->assertSee('2 jobs from 1 Market Rd')->assertSee('Assign all');
+        // Room for one job only: all or nothing.
+        $this->actingAs($this->owner)->post('/provider/dispatch/assign-group', ['jobs' => $jobs, 'driver_user_id' => $d->id])->assertSessionHas('error');
+        $this->assertSame(0, DB::table('assignments')->count());
+
+        DB::table('driver_profiles')->where('user_id', $d->id)->update(['max_active_jobs' => 3]);
+        $this->actingAs($this->owner)->post('/provider/dispatch/assign-group', ['jobs' => $jobs, 'driver_user_id' => $d->id])->assertSessionHas('success');
+        $this->assertSame(2, DB::table('assignments')->whereIn('status', ['accepted'])->count());
+        $this->assertSame(1, DB::table('notifications')->where(['notifiable_id' => $d->id, 'type' => 'delivery.jobs_assigned'])->count());
+        $this->assertSame(0, DB::table('notifications')->where(['notifiable_id' => $d->id, 'type' => 'delivery.job_assigned'])->count());
+        // The driver sees both pickups first, then the drop-offs, and each job's next stop.
+        $me = $this->actingAs($d, 'sanctum')->getJson('/api/v1/driver/me')->assertOk()->json();
+        $this->assertSame(['pickup', 'pickup'], array_slice(array_column($me['run'], 'type'), 0, 2));
+        $this->assertCount(4, $me['run']);
+        $this->assertSame([1, 2], array_column(array_column($me['jobs'], 'next_stop'), 'position'));
+    }
+
     public function test_only_job_roles_may_open_the_board(): void
     {
         $driver = $this->driver('Bola Driver');

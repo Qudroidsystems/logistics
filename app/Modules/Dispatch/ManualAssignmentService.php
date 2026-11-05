@@ -39,8 +39,84 @@ class ManualAssignmentService
         return in_array($shipmentStatus, array_merge(self::UNASSIGNED, self::REASSIGNABLE), true);
     }
 
+    /**
+     * Pure: puts waiting jobs whose pickups are within $metres of each other into groups, so one driver can collect
+     * them in a single stop. Keeps the input order; jobs without coordinates stay on their own.
+     *
+     * @param  array<int, array{id:int|string, lat:?float, lng:?float}>  $jobs
+     * @return array<int, array<int, int|string>> groups of ids, each group in input order
+     */
+    public static function groupByPickup(array $jobs, float $metres = 150): array
+    {
+        $groups = [];
+        $anchors = [];
+        foreach ($jobs as $j) {
+            $placed = false;
+            if ($j['lat'] !== null && $j['lng'] !== null) {
+                foreach ($anchors as $g => [$lat, $lng]) {
+                    if (self::metresBetween($lat, $lng, (float) $j['lat'], (float) $j['lng']) <= $metres) {
+                        $groups[$g][] = $j['id'];
+                        $placed = true;
+                        break;
+                    }
+                }
+            }
+            if (! $placed) {
+                $groups[] = [$j['id']];
+                $anchors[array_key_last($groups)] = $j['lat'] !== null && $j['lng'] !== null ? [(float) $j['lat'], (float) $j['lng']] : [INF, INF];
+            }
+        }
+
+        return array_values($groups);
+    }
+
+    public static function metresBetween(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        if (is_infinite($lat1) || is_infinite($lat2)) {
+            return INF;
+        }
+        $r = 6_371_000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return 2 * $r * asin(min(1, sqrt($a)));
+    }
+
+    /**
+     * Gives several waiting jobs (usually ones from the same pickup) to one driver, all or none, and tells the
+     * driver once. @return int how many were assigned
+     */
+    public function assignMany(int $operatorId, array $shipmentPublicIds, int $driverUserId, int $actorUserId): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('strval', $shipmentPublicIds))));
+        if (count($ids) < 1) {
+            throw new RuntimeException('Choose the jobs to give out.');
+        }
+        $driver = DB::table('driver_profiles')->where(['user_id' => $driverUserId, 'operator_id' => $operatorId, 'status' => 'active'])->whereNull('deleted_at')->first();
+        if (! $driver) {
+            throw new RuntimeException('That person is not an approved driver on your team.');
+        }
+        $busy = DB::table('assignments')->where('driver_profile_id', $driver->id)->whereIn('status', ['assigned', 'accepted', 'en_route', 'active'])->count();
+        if ($busy + count($ids) > (int) $driver->max_active_jobs) {
+            $room = max(0, (int) $driver->max_active_jobs - $busy);
+            throw new RuntimeException("That driver can take {$room} more job(s) right now, not ".count($ids).'. Raise their limit on the Team page or split the group.');
+        }
+        DB::transaction(function () use ($operatorId, $ids, $driverUserId, $actorUserId) {
+            foreach ($ids as $id) {
+                $this->assign($operatorId, $id, $driverUserId, $actorUserId, 'grouped pickup', false);
+            }
+        });
+        if ($driverUserId !== $actorUserId) {
+            $orders = DB::table('shipments as s')->join('orders as o', 'o.id', '=', 's.order_id')->whereIn('s.public_id', $ids)->pluck('o.order_number')->all();
+            $this->notify->notify($driverUserId, 'delivery.jobs_assigned', ['count' => count($ids), 'orders' => implode(', ', $orders)], '/driver');
+        }
+
+        return count($ids);
+    }
+
     /** @return int the assignment id */
-    public function assign(int $operatorId, string $shipmentPublicId, int $driverUserId, int $actorUserId, ?string $reason = null): int
+    public function assign(int $operatorId, string $shipmentPublicId, int $driverUserId, int $actorUserId, ?string $reason = null, bool $notify = true): int
     {
         $result = DB::transaction(function () use ($operatorId, $shipmentPublicId, $driverUserId, $actorUserId, $reason) {
             $s = DB::table('shipments')->where('public_id', $shipmentPublicId)->where('operator_id', $operatorId)->lockForUpdate()->first();
@@ -97,7 +173,7 @@ class ManualAssignmentService
         });
 
         [$assignmentId, $orderId, $publicId] = $result;
-        if ($driverUserId !== $actorUserId) {
+        if ($notify && $driverUserId !== $actorUserId) {
             $this->notify->notify($driverUserId, 'delivery.job_assigned', ['order' => DB::table('orders')->where('id', $orderId)->value('order_number')], "/driver/jobs/{$publicId}");
         }
 

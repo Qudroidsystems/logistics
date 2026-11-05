@@ -116,6 +116,16 @@ class DropOffCentresTest extends TestCase
         $this->actingAs($this->staff)->post("/ops/dropoff-centres/{$centre->id}/paid", ['reference' => 'ET-123'])->assertSessionHas('success');
         $this->assertSame('paid', DB::table('dropoff_parcels')->where('id', $parcel->id)->value('commission_status'));
         $this->actingAs($this->staff)->post("/ops/dropoff-centres/{$centre->id}/paid", ['reference' => 'ET-124'])->assertSessionHas('error');
+        // Monthly statement: the counter and Ops can open it; the run emails the store once.
+        $month = now(config('app.timezone'))->format('Y-m');
+        $this->actingAs($owner)->get("/counter/statement/{$month}")->assertOk()->assertSee($code)->assertSee('ET-123');
+        $this->actingAs($this->staff)->get("/ops/dropoff-centres/{$centre->id}/statement/{$month}")->assertOk()->assertSee('Corner Mart');
+        $this->actingAs($this->customer)->get("/ops/dropoff-centres/{$centre->id}/statement/{$month}")->assertForbidden();
+        $this->artisan('dropoff:statements', ['--month' => $month])->assertSuccessful();
+        $this->artisan('dropoff:statements', ['--month' => $month])->expectsOutput('0 statement(s) sent.');
+        $this->assertSame(1, DB::table('notifications')->where(['notifiable_id' => $owner->id, 'type' => 'dropoff.statement'])->count());
+        $st = DB::table('dropoff_statements')->first();
+        $this->assertSame([1, 150, 150, 0], [(int) $st->parcels, (int) $st->earned, (int) $st->paid, (int) $st->owed]);
     }
 
     public function test_other_stores_and_strangers_cannot_use_the_counter(): void

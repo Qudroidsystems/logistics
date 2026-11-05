@@ -78,7 +78,7 @@
                 <div class="small text-muted">Handed over today: {{ count($parcels['collected']) }}</div>
                 @if(count($earnings['months']))
                     <table class="table table-sm small mt-2 mb-0"><thead><tr><th>Month</th><th class="text-end">Parcels</th><th class="text-end">Earned</th></tr></thead><tbody>
-                    @foreach($earnings['months'] as $m)<tr><td>{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $m['month'])->format('M Y') }}</td><td class="text-end">{{ $m['parcels'] }}</td><td class="text-end">{{ Money::format($m['amount'], true) }}</td></tr>@endforeach
+                    @foreach($earnings['months'] as $m)<tr><td><a href="{{ route('counter.statement', $m['month']) }}">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $m['month'])->format('M Y') }}</a></td><td class="text-end">{{ $m['parcels'] }}</td><td class="text-end">{{ Money::format($m['amount'], true) }}</td></tr>@endforeach
                     </tbody></table>
                 @endif
             </div>

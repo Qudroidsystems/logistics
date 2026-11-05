@@ -32,6 +32,14 @@ class MapsAndRoutingTest extends TestCase
         $this->assertSame('straight', RoutingEngine::activeDriver());
     }
 
+    public function test_reverse_lookup_for_use_my_location(): void
+    {
+        config(['maps.geocoder' => 'google', 'maps.google.key' => 'k']);
+        Http::fake(['maps.googleapis.com/*' => Http::sequence()->push(['results' => [['formatted_address' => '10 King St W, Kitchener, ON']]])->push(['results' => []])]);
+        $this->assertSame('10 King St W, Kitchener, ON', app(Geocoder::class)->reverse(43.45, -80.49));
+        $this->assertNull(app(Geocoder::class)->reverse(43.45, -80.49));
+    }
+
     public function test_parsing_route_answers(): void
     {
         $this->assertSame(['distance_m' => 12345, 'duration_s' => 900], RoutingEngine::parseGoogle(['routes' => [['distanceMeters' => 12345, 'duration' => '900s']]]));

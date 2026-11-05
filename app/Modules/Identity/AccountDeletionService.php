@@ -76,6 +76,7 @@ class AccountDeletionService
                 'label' => null, 'line2' => null, 'directions_note' => null, 'contact_name' => null, 'contact_phone' => null, 'deleted_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('devices')->where('user_id', $id)->delete();
+            DB::table('saved_cards')->where('user_id', $id)->update(['status' => 'removed', 'token' => 'removed', 'customer_ref' => null, 'email' => null, 'updated_at' => now()]);
             DB::table('personal_access_tokens')->where('tokenable_type', User::class)->where('tokenable_id', $id)->delete();
             DB::table('sessions')->where('user_id', $id)->delete();
             DB::table('operator_members')->where('user_id', $id)->update(['status' => 'removed', 'updated_at' => now()]);

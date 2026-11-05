@@ -100,4 +100,21 @@ class SupportAndAccountTest extends TestCase
         $this->artisan('system:watch')->assertSuccessful();
         $this->actingAs($this->staff)->get('/ops/system')->assertOk()->assertDontSee('The scheduler is not running')->assertSee('recurring:run');
     }
+
+    public function test_errors_are_grouped_shown_and_resolved(): void
+    {
+        $reports = app(\App\Modules\System\ErrorReports::class);
+        foreach (['order 1', 'order 2'] as $m) {
+            $reports->record(new \RuntimeException("Payment for {$m} broke"));   // same line: one report, counted twice
+        }
+        $row = DB::table('error_reports')->first();
+        $this->assertSame(1, DB::table('error_reports')->count());
+        $this->assertSame(2, (int) $row->count);
+        $this->assertSame(1, DB::table('notifications')->where(['notifiable_id' => $this->staff->id, 'type' => 'system.problem'])->count());
+
+        $this->actingAs($this->staff)->get('/ops/system')->assertOk()->assertSee('Payment for order 2 broke');
+        $this->actingAs($this->customer)->post("/ops/system/errors/{$row->id}/resolve")->assertForbidden();
+        $this->actingAs($this->staff)->post("/ops/system/errors/{$row->id}/resolve")->assertSessionHas('success');
+        $this->assertSame('resolved', DB::table('error_reports')->value('status'));
+    }
 }

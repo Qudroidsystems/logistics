@@ -275,7 +275,16 @@ class WorkspaceController extends Controller
             ->orderBy('s.updated_at')->limit(100)->get();
 
         $ids = $waiting->pluck('id')->merge($moving->pluck('id'))->all();
-        $stops = DB::table('shipment_stops')->whereIn('shipment_id', $ids)->orderBy('seq')->get(['shipment_id', 'type', 'line1'])->groupBy('shipment_id');
+        $stops = DB::table('shipment_stops')->whereIn('shipment_id', $ids)->orderBy('seq')
+            ->get(['shipment_id', 'type', 'line1', DB::raw('ST_Y(point::geometry) AS lat'), DB::raw('ST_X(point::geometry) AS lng')])->groupBy('shipment_id');
+        // Jobs waiting at the same pickup sit together so one driver can collect them in one trip.
+        $groups = ManualAssignmentService::groupByPickup($waiting->map(function ($j) use ($stops) {
+            $p = collect($stops[$j->id] ?? [])->firstWhere('type', 'pickup');
+
+            return ['id' => $j->id, 'lat' => $p?->lat !== null ? (float) $p->lat : null, 'lng' => $p?->lng !== null ? (float) $p->lng : null];
+        })->all());
+        $byId = $waiting->keyBy('id');
+        $waitingGroups = array_map(fn ($g) => array_map(fn ($id) => $byId[$id], $g), $groups);
         $live = DB::table('assignments as a')->join('driver_profiles as d', 'd.id', '=', 'a.driver_profile_id')->join('users as u', 'u.id', '=', 'd.user_id')
             ->whereIn('a.shipment_id', $moving->pluck('id'))->whereIn('a.status', ['assigned', 'accepted', 'en_route', 'active'])->get(['a.shipment_id', 'u.id as user_id', 'u.name']);
         $drivers = $live->pluck('name', 'shipment_id');
@@ -285,10 +294,24 @@ class WorkspaceController extends Controller
             ?? ($type === 'dropoff' ? optional(collect($stops[$id] ?? [])->last())->line1 : null);
 
         return $this->view('provider.board', $request, [
-            'waiting' => $waiting, 'moving' => $moving, 'driverOf' => $drivers, 'issues' => $issues, 'line' => $line,
+            'waiting' => $waiting, 'waitingGroups' => $waitingGroups, 'moving' => $moving, 'driverOf' => $drivers, 'issues' => $issues, 'line' => $line,
             'lanes' => $live->groupBy('user_id')->map(fn ($rows) => $rows->pluck('shipment_id')->all())->all(),
             'drivers' => app(ManualAssignmentService::class)->drivers($op->id), 'pagetitle' => 'Dispatch board',
         ], 'jobs');
+    }
+
+    /** Gives every job in a pickup group to one driver. */
+    public function assignGroup(Request $request, ManualAssignmentService $svc)
+    {
+        [$op] = $this->ctx($request, 'jobs');
+        $d = $request->validate(['jobs' => 'required|array|min:1|max:30', 'jobs.*' => 'string|size:26', 'driver_user_id' => 'required|integer']);
+        try {
+            $n = $svc->assignMany((int) $op->id, $d['jobs'], (int) $d['driver_user_id'], $request->user()->id);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "{$n} jobs given to one driver.");
     }
 
     public function assignJob(Request $request, string $shipment)

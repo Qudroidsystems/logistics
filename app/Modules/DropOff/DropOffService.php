@@ -301,9 +301,10 @@ class DropOffService
     /** What the store has earned, by month, and what is still to be paid. */
     public function earnings(int $centreId): array
     {
+        $tz = (string) config('app.timezone');
         $byMonth = DB::table('dropoff_parcels')->where('dropoff_centre_id', $centreId)->whereIn('commission_status', ['earned', 'paid'])
-            ->selectRaw("to_char(collected_at, 'YYYY-MM') AS month, count(*) AS parcels, sum(commission) AS amount, sum(CASE WHEN commission_status = 'earned' THEN commission ELSE 0 END) AS unpaid")
-            ->groupByRaw("to_char(collected_at, 'YYYY-MM')")->orderByDesc('month')->limit(12)->get();
+            ->selectRaw("to_char(collected_at AT TIME ZONE ?, 'YYYY-MM') AS month, count(*) AS parcels, sum(commission) AS amount, sum(CASE WHEN commission_status = 'earned' THEN commission ELSE 0 END) AS unpaid", [$tz])
+            ->groupBy('month')->orderByDesc('month')->limit(12)->get();
 
         return [
             'unpaid' => (int) DB::table('dropoff_parcels')->where('dropoff_centre_id', $centreId)->where('commission_status', 'earned')->sum('commission'),
